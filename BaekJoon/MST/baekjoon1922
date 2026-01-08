@@ -1,0 +1,29 @@
+# heapq는 우선순위 큐와 흡사(항상 최소값을 먼저 다룬다)
+# heapq.heappop(heap) -> heap에서 값이 가장 작은 것부터 빼온다
+
+import sys
+import heapq
+input = sys.stdin.readline
+
+N = int(input())
+M = int(input())
+edge = [[] for _ in range(N+1)]
+chk = [False] * (N+1)
+rs = 0
+for _ in range(M):
+    a,b,c = map(int, input().split())
+    edge[a].append((c,b))
+    edge[b].append((c,a))
+
+heap = [(0,1)]
+
+while heap:
+    w, each_computer = heapq.heappop(heap)
+    if chk[each_computer] == False:
+        chk[each_computer] = True
+        rs += w
+        for next_computer in edge[each_computer]:
+            if chk[next_computer[1]] == False:
+                heapq.heappush(heap, next_computer)
+
+print(rs)

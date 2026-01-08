@@ -1,0 +1,16 @@
+# 여러 개의 동전으로 k 값 만들기
+
+import sys
+input = sys.stdin.readline
+
+n,k = map(int,input().split())
+coins = [int(input()) for _ in range(n)]
+coins.sort()
+rs = 0
+
+DP = [0] * (k + 1)
+DP[0] = 1
+for c in coins: # 코인을 c까지 쓸 때
+    for i in range(c, k + 1): # DP[c] ~ DP[k]까지 값을 업데이트
+        DP[i] += DP[i - c]
+print(DP[k])
