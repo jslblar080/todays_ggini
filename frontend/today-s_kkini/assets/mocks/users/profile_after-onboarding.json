@@ -1,0 +1,10 @@
+{
+  "profile": {
+    "cookingSkill": 3,
+    "vegMeatPreference": 6,
+    "freshFrozenPreference": 8,
+    "mealStyle": 7,
+    "monthlyBudget": 350000,
+    "persona": "single_value"
+  }
+}

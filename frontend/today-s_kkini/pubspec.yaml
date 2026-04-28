@@ -1,0 +1,31 @@
+name: kkinipick
+description: 스마트 영양 & 예산 플래너 끼니픽
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^3.3.1
+  go_router: ^17.0.0
+  dio: ^5.9.2
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+
+  uses-material-design: true
+
+  # mock JSON을 asset 으로 등록
+  assets:
+    - assets/mocks/users/
