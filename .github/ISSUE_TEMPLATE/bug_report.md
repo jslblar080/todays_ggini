@@ -1,28 +1,21 @@
 ---
-name: Bug report
-about: Reporting a bug for this project
+name: 버그 제보
+about: 오류나 문제가 발생했을 때 작성합니다.
 title: "[BUG] "
 labels: bug
 assignees: ''
 
 ---
 
-## Describe the bug
+## 문제 상황
 -
 
-## To Reproduce
+## 재현 방법
+1. 
+2. 
+
+## 예상 결과
 -
 
-## Expected behavior
+## 실제 결과
 -
-
-## Screenshots
--
-
-## Additional context
--
-
-## Possible solution
--
-
-## Your environment

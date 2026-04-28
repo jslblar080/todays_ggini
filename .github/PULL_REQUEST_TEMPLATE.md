@@ -1,12 +1,12 @@
-## Overview
+## 작업 내용
 -
 
-## Change Log
+## 주요 변경 사항
 -
 
-## To Reviewer
+## 리뷰어에게 전달할 내용
 -
 
-## Issue Tags
-- Closed | Fixed: #
-- See also: #
+## 관련 이슈
+- Closes #
+- Related to #
