@@ -64,4 +64,4 @@ class User(Base):
     # 유저가 삭제되면 관련 식단도 삭제되도록 cascade 설정
     meal_plans = relationship("MealPlan", back_populates="owner", cascade="all, delete-orphan")
 
-    shopping_lists = relationship("ShoppingList", back_populates="owner", uselist=False, cascade="all, delete-orphan")
+    shopping_list = relationship("ShoppingList", back_populates="owner", uselist=False, cascade="all, delete-orphan")
