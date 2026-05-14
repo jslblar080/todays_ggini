@@ -46,7 +46,7 @@ def initialize_guest_session(db: Session = Depends(get_db)) -> Any:
     guest_uuid = str(uuid.uuid4())
     
     # 게스트 유저 생성
-    user = crud_user.create_social_user(
+    user = crud_user.create_user(
         db, 
         provider="guest", 
         social_id=guest_uuid
