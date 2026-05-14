@@ -9,10 +9,15 @@ def create_user(db: Session, provider: str, social_id: str, email: str = None):
     """
     4가지 방식(google, naver, kakao, guest)에 따른 유저 생성
     """
+    # 이메일이 전달되지 않았을 경우 고유한 가상 이메일 생성(게스트 로그인)
+    if email is None:
+        email = f"{provider}_{social_id}@guest.local"
+
     db_user = User(
         provider=provider,
         social_id=social_id,
-        email=email
+        email=email,
+        is_guest=(provider == "guest")
     )
     db.add(db_user)
     db.commit()
@@ -35,3 +40,12 @@ def update_user_onboarding(db: Session, user_id: int, obj_in: UserOnboardingUpda
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+def update_user_selected_style(db: Session, user_id: int, style_id: str) -> User:
+    """사용자가 선택한 식단 스타일 ID를 DB에 업데이트합니다."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.selected_style_id = style_id
+        db.commit()
+        db.refresh(user)
+    return user
