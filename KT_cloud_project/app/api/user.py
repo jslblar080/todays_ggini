@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Any
 
 from app.api.deps import get_db, get_current_user
-from app.schemas.user import UserResponse, UserOnboardingUpdate, UserInfo, AIUserProfileResponse
+from app.schemas.user import UserResponse, UserOnboardingUpdate, UserInfo
 from app.crud import crud_user
 from app.models.user import User
 
