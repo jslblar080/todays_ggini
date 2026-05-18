@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import Any
+import httpx
 
 from app.core import security
 from app.core.config import settings
 from app.api.deps import get_db
-from app.schemas.user import Token, LoginRequest
+from app.schemas.user import Token, LoginRequest, SocialLoginResponse, SocialLoginRequest
 from app.crud import crud_user
 
 router = APIRouter()
@@ -60,58 +61,65 @@ def initialize_guest_session(db: Session = Depends(get_db)) -> Any:
         "token_type": "bearer",
     }
 
-# @router.post("/social-login/{provider}")
-# def social_login(provider: SocialProvider, token: str, db: Session = Depends(get_db)):
-#     """
-#     프론트에서 받은 소셜 토큰으로 로그인/회원가입 처리
-#     """
-#     # 1. 각 provider(카카오, 구글 등) API를 호출해 유저 정보 획득 (가상 로직)
-#     user_info = get_social_user_info(provider, token) 
-    
-#     # 2. DB에서 social_id로 기존 유저 확인
-#     user = crud_user.get_by_social_id(db, social_id=user_info["id"])
-    
-#     if not user:
-#         # 첫 접속이면 회원가입 처리 (와이어프레임 3번 페르소나 선택으로 유도)
-#         user = crud_user.create_social_user(db, user_info, provider)
+async def verify_google_token(access_token: str) -> dict:
+    """구글 서버에 찔러서 이 토큰이 진짜인지 확인하고 유저 정보를 받아옵니다."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
         
-#     # 3. 우리 서비스 전용 JWT 토큰 발급
-#     access_token = create_access_token(data={"sub": user.email})
-#     return {"access_token": access_token, "token_type": "bearer", "is_new_user": not user.persona_id}
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="유효하지 않은 구글 Access Token입니다."
+            )
+            
+        return response.json()
+    
+@router.post("/google", response_model=SocialLoginResponse)
+async def google_login(request: SocialLoginRequest, db: Session = Depends(get_db)):
+    """
+    [소셜 로그인] 구글 액세스 토큰을 검증하고 가입/로그인을 동시에 처리합니다.
+    """
+    # 1. 구글 서버 검증 및 유저 정보 추출
+    google_user_info = await verify_google_token(request.accessToken)
+    
+    # 구글 고유 ID(sub)와 이메일 추출
+    social_id = google_user_info.get("sub")
+    email = google_user_info.get("email")
+    google_nickname = google_user_info.get("name", "구글유저") # 구글에서 받아온 이름
 
-# @router.post("/login/social", response_model=Token)
-# def social_auth(request: SocialLoginRequest, db: Session = Depends(get_db)):
-#     # 1. 소셜 토큰 검증 (카카오/구글 서버에 확인 - 실제 구현은 라이브러리 활용)
-#     social_data = verify_social_token(request.provider, request.token)
-    
-#     # 2. 기존 유저인지 확인
-#     user = db.query(User).filter(User.social_id == social_data["id"]).first()
-    
-#     is_new_user = False
-#     if not user:
-#         # 가입된 적 없으면 즉시 생성 (회원가입 절차 자동화)
-#         user = User(
-#             email=social_data.get("email"),
-#             provider=request.provider,
-#             social_id=social_data["id"],
-#             is_onboarded=False
-#         )
-#         db.add(user)
-#         db.commit()
-#         db.refresh(user)
-#         is_new_user = True
-    
-#     # 3. 우리 서비스 전용 JWT 토큰 발급
-#     access_token = create_access_token(data={"sub": str(user.id)})
-#     return {"access_token": access_token, "token_type": "bearer", "is_new_user": is_new_user}
+    if not social_id:
+        raise HTTPException(status_code=400, detail="구글 토큰에서 유저 정보를 찾을 수 없습니다.")
 
-# @router.post("/login/guest", response_model=Token)
-# def guest_auth(db: Session = Depends(get_db)):
-#     # 게스트 유저 즉시 생성
-#     user = User(provider=SocialProvider.GUEST, is_guest=True, is_onboarded=False)
-#     db.add(user)
-#     db.commit()
-#     db.refresh(user)
+    # 2. DB에서 기존 유저 확인 (없으면 새로 생성 = Upsert)
+    user = crud_user.get_user_by_social_id(db, social_id=social_id, provider="google")
     
-#     access_token = create_access_token(data={"sub": str(user.id)})
-#     return {"access_token": access_token, "token_type": "bearer", "is_new_user": True}
+    if not user:
+        user = crud_user.create_user(
+            db, 
+            provider="google", 
+            social_id=social_id, 
+            email=email
+        )
+    elif not user.is_active:
+        raise HTTPException(status_code=400, detail="비활성화된 계정입니다.")
+
+    # 3. 백엔드 자체 JWT 발급
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
+    
+    # MVP 단계: Refresh Token 로직이 아직 없다면 더미 값으로 뚫어둡니다.
+    # 추후 security.create_refresh_token() 등으로 교체해야 합니다.
+    refresh_token = "dummy_refresh_token_for_mvp"
+
+    # 4. 프론트엔드가 요구한 JSON 구조로 응답
+    return {
+        "accessToken": access_token,
+        "refreshToken": refresh_token,
+        "user": {
+            "id": user.id,
+            "nickname": google_nickname
+        }
+    }

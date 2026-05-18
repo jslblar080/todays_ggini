@@ -76,3 +76,16 @@ class UserResponse(BaseModel):
 class LoginRequest(BaseModel):
     provider: str
     social_id: str
+
+# ---- 3. 소셜 로그인 전용 스키마 ----
+class SocialLoginRequest(BaseModel):
+    accessToken: str
+
+class UserInformation(BaseModel):
+    id: int
+    nickname: Optional[str] = None
+
+class SocialLoginResponse(BaseModel):
+    accessToken: str
+    refreshToken: str
+    user: UserInformation

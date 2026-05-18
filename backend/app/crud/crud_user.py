@@ -17,7 +17,7 @@ def create_user(db: Session, provider: str, social_id: str, email: str = None):
         provider=provider,
         social_id=social_id,
         email=email,
-        is_guest=(provider == "guest")
+        is_guest=(provider == "guest"),
     )
     db.add(db_user)
     db.commit()

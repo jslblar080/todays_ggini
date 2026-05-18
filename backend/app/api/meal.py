@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
@@ -6,17 +6,17 @@ import uuid
 import calendar
 
 from app.api.deps import get_db, get_current_user
+from app.db.session import SessionLocal
 from app.utils.meal_transformer import transform_ai_plan_to_front
-from app.utils.mock_data import get_mock_3days_response, get_mock_month_data_response, get_mock_3days_data_front_response
-from app.core.constants import MEAL_STYLES_META
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
 from app.models.meal import MealPlan
-from app.schemas.meal import (DailyMealDetailResponse, MealGenerateResponse, MealConfirmResponse, CalendarResponse,
+from app.schemas.meal import (DailyMealDetailResponse, MealConfirmResponse, CalendarResponse,
                               MealSwapResponse, MealSwapRequest, MenuUpdateRequest, AlternativeMenuResponse,
                               StyleSelectRequest)
 from app.crud import crud_meal
 from app.utils.image_search import get_food_image_url
+
 
 import asyncio
 import sys
@@ -40,53 +40,106 @@ from ai.modeling.services.modeling_service import (
 router = APIRouter()
 
 # ---------------------------  프론트엔드 호출용 API ---------------------------------
-# ---------- 3일치 샘플 식단 후보 제공 (Front에 보여주기 용) -----------------------
-@router.post("/sample_data_three_days")
-async def initial_meal_plan(
-    style_id: StyleSelectRequest,
-    sample_period_days: int = 3,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+JOB_STORE = {}
+# -------------------- 월간 식단 요청(비동기 실행) ----------------------------
+async def background_monthly_plan_task(job_id: str, user_id: int, selected_style_id: str):
     """
-    사용자 온보딩 데이터를 기반으로 3일치 샘플 식단 후보 3가지를 생성합니다.
-    (현재는 AI 연동 전이므로 모델링 파트의 JSON 규격을 그대로 Mock으로 반환합니다.)
+    API 응답이 나간 뒤 백그라운드에서 조용히 실행될 함수
     """
-    user_id = f"user_{current_user.id:03d}"
-
-    style_info = MEAL_STYLES_META.get(style_id)
-
-    # 모델링 파트에서 전달받은 JSON 구조를 그대로 Mock 데이터로 사용 (프론트 연동용)
-    mock_ai_response = get_mock_3days_data_front_response(user_id, sample_period_days)
+    # 작업 시작 기록
+    JOB_STORE[job_id] = {"status": "PROCESSING", "progress": "프로필 분석 중"}
     
-    # 프론트엔드가 이 데이터를 바로 쓸 수 있도록 AI 응답 결과 자체를 리턴합니다.
-    return {
-        "style_meta": style_info,  # 화면 상단의 타이틀, 설명 문구용
-        "plan_data": mock_ai_response  # 화면 하단의 달력/리스트용
-    }
+    # 💡 백그라운드 작업이므로 DB 세션을 새로 엽니다.
+    db = SessionLocal()
 
-# ---------------------- 식단 생성 트리거 ---------------------------------
-@router.post("/generate", response_model=MealGenerateResponse, status_code=status.HTTP_202_ACCEPTED)
+    try:
+        current_user = db.query(User).filter(User.id == user_id).first()
+        if not current_user:
+            raise ValueError("유저를 찾을 수 없습니다.")
+
+        update_user_selected_style(db, current_user.id, selected_style_id)
+
+        # --- AI 요청 로직 (기존 request_monthly_plan과 동일) ---
+        today = date.today()
+
+        _, last_day = calendar.monthrange(today.year, today.month)
+        days_remaining = last_day - today.day + 1
+
+        selected_style = build_selected_style_from_style_id(
+            style_id=selected_style_id,
+        )
+
+        modeling_payload = {
+            "user_id": get_modeling_user_id(current_user),
+            "request_type": "monthly_plan",
+            "selected_style": selected_style,
+            "profile": build_modeling_profile_from_user(
+                current_user=current_user,
+                period_days=days_remaining,
+            ),
+        }
+
+        
+        JOB_STORE[job_id]["progress"] = "식단 후보 생성 중 (AI 연산)"
+        # AI 호출
+        ai_response = await asyncio.to_thread(create_monthly_plan, modeling_payload)
+        
+        days_data = ai_response.get("monthly_plan", {}).get("days", [])
+        
+        JOB_STORE[job_id]["progress"] = "DB에 결과 저장 중"
+        # 💡 DB 저장
+        crud_meal.save_monthly_plan(db=db, user_id=current_user.id, ai_days_list=days_data)
+        
+        # 모든 작업 완료 기록
+        JOB_STORE[job_id] = {"status": "COMPLETED", "progress": "완료"}
+
+    except Exception as e:
+        print(f"Background Task Error: {str(e)}")
+        JOB_STORE[job_id] = {"status": "FAILED", "error": str(e)}
+    finally:
+        db.close() # 필수: 작업이 끝나면 DB 세션 닫기
+
+# ---------------------- 식단 생성 트리거 --------------------------------
+@router.post("/generate", status_code=status.HTTP_202_ACCEPTED)
 async def generate_meal_plans_trigger(
+    request: StyleSelectRequest, # 프론트에서 넘어온 스타일 ID
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
     """
     [화면 6] 프로필 기반 식단 생성 트리거
-    JSON 초안에 맞춰 job_id와 진행 단계 정보를 반환합니다.
+    Celery로 백그라운드 작업을 호출하고 작업 ID를 반환합니다.
     """
     
-    # 1. 고유 작업 ID 생성
+    # 1. Celery Task 백그라운드 호출 (.delay 사용)
+    # 반드시 DB 객체가 아닌 원시 타입(Primitive Type)만 넘겨야 합니다.
     job_id = f"job_{uuid.uuid4().hex[:8]}"
     
-    # 2. 실제 구현 시: Celery나 FastAPI BackgroundTasks를 사용하여 
-    # 비동기로 crud_meal.save_recommendation_result를 실행해야 합니다.
-    # 지금은 흐름을 맞추기 위해 즉시 작업 정보를 반환합니다.
+    # 2. 백그라운드에 일거리 던지기 (함수 이름과 인자들을 넘김)
+    background_tasks.add_task(
+        background_monthly_plan_task, 
+        job_id=job_id, 
+        user_id=current_user.id, 
+        selected_style_id=request.selected_style_id
+    )
     
+    # 2. Celery가 발급한 고유 Task ID를 프론트에 전달
     return {
-        "job_id": job_id,
+        "job_id": job_id, 
         "estimated_seconds": 10,
-        "stages": ["프로필 분석", "식단 후보 생성", "가격 비교", "최적 조합 선정"]
+        "stages": ["프로필 분석", "식단 후보 생성", "최적 조합 선정", "DB 저장"]
     }
+
+@router.get("/generate/status/{job_id}")
+async def check_generation_status(job_id: str):
+    """
+    프론트엔드가 지속적으로 호출하여 작업 완료 여부를 확인하는 API입니다.
+    """
+    job_info = JOB_STORE.get(job_id)
+    if not job_info:
+        raise HTTPException(status_code=404, detail="존재하지 않거나 만료된 작업입니다.")
+        
+    return job_info
 
 # --------------------- 생성된 30일 식단 최종 확정 및 요약 정보 반환 API -----------------------
 @router.post("/confirm", response_model=MealConfirmResponse)
@@ -327,7 +380,7 @@ async def get_menu_detail(
 
     # 5. 최종 응답 JSON 조립
     response_data = {
-        "meal_id": target_menu.get("menu_id"),
+        "meal_id": str(target_menu.get("menu_id")),
         "menu_name": target_menu.get("name"),
         "calories": target_menu.get("calories"),
         "price": target_menu.get("estimated_cost"), # 메뉴 전체 예상 비용
@@ -824,87 +877,6 @@ async def generate_initial_meal_plan(
         "sent_data": ai_payload,
         "ai_result": ai_response,
     }
-
-
-# -------------------- 월간 식단 요청 API ----------------------------
-@router.post("/request_monthly_plan")
-async def request_monthly_plan(
-    request: StyleSelectRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    사용자가 선택한 식단 스타일 ID를 바탕으로 모델링 파트에 월간 식단 생성을 요청합니다.
-
-    selected_style_id는 백엔드에서 selected_style 객체로 변환한 뒤
-    모델링에 전달합니다.
-    """
-
-    update_user_selected_style(
-        db,
-        current_user.id,
-        request.selected_style_id,
-    )
-
-    today = date.today()
-
-    _, last_day = calendar.monthrange(today.year, today.month)
-    days_remaining = last_day - today.day + 1
-
-    selected_style = build_selected_style_from_style_id(
-        style_id=request.selected_style_id,
-    )
-
-    modeling_payload = {
-        "user_id": get_modeling_user_id(current_user),
-        "request_type": "monthly_plan",
-        "selected_style": selected_style,
-        "profile": build_modeling_profile_from_user(
-            current_user=current_user,
-            period_days=days_remaining,
-        ),
-    }
-
-    try:
-        ai_response = await asyncio.to_thread(
-            create_monthly_plan,
-            modeling_payload,
-        )
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
-
-    except Exception as error:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        )
-
-    days_data = ai_response.get("monthly_plan", {}).get("days", [])
-
-    if not days_data:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="모델링 응답에 monthly_plan.days 데이터가 없습니다.",
-        )
-
-    crud_meal.save_monthly_plan(
-        db=db,
-        user_id=current_user.id,
-        ai_days_list=days_data,
-    )
-
-    front_response_data = transform_ai_plan_to_front(
-        ai_response,
-        start_date=today,
-    )
-
-    return front_response_data
-
 
 # --------------------------- 모델링 연동 API ---------------------------
 
