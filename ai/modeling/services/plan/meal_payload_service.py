@@ -15,5 +15,10 @@ def build_menu_payload(menu: dict) -> dict:
         "ingredient_groups": menu.get("ingredient_groups", []),
         "recipe": menu.get("recipe", {}),
         "scores": menu["scores"],
-        "reasons": menu.get("reasons", [])
+        "reasons": menu.get("reasons", []),
+        "rag_data_quality_score": menu.get("rag_data_quality_score"),
+        "rag_data_quality_issues": menu.get("rag_data_quality_issues", []),
+        "rag_data_quality_penalty": menu.get("rag_data_quality_penalty", 0),
+        "nutrition_missing_penalty": menu.get("nutrition_missing_penalty", 0),
+        "total_quality_penalty": menu.get("total_quality_penalty", 0),
     }
