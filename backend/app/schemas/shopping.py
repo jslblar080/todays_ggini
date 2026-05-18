@@ -54,13 +54,13 @@ class ShoppingListResponse(BaseModel):
 # 체크박스를 포함한 재료 상세 정보
 class IngredientSelectRequest(BaseModel):
     ingredient_id: str
-    ingredient_name: str
-    standard_unit: str
+    ingredient_name: Optional[str] = None
+    standard_unit: Optional[str] = None
     market_name: str
-    price: int
-    delivery_type: str
-    product_title: str
-    purchase_link: str
+    price: Optional[int] = None
+    delivery_type: Optional[str] = None
+    product_title: Optional[str] = None
+    purchase_link: Optional[str] = None
     is_essential: bool = True
     is_checked: bool = True # # 체크된 것만 담기 로직용
 

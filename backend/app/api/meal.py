@@ -327,7 +327,7 @@ async def get_menu_detail(
 
     # 5. 최종 응답 JSON 조립
     response_data = {
-        "meal_id": target_menu.get("menu_id"),
+        "meal_id": str(target_menu.get("menu_id")),
         "menu_name": target_menu.get("name"),
         "calories": target_menu.get("calories"),
         "price": target_menu.get("estimated_cost"), # 메뉴 전체 예상 비용
