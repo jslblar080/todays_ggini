@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 def normalize_unit(unit: str | None) -> str | None:
     """
     단위 문자열을 비교하기 쉬운 형태로 정리한다.
@@ -644,6 +648,144 @@ def map_candidate_menu_to_modeling_menu(
         "recipe": candidate_menu.get("recipe", {})
     }
 
+def is_blank_string(value) -> bool:
+    """
+    값이 None이거나 빈 문자열인지 확인한다.
+    """
+
+    return value is None or str(value).strip() == ""
+
+
+def is_empty_string_list(values) -> bool:
+    """
+    리스트가 비어 있거나, [""]처럼 빈 문자열만 들어 있는지 확인한다.
+    """
+
+    if not values:
+        return True
+
+    for value in values:
+        if not is_blank_string(value):
+            return False
+
+    return True
+
+
+def get_nutrient_value(menu: dict, key: str) -> float:
+    """
+    nutrient_summary 또는 menu 최상위 필드에서 영양 값을 가져온다.
+    """
+
+    nutrient_summary = menu.get("nutrient_summary") or {}
+
+    value = (
+        menu.get(key)
+        if menu.get(key) is not None
+        else nutrient_summary.get(key, 0)
+    )
+
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def validate_rag_candidate_menu(menu: dict) -> tuple[bool, list[str]]:
+    """
+    RAG 후보 메뉴가 모델링 추천에 사용할 수 있는지 검사한다.
+
+    반환:
+    - is_valid: 완전히 제외해야 하는지 여부
+    - issues: 데이터 품질 이슈 목록
+
+    기준:
+    - menu_id, name이 없으면 구조적으로 무효한 후보로 제외한다.
+    - calories, nutrient_summary, ingredients 등이 비어 있으면 품질 이슈로 기록한다.
+    """
+
+    issues = []
+
+    menu_id = menu.get("menu_id")
+    name = menu.get("name")
+
+    if is_blank_string(menu_id):
+        issues.append("menu_id_missing")
+
+    if is_blank_string(name):
+        issues.append("name_missing")
+
+    # menu_id 또는 name이 없으면 추천 후보로 사용할 수 없으므로 제외한다.
+    if "menu_id_missing" in issues or "name_missing" in issues:
+        return False, issues
+
+    calories = menu.get("calories", 0) or 0
+    protein = get_nutrient_value(menu, "protein")
+    carbohydrate = get_nutrient_value(menu, "carbohydrate")
+    fat = get_nutrient_value(menu, "fat")
+
+    try:
+        calories = float(calories)
+    except (TypeError, ValueError):
+        calories = 0
+
+    if calories <= 0:
+        issues.append("calories_zero_or_missing")
+
+    if protein <= 0:
+        issues.append("protein_zero_or_missing")
+
+    if carbohydrate <= 0 and protein <= 0 and fat <= 0:
+        issues.append("nutrient_summary_empty")
+
+    ingredients = menu.get("ingredients", [])
+    ingredient_groups = menu.get("ingredient_groups", [])
+    ingredient_usages = menu.get("ingredient_usages", [])
+
+    if is_empty_string_list(ingredients):
+        issues.append("ingredients_empty")
+
+    if not ingredient_groups:
+        issues.append("ingredient_groups_empty")
+
+    valid_usage_count = 0
+
+    for usage in ingredient_usages:
+        ingredient_name = usage.get("ingredient_name")
+        ingredient_id = usage.get("ingredient_id")
+
+        if not is_blank_string(ingredient_name) or not is_blank_string(ingredient_id):
+            valid_usage_count += 1
+
+    if valid_usage_count == 0:
+        issues.append("ingredient_usages_empty_or_invalid")
+
+    return True, issues
+
+
+def calculate_rag_data_quality_score(issues: list[str]) -> int:
+    """
+    RAG 후보 메뉴의 데이터 품질 점수를 계산한다.
+
+    100점에서 시작하여 이슈별로 감점한다.
+    이 점수는 추후 모델링 점수 패널티에 활용할 수 있다.
+    """
+
+    penalty_map = {
+        "calories_zero_or_missing": 20,
+        "protein_zero_or_missing": 15,
+        "nutrient_summary_empty": 25,
+        "ingredients_empty": 20,
+        "ingredient_groups_empty": 10,
+        "ingredient_usages_empty_or_invalid": 20,
+    }
+
+    score = 100
+
+    for issue in issues:
+        score -= penalty_map.get(issue, 5)
+
+    return max(score, 0)
+
 
 def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
     """
@@ -656,8 +798,12 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         "ingredients_pool": {...}
     }
 
-    candidate_menus는 메뉴 후보 목록이고,
-    ingredients_pool은 재료별 가격 계산에 사용한다.
+    처리 흐름:
+    1. candidate_menus 추출
+    2. ingredients_pool 추출
+    3. 구조적으로 무효한 후보 제외
+    4. 데이터 품질 이슈 기록
+    5. Modeling 내부 후보 메뉴 구조로 변환
     """
 
     if isinstance(rag_response, list):
@@ -678,13 +824,42 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         ingredients_pool = {}
 
     candidate_menus = []
+    excluded_count = 0
+    quality_issue_count = 0
 
     for menu in raw_menus:
+        is_valid, issues = validate_rag_candidate_menu(menu)
+
+        if not is_valid:
+            excluded_count += 1
+            continue
+
         mapped_menu = map_candidate_menu_to_modeling_menu(
             candidate_menu=menu,
             ingredients_pool=ingredients_pool,
         )
 
+        data_quality_score = calculate_rag_data_quality_score(issues)
+
+        mapped_menu["rag_data_quality_score"] = data_quality_score
+        mapped_menu["rag_data_quality_issues"] = issues
+
+        if issues:
+            quality_issue_count += 1
+
         candidate_menus.append(mapped_menu)
+
+    logger.warning(
+        "[RAG Mapper] raw_menus=%s, mapped_menus=%s, excluded_menus=%s, quality_issue_menus=%s",
+        len(raw_menus),
+        len(candidate_menus),
+        excluded_count,
+        quality_issue_count,
+    )
+
+    if not candidate_menus and raw_menus:
+        logger.warning(
+            "[RAG Mapper] 모든 RAG 후보가 제외되었습니다. RAG 응답 데이터 품질을 확인해야 합니다."
+        )
 
     return candidate_menus
