@@ -906,10 +906,25 @@ async def generate_initial_meal_plan(
             detail=str(error),
         )
 
+    frontend_candidates = []
+    
+    for candidate in ai_response.get("meal_style_candidates", []):
+        # 첫째 날의 메뉴 3개를 뽑아서 대표 메뉴로 사용
+        first_day_meals = candidate.get("sample_plan", {}).get("days", [])[0].get("meals", [])
+        representative_menus = [meal.get("name") for meal in first_day_meals[:3]]
+
+        frontend_candidates.append({
+            "style_id": candidate.get("style_id"),           # 나중에 유저가 선택했을 때 백엔드로 다시 보낼 식별자
+            "style_name": candidate.get("style_name"),       # 예: "가성비 최우선"
+            "summary_comment": candidate.get("summary_comment"), # 예: "단백질 섭취를 늘리고 싶은..."
+            "display_labels": candidate.get("display_labels"),   # 점수 라벨 (건강, 가성비 등)
+            "display_scores": candidate.get("display_scores"),   # 실제 점수 데이터 (그래프용)
+            "representative_menus": representative_menus     # 예: ["새우 두부 계란찜", "닭가슴살 브로콜리 만두", "부추 콩가루 찜"]
+        })
+
     return {
         "message": "3일치 식단 스타일 후보 생성이 완료되었습니다.",
-        "sent_data": ai_payload,
-        "ai_result": ai_response,
+        "candidates": frontend_candidates
     }
 
 # --------------------------- 모델링 연동 API ---------------------------
