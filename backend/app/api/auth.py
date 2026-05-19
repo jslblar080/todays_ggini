@@ -1,21 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Any
 import httpx
 
 from app.core import security
 from app.core.config import settings
 from app.api.deps import get_db
-from app.schemas.user import Token, LoginRequest, SocialLoginResponse, SocialLoginRequest
+from app.schemas.user import LoginRequest, SocialLoginResponse, SocialLoginRequest
 from app.crud import crud_user
 
 router = APIRouter()
 
-@router.post("/login", response_model=Token)
-def login(login_data: LoginRequest, db: Session = Depends(get_db)) -> Any:
+@router.post("/login", response_model=SocialLoginResponse) 
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """
-    [토큰 발급] 인증된 소셜 ID 또는 게스트 ID를 바탕으로 JWT 액세스 토큰을 발급합니다.
+    [토큰 재발급/일반 로그인] 인증된 소셜 ID 또는 게스트 ID를 바탕으로 자체 JWT 토큰을 발급합니다.
+    (소셜/게스트 로그인과 동일한 규격의 응답을 반환합니다.)
     """
     # 1. 유저가 존재하는지 확인
     user = crud_user.get_user_by_social_id(db, social_id=login_data.social_id, provider=login_data.provider)
@@ -29,36 +29,55 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)) -> Any:
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="비활성화된 계정입니다.")
     
-    # 2. 비밀번호가 일치하는지 확인 (보안 모듈의 verify_password 사용)
+    # 2. 자체 JWT 발급
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
     
-    # 3. 로그인 성공 시 토큰 생성 및 반환
+    # 공통 응답 규격에 맞춰 JSON 반환
     return {
-        "access_token": security.create_access_token(user.id, expires_delta=access_token_expires),
-        "token_type": "bearer",
+        "accessToken": access_token,
+        "refreshToken": "dummy_refresh_token_for_mvp",
+        "user": {
+            "id": user.id,
+            # DB에 닉네임 컬럼이 없다면 가입 경로(provider)를 활용해 기본 닉네임 부여
+            "nickname": f"{user.provider}유저", 
+            "email": user.email,
+            "is_onboarded": user.is_onboarded
+        }
     }
 
-@router.post("/guest/init", response_model=Token)
-def initialize_guest_session(db: Session = Depends(get_db)) -> Any:
+@router.post("/guest/init", response_model=SocialLoginResponse)
+def initialize_guest_session(db: Session = Depends(get_db)):
     """
     [게스트 초기화] 새로운 게스트 ID를 생성하고 즉시 토큰을 발급합니다.
+    (소셜 로그인과 동일한 규격의 응답을 반환합니다.)
     """
     import uuid
     guest_uuid = str(uuid.uuid4())
     
     # 게스트 유저 생성
     user = crud_user.create_user(
-        db, 
+        db=db, 
         provider="guest", 
         social_id=guest_uuid
     )
     
+    # 자체 JWT 발급
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        user.id, expires_delta=access_token_expires
+    )
+    
+    # 소셜 로그인과 동일한 JSON 구조로 응답 구성
     return {
-        "access_token": security.create_access_token(
-            user.id, expires_delta=access_token_expires
-        ),
-        "token_type": "bearer",
+        "accessToken": access_token,
+        "refreshToken": "dummy_refresh_token_for_mvp",
+        "user": {
+            "id": user.id,
+            "nickname": "게스트", # 게스트용 기본 닉네임
+            "email": user.email, # crud_user에서 자동 생성된 가상 이메일
+            "is_onboarded": user.is_onboarded # 온보딩 분기용 플래그
+        }
     }
 
 # -------------------- 구글 소셜 로그인 -----------------------
