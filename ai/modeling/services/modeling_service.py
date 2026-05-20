@@ -77,6 +77,134 @@ def calculate_monthly_candidate_count(profile: dict) -> int:
     return period_days * meal_count_per_day * 3
 
 
+def copy_profile_with_relaxed_conditions(
+    profile: dict,
+    preferred_categories: list[str] | None = None,
+    ingredient_preferences: list[str] | None = None
+) -> dict:
+    """
+    RAG 후보가 부족할 때 선호 조건만 완화한 profile을 만든다.
+
+    allergy_ingredients는 안전 조건이므로 절대 완화하지 않는다.
+    """
+
+    relaxed_profile = profile.copy()
+
+    if preferred_categories is not None:
+        relaxed_profile["preferred_categories"] = preferred_categories
+
+    if ingredient_preferences is not None:
+        relaxed_profile["ingredient_preferences"] = ingredient_preferences
+
+    return relaxed_profile
+
+
+def build_style_candidate_fallback_profiles(profile: dict) -> list[tuple[str, dict]]:
+    """
+    스타일 후보 생성을 위한 RAG fallback profile 목록을 만든다.
+
+    fallback 순서:
+    1. 선호 카테고리 완화
+    2. 선호 재료군 완화
+    3. 선호 카테고리와 선호 재료군 모두 완화
+
+    단, 알레르기 조건은 유지한다.
+    """
+
+    return [
+        (
+            "preferred_categories_relaxed",
+            copy_profile_with_relaxed_conditions(
+                profile=profile,
+                preferred_categories=["상관없음"],
+            )
+        ),
+        (
+            "ingredient_preferences_relaxed",
+            copy_profile_with_relaxed_conditions(
+                profile=profile,
+                ingredient_preferences=[],
+            )
+        ),
+        (
+            "preferred_categories_and_ingredient_preferences_relaxed",
+            copy_profile_with_relaxed_conditions(
+                profile=profile,
+                preferred_categories=["상관없음"],
+                ingredient_preferences=[],
+            )
+        ),
+    ]
+
+
+def request_style_candidate_menus_with_fallback(
+    request_data: dict,
+    profile: dict,
+    candidate_count: int
+) -> tuple[list[dict], list[str]]:
+    """
+    스타일 후보 생성을 위한 RAG 후보 메뉴를 요청한다.
+
+    원래 조건으로 후보가 없으면 선호 조건을 단계적으로 완화해 재요청한다.
+    알레르기 조건은 완화하지 않는다.
+    """
+
+    warnings = []
+
+    rag_request = build_rag_request(
+        user_input=request_data,
+        profile=profile,
+        candidate_count=candidate_count,
+    )
+
+    rag_response = request_candidate_menus_from_rag(
+        rag_request=rag_request,
+    )
+
+    mapped_rag_response = map_rag_response_to_candidate_menus(
+        rag_response=rag_response,
+    )
+
+    candidate_menus = extract_candidate_menus(
+        mapped_rag_response=mapped_rag_response,
+    )
+
+    if candidate_menus:
+        return candidate_menus, warnings
+
+    for _fallback_reason, fallback_profile in build_style_candidate_fallback_profiles(profile):
+        fallback_rag_request = build_rag_request(
+            user_input=request_data,
+            profile=fallback_profile,
+            candidate_count=candidate_count,
+        )
+
+        fallback_rag_response = request_candidate_menus_from_rag(
+            rag_request=fallback_rag_request,
+        )
+
+        fallback_mapped_rag_response = map_rag_response_to_candidate_menus(
+            rag_response=fallback_rag_response,
+        )
+
+        fallback_candidate_menus = extract_candidate_menus(
+            mapped_rag_response=fallback_mapped_rag_response,
+        )
+
+        if fallback_candidate_menus:
+            warnings.append(
+                "선호 조건에 맞는 후보 메뉴가 부족하여 일부 선호 조건을 완화해 샘플 식단을 생성했습니다."
+            )
+
+            return fallback_candidate_menus, warnings
+
+    warnings.append(
+        "선호 조건을 완화했지만 추천 가능한 후보 메뉴를 찾지 못했습니다."
+    )
+
+    return [], warnings
+
+
 def create_meal_style_candidates(request_data: dict) -> dict:
     """
     Back → Modeling 식단 스타일 후보 생성 진입점이다.
@@ -101,34 +229,29 @@ def create_meal_style_candidates(request_data: dict) -> dict:
         profile=profile,
     )
 
-    rag_request = build_rag_request(
-        user_input=request_data,
+    candidate_menus, fallback_warnings = request_style_candidate_menus_with_fallback(
+        request_data=request_data,
         profile=profile,
         candidate_count=candidate_count,
-    )
-
-    rag_response = request_candidate_menus_from_rag(
-        rag_request=rag_request,
-    )
-
-    mapped_rag_response = map_rag_response_to_candidate_menus(
-        rag_response=rag_response,
-    )
-
-    candidate_menus = extract_candidate_menus(
-        mapped_rag_response=mapped_rag_response,
     )
 
     meal_count_per_day = profile.get("meal_count_per_day", 1)
     sample_period_days = profile.get("sample_period_days", 3)
 
-    return build_meal_style_candidates(
+    meal_style_response = build_meal_style_candidates(
         user_id=user_id,
         candidate_menus=candidate_menus,
         profile=profile,
         meal_count_per_day=meal_count_per_day,
         sample_period_days=sample_period_days,
     )
+
+    meal_style_response["meta"]["warnings"] = (
+        fallback_warnings
+        + meal_style_response.get("meta", {}).get("warnings", [])
+    )
+
+    return meal_style_response
 
 
 def create_monthly_plan(request_data: dict) -> dict:
