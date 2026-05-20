@@ -126,7 +126,7 @@ def build_nutrition_reason(
     calories = menu.get("calories", 0)
     nutrient_summary = menu.get("nutrient_summary", {})
     carbohydrate = menu.get("carbohydrate", nutrient_summary.get("carbohydrate", 0))
-    protein = menu.get("protein", nutrient_summary.get("protein", 0))
+    protein = menu.get("protein", nutrient_summary.get("protein", 0)) or 0
     fat = menu.get("fat", nutrient_summary.get("fat", 0))
 
     nutrition_messages = []
@@ -500,6 +500,94 @@ def build_recommendation_reasons(
         )
     ]
 
+def calculate_rag_data_quality_penalty(menu: dict) -> float:
+    """
+    RAG 응답 데이터 품질이 낮은 메뉴에 적용할 감점 점수를 계산한다.
+
+    rag_data_quality_score는 0~100 기준이다.
+    점수가 낮을수록 final_score에서 더 많이 감점한다.
+
+    현재는 후보 부족을 막기 위해 제외가 아니라 감점 방식으로 처리한다.
+    """
+
+    quality_score = menu.get("rag_data_quality_score")
+
+    # RAG가 아닌 mock/local 데이터에는 품질 점수가 없을 수 있으므로 감점하지 않는다.
+    if quality_score is None:
+        return 0
+
+    try:
+        quality_score = float(quality_score)
+    except (TypeError, ValueError):
+        return 0
+
+    if quality_score >= 80:
+        return 0
+
+    if quality_score >= 60:
+        return 3
+
+    if quality_score >= 40:
+        return 7
+
+    if quality_score >= 20:
+        return 12
+
+    return 18
+
+
+def calculate_nutrition_missing_penalty(menu: dict, profile: dict) -> float:
+    """
+    calories/protein 등 영양 정보가 비어 있는 메뉴에 대한 추가 감점이다.
+
+    특히 고단백, 다이어트, 영양 균형처럼 영양 정보가 중요한 목표에서는
+    calories/protein이 0인 메뉴가 상위에 올라오지 않도록 더 강하게 감점한다.
+    """
+
+    goals = profile.get("goals", []) or []
+
+    calories = menu.get("calories", 0) or 0
+    protein = menu.get("protein", 0) or 0
+
+    nutrient_summary = menu.get("nutrient_summary", {}) or {}
+    carbohydrate = menu.get("carbohydrate", nutrient_summary.get("carbohydrate", 0)) or 0
+    fat = menu.get("fat", nutrient_summary.get("fat", 0)) or 0
+
+    try:
+        calories = float(calories)
+        protein = float(protein)
+        carbohydrate = float(carbohydrate)
+        fat = float(fat)
+    except (TypeError, ValueError):
+        calories = 0
+        protein = 0
+        carbohydrate = 0
+        fat = 0
+
+    nutrition_sensitive_goals = ["고단백", "다이어트", "영양 균형"]
+
+    is_nutrition_sensitive = any(
+        goal in nutrition_sensitive_goals
+        for goal in goals
+    )
+
+    penalty = 0
+
+    if calories <= 0:
+        penalty += 5
+
+    if protein <= 0:
+        penalty += 5
+
+    if carbohydrate <= 0 and protein <= 0 and fat <= 0:
+        penalty += 8
+
+    # 영양 중심 목표에서는 영양 정보 누락을 더 강하게 감점한다.
+    if is_nutrition_sensitive:
+        penalty *= 1.5
+
+    return round(penalty, 2)
+
 
 def calculate_final_score(
     menu: dict,
@@ -558,10 +646,28 @@ def calculate_final_score(
     style_soft_constraint_score = calculate_style_soft_constraint_score(
         menu=menu,
         profile=profile,
-        scores=scores
+        scores=scores   
     )
 
-    final_score = base_final_score + style_soft_constraint_score
+    rag_data_quality_penalty = calculate_rag_data_quality_penalty(menu)
+
+    nutrition_missing_penalty = calculate_nutrition_missing_penalty(
+        menu=menu,
+        profile=profile,
+    )
+
+    total_quality_penalty = (
+        rag_data_quality_penalty
+        + nutrition_missing_penalty
+    )
+
+    final_score = (
+        base_final_score
+        + style_soft_constraint_score
+        - total_quality_penalty
+    )
+
+    final_score = max(final_score, 0)
 
     all_reasons = build_recommendation_reasons(
         menu=menu,
@@ -602,7 +708,12 @@ def calculate_final_score(
         "ingredient_usages": menu.get("ingredient_usages", []),
         "similar_menu_ids": menu.get("similar_menu_ids", []),
         "allergy_ingredients": menu.get("allergy_ingredients", []),
-        "recipe": menu.get("recipe", {})
+        "recipe": menu.get("recipe", {}),
+        "rag_data_quality_score": menu.get("rag_data_quality_score"),
+        "rag_data_quality_issues": menu.get("rag_data_quality_issues", []),
+        "rag_data_quality_penalty": round(rag_data_quality_penalty, 2),
+        "nutrition_missing_penalty": round(nutrition_missing_penalty, 2),
+        "total_quality_penalty": round(total_quality_penalty, 2),
     }
 
 

@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 def normalize_unit(unit: str | None) -> str | None:
     """
     단위 문자열을 비교하기 쉬운 형태로 정리한다.
@@ -112,6 +116,69 @@ def build_failed_ingredient_cost(
 
     return result
 
+def normalize_ingredient_name(ingredient_name: str | None) -> str:
+    """
+    재료명을 비교하기 쉬운 형태로 정리한다.
+
+    예:
+    - " 물 " -> "물"
+    - "후추 가루" -> "후추가루"
+    """
+
+    if not ingredient_name:
+        return ""
+
+    return ingredient_name.replace(" ", "").strip()
+
+
+def is_basic_pantry_ingredient(ingredient_name: str | None) -> bool:
+    """
+    기본 조미료/기본 재료 여부를 판단한다.
+
+    이런 재료는 메뉴 1회 조리 비용에 그대로 반영하면
+    가격이 과도하게 계산될 수 있으므로 estimated_cost를 0으로 처리한다.
+    """
+
+    normalized_name = normalize_ingredient_name(ingredient_name)
+
+    basic_ingredients = {
+        "물",
+        "생수",
+        "정수",
+        "소금",
+        "후추",
+        "후추가루",
+        "후춧가루",
+    }
+
+    return normalized_name in basic_ingredients
+
+
+def build_basic_pantry_ingredient_cost(
+    ingredient_id: str | None,
+    ingredient_name: str | None,
+    display_amount: str | None,
+    amount: float | int | None,
+    unit: str | None,
+    is_estimated: bool,
+) -> dict:
+    """
+    기본 재료 비용 계산 결과를 만든다.
+
+    물, 소금, 후추처럼 보통 가정에 기본적으로 있다고 보는 재료는
+    메뉴 예상 비용 계산에서 0원으로 처리한다.
+    """
+
+    return {
+        "ingredient_id": ingredient_id,
+        "ingredient_name": ingredient_name,
+        "display_amount": display_amount,
+        "amount": amount,
+        "unit": unit,
+        "is_estimated": is_estimated,
+        "estimated_cost": 0,
+        "pricing_status": "basic_pantry_ingredient"
+    }
 
 def calculate_ingredient_cost(
     ingredient_usage: dict,
@@ -133,10 +200,26 @@ def calculate_ingredient_cost(
 
     ingredient = ingredients_pool.get(ingredient_id)
 
+    pool_ingredient_name = None
+    if ingredient:
+        pool_ingredient_name = ingredient.get("ingredient_name")
+
+    resolved_ingredient_name = ingredient_name or pool_ingredient_name
+
+    if is_basic_pantry_ingredient(resolved_ingredient_name):
+        return build_basic_pantry_ingredient_cost(
+            ingredient_id=ingredient_id,
+            ingredient_name=resolved_ingredient_name,
+            display_amount=display_amount,
+            amount=amount,
+            unit=unit,
+            is_estimated=is_estimated,
+        )
+
     if not ingredient:
         return build_failed_ingredient_cost(
             ingredient_id=ingredient_id,
-            ingredient_name=ingredient_name,
+            ingredient_name=resolved_ingredient_name,
             display_amount=display_amount,
             amount=amount,
             unit=unit,
@@ -144,7 +227,7 @@ def calculate_ingredient_cost(
             pricing_status="ingredient_not_found"
         )
 
-    ingredient_name = ingredient_name or ingredient.get("ingredient_name")
+    ingredient_name = resolved_ingredient_name
 
     lowest_price_info = get_lowest_price_info(ingredient)
 
@@ -644,6 +727,182 @@ def map_candidate_menu_to_modeling_menu(
         "recipe": candidate_menu.get("recipe", {})
     }
 
+def is_blank_string(value) -> bool:
+    """
+    값이 None이거나 빈 문자열인지 확인한다.
+    """
+
+    return value is None or str(value).strip() == ""
+
+
+def is_invalid_ingredient_name(value) -> bool:
+    """
+    재료명이 실제 의미 있는 값인지 확인한다.
+
+    RAG 응답에서 "-", "", "N/A"처럼 내려오는 값은
+    실제 재료명으로 보기 어렵기 때문에 품질 이슈로 처리한다.
+    """
+
+    if is_blank_string(value):
+        return True
+
+    normalized_value = str(value).replace(" ", "").strip().lower()
+
+    invalid_values = {
+        "-",
+        "없음",
+        "없슴",
+        "n/a",
+        "na",
+        "none",
+        "null",
+        "unknown",
+    }
+
+    return normalized_value in invalid_values
+
+
+def is_empty_string_list(values) -> bool:
+    """
+    리스트가 비어 있거나, [""]처럼 빈 문자열만 들어 있는지 확인한다.
+    """
+
+    if not values:
+        return True
+
+    for value in values:
+        if not is_invalid_ingredient_name(value):
+            return False
+
+    return True
+
+
+def get_nutrient_value(menu: dict, key: str) -> float:
+    """
+    nutrient_summary 또는 menu 최상위 필드에서 영양 값을 가져온다.
+    """
+
+    nutrient_summary = menu.get("nutrient_summary") or {}
+
+    value = (
+        menu.get(key)
+        if menu.get(key) is not None
+        else nutrient_summary.get(key, 0)
+    )
+
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def validate_rag_candidate_menu(menu: dict) -> tuple[bool, list[str]]:
+    """
+    RAG 후보 메뉴가 모델링 추천에 사용할 수 있는지 검사한다.
+
+    반환:
+    - is_valid: 완전히 제외해야 하는지 여부
+    - issues: 데이터 품질 이슈 목록
+
+    기준:
+    - menu_id, name이 없으면 구조적으로 무효한 후보로 제외한다.
+    - calories, nutrient_summary, ingredients 등이 비어 있으면 품질 이슈로 기록한다.
+    """
+
+    issues = []
+
+    menu_id = menu.get("menu_id")
+    name = menu.get("name")
+
+    if is_blank_string(menu_id):
+        issues.append("menu_id_missing")
+
+    if is_blank_string(name):
+        issues.append("name_missing")
+
+    # menu_id 또는 name이 없으면 추천 후보로 사용할 수 없으므로 제외한다.
+    if "menu_id_missing" in issues or "name_missing" in issues:
+        return False, issues
+
+    calories = menu.get("calories", 0) or 0
+    protein = get_nutrient_value(menu, "protein")
+    carbohydrate = get_nutrient_value(menu, "carbohydrate")
+    fat = get_nutrient_value(menu, "fat")
+
+    try:
+        calories = float(calories)
+    except (TypeError, ValueError):
+        calories = 0
+
+    if calories <= 0:
+        issues.append("calories_zero_or_missing")
+
+    if protein <= 0:
+        issues.append("protein_zero_or_missing")
+
+    if carbohydrate <= 0 and protein <= 0 and fat <= 0:
+        issues.append("nutrient_summary_empty")
+
+    ingredients = menu.get("ingredients", [])
+    ingredient_groups = menu.get("ingredient_groups", [])
+    ingredient_usages = menu.get("ingredient_usages", [])
+
+    if is_empty_string_list(ingredients):
+        issues.append("ingredients_empty")
+
+    if not ingredient_groups:
+        issues.append("ingredient_groups_empty")
+
+    valid_usage_count = 0
+    invalid_usage_name_count = 0
+    
+    for usage in ingredient_usages:
+        ingredient_name = usage.get("ingredient_name")
+        ingredient_id = usage.get("ingredient_id")
+
+        has_valid_name = not is_invalid_ingredient_name(ingredient_name)
+        has_valid_id = not is_blank_string(ingredient_id)
+
+        if has_valid_name:
+            valid_usage_count += 1
+
+        elif has_valid_id:
+            invalid_usage_name_count += 1
+
+    if valid_usage_count == 0:
+        issues.append("ingredient_usages_empty_or_invalid")
+
+    if invalid_usage_name_count > 0:
+        issues.append("ingredient_usage_name_invalid")
+
+    return True, issues
+
+
+def calculate_rag_data_quality_score(issues: list[str]) -> int:
+    """
+    RAG 후보 메뉴의 데이터 품질 점수를 계산한다.
+
+    100점에서 시작하여 이슈별로 감점한다.
+    이 점수는 추후 모델링 점수 패널티에 활용할 수 있다.
+    """
+
+    penalty_map = {
+        "calories_zero_or_missing": 20,
+        "protein_zero_or_missing": 15,
+        "nutrient_summary_empty": 25,
+        "ingredients_empty": 20,
+        "ingredient_groups_empty": 10,
+        "ingredient_usages_empty_or_invalid": 20,
+        "ingredient_usage_name_invalid": 15,
+    }
+
+    score = 100
+
+    for issue in issues:
+        score -= penalty_map.get(issue, 5)
+
+    return max(score, 0)
+
 
 def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
     """
@@ -656,8 +915,12 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         "ingredients_pool": {...}
     }
 
-    candidate_menus는 메뉴 후보 목록이고,
-    ingredients_pool은 재료별 가격 계산에 사용한다.
+    처리 흐름:
+    1. candidate_menus 추출
+    2. ingredients_pool 추출
+    3. 구조적으로 무효한 후보 제외
+    4. 데이터 품질 이슈 기록
+    5. Modeling 내부 후보 메뉴 구조로 변환
     """
 
     if isinstance(rag_response, list):
@@ -678,13 +941,42 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         ingredients_pool = {}
 
     candidate_menus = []
+    excluded_count = 0
+    quality_issue_count = 0
 
     for menu in raw_menus:
+        is_valid, issues = validate_rag_candidate_menu(menu)
+
+        if not is_valid:
+            excluded_count += 1
+            continue
+
         mapped_menu = map_candidate_menu_to_modeling_menu(
             candidate_menu=menu,
             ingredients_pool=ingredients_pool,
         )
 
+        data_quality_score = calculate_rag_data_quality_score(issues)
+
+        mapped_menu["rag_data_quality_score"] = data_quality_score
+        mapped_menu["rag_data_quality_issues"] = issues
+
+        if issues:
+            quality_issue_count += 1
+
         candidate_menus.append(mapped_menu)
+
+    logger.warning(
+        "[RAG Mapper] raw_menus=%s, mapped_menus=%s, excluded_menus=%s, quality_issue_menus=%s",
+        len(raw_menus),
+        len(candidate_menus),
+        excluded_count,
+        quality_issue_count,
+    )
+
+    if not candidate_menus and raw_menus:
+        logger.warning(
+            "[RAG Mapper] 모든 RAG 후보가 제외되었습니다. RAG 응답 데이터 품질을 확인해야 합니다."
+        )
 
     return candidate_menus
