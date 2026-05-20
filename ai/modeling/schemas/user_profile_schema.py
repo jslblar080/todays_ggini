@@ -70,8 +70,7 @@ class UserProfileInput(BaseModel):
             "중식",
             "분식",
             "샐러드/건강식",
-            "패스트푸드",
-            "다 좋아요",
+            "상관없음",
         ]
 
         if len(preferred_categories) != len(set(preferred_categories)):
@@ -108,7 +107,9 @@ class UserProfileInput(BaseModel):
             "해산물류",
             "식물성 단백질류",
             "채소류",
-            "계란 및 유제품류",
+            "계란·유제품류",
+            "곡류",
+            "상관없음",
         ]
 
         if len(ingredient_preferences) != len(set(ingredient_preferences)):

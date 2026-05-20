@@ -94,12 +94,6 @@ def format_menu_for_back(
         "style_soft_constraint_score": menu.get("style_soft_constraint_score"),
         "mmr_score": menu.get("mmr_score"),
 
-        "rag_data_quality_score": menu.get("rag_data_quality_score"),
-        "rag_data_quality_issues": menu.get("rag_data_quality_issues", []),
-        "rag_data_quality_penalty": menu.get("rag_data_quality_penalty", 0),
-        "nutrition_missing_penalty": menu.get("nutrition_missing_penalty", 0),
-        "total_quality_penalty": menu.get("total_quality_penalty", 0),
-
         "estimated_cost": menu.get("estimated_cost"),
         "rag_estimated_cost": menu.get("rag_estimated_cost"),
         "pricing_status": menu.get("pricing_status"),
