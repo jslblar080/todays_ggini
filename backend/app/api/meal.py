@@ -940,7 +940,11 @@ async def generate_initial_meal_plan(
     
     for candidate in ai_response.get("meal_style_candidates", []):
         # 첫째 날의 메뉴 3개를 뽑아서 대표 메뉴로 사용
-        first_day_meals = candidate.get("sample_plan", {}).get("days", [])[0].get("meals", [])
+        # 1. 먼저 days 리스트를 안전하게 가져옵니다.
+        days_list = candidate.get("sample_plan", {}).get("days", [])
+
+        # 2. days 리스트에 데이터가 존재할 때만 첫 번째 날의 meals를 가져옵니다.
+        first_day_meals = days_list[0].get("meals", []) if days_list else []
         representative_menus = [meal.get("name") for meal in first_day_meals[:3]]
 
         frontend_candidates.append({
