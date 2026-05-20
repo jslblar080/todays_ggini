@@ -325,19 +325,20 @@ async def get_daily_meal_detail(
 # -------------------------- 식단 상세 레시피, 재료, 마켓 정보 조회 API -------------------------
 @router.get("/menu/{meal_date}/{menu_id}")
 async def get_menu_detail(
-    meal_date: date, 
-    menu_id: str, 
+    meal_date: date,
+    menu_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     특정 일자의 메뉴 상세 정보(재료, 가격, 마켓 정보 등)를 조회하여 프론트엔드 규격에 맞게 반환합니다.
     """
     # 1. DB에서 해당 날짜의 식단 데이터 조회
-    meal_plan = db.query(MealPlan).filter(
-        MealPlan.user_id == current_user.id, 
-        MealPlan.meal_date == meal_date
-    ).first()
+    meal_plan = (
+        db.query(MealPlan)
+        .filter(MealPlan.user_id == current_user.id, MealPlan.meal_date == meal_date)
+        .first()
+    )
 
     if not meal_plan or not meal_plan.content:
         raise HTTPException(status_code=404, detail="해당 날짜의 식단 정보가 없습니다.")
@@ -356,7 +357,7 @@ async def get_menu_detail(
     # 3. 프론트엔드 명세에 맞게 데이터 가공 준비
     ingredients_data = []
     required_ingredient_ids = []
-    
+
     # 우리가 관리할 3대 이커머스 마켓 키
     supported_markets = ["coupang", "market_kurly", "naver_shopping"]
 
@@ -365,11 +366,11 @@ async def get_menu_detail(
     for ing_cost in target_menu.get("ingredient_costs", []):
         ing_id = ing_cost.get("ingredient_id")
         required_ingredient_ids.append(ing_id)
-        
+
         # 모델링 데이터에서 제공한 최저가 및 마켓 정보
         mock_price = ing_cost.get("lowest_price", 0)
-        mock_market = ing_cost.get("lowest_market", "coupang") # 기본값 fallback
-        
+        mock_market = ing_cost.get("lowest_market", "coupang")  # 기본값 fallback
+
         # e_commerce_prices 조립
         e_commerce_prices = {}
         for market in supported_markets:
@@ -378,26 +379,29 @@ async def get_menu_detail(
             else:
                 # 데이터가 없는 마켓은 임시로 None 처리
                 e_commerce_prices[market] = {"lowest_price": None}
-        
-                
+
         # 개별 재료 정보 조립
-        ingredients_data.append({
-            "ingredient_id": ing_id,
-            "ingredient_name": ing_cost.get("ingredient_name"),
-            "standard_unit": ing_cost.get("display_amount"), # 예: "122g", "1공기"
-            "image_url": None,
-            "lowest_price_between_market": {
-                "market": mock_market,
-                "price": mock_price
-            },
-            "e_commerce_prices": e_commerce_prices
-        })
+        ingredients_data.append(
+            {
+                "ingredient_id": ing_id,
+                "ingredient_name": ing_cost.get("ingredient_name"),
+                "standard_unit": ing_cost.get("display_amount"),  # 예: "122g", "1공기"
+                "image_url": None,
+                "lowest_price_between_market": {
+                    "market": mock_market,
+                    "price": mock_price,
+                },
+                "e_commerce_prices": e_commerce_prices,
+            }
+        )
 
     menu_name = target_menu.get("name", "")
     menu_category = target_menu.get("category", "")
     img_tasks = [
         get_food_image_url(menu_name, menu_category),  # 메뉴 자체 이미지 (인덱스 0)
-        *[get_food_image_url(ic.get("ingredient_name"), "재료") for ic in ing_costs],  # 재료 이미지들
+        *[
+            get_food_image_url(ic.get("ingredient_name"), "재료") for ic in ing_costs
+        ],  # 재료 이미지들
     ]
     all_img_urls = await asyncio.gather(*img_tasks)
     menu_img_url = all_img_urls[0]
@@ -411,12 +415,12 @@ async def get_menu_detail(
     response_data = {
         "meal_id": str(target_menu.get("menu_id")),
         "menu_name": target_menu.get("name"),
-        "calories": target_menu.get("calories"),
-        "price": target_menu.get("estimated_cost"), # 메뉴 전체 예상 비용
+        "calories": int(target_menu.get("calories") or 0),
+        "price": int(target_menu.get("estimated_cost") or 0),  # 메뉴 전체 예상 비용
         "image_url": menu_img_url,
         "video_url": None,
         "required_ingredient_ids": required_ingredient_ids,
-        "ingredients": ingredients_data
+        "ingredients": ingredients_data,
     }
 
     return response_data
@@ -485,8 +489,8 @@ def swap_meal_plans(
 
         return {
             "date": d,
-            "calories_per_day": p.total_calories if p else None,
-            "price_per_day": p.estimated_cost if p else None,
+            "calories_per_day": int(p.total_calories or 0) if p else None,
+            "price_per_day": int(p.estimated_cost or 0) if p else None,
             "meals": formatted_meals
         }
 
@@ -683,8 +687,8 @@ async def get_meal_alternatives(
     current_meal = {
         "meal_id": selected_menu.get("menu_id", meal_id),
         "menu_name": selected_menu.get("name", ""),
-        "calories": selected_menu.get("calories", 0),
-        "price": selected_menu.get("estimated_cost", 0),
+        "calories": int(selected_menu.get("calories") or 0),
+        "price": int(selected_menu.get("estimated_cost") or 0),
         "image_url": current_img_url, # 병렬 결과 매핑
         "date": target_meal_date.strftime("%Y-%m-%d") if target_meal_date else "", # 문자열로 변환
         "slot": target_meal_data.get("meal_order", 1)
@@ -693,13 +697,11 @@ async def get_meal_alternatives(
     # 4. 명세서 기반 Alternatives 가공
     alternatives = []
     for alt, url in zip(alt_menus, alt_img_urls):
-        alt_menu_name = alt.get("name", "")
-        alt_menu_category = alt.get("category", "")
         alternatives.append({
             "meal_id": alt.get("menu_id", ""),
             "menu_name": alt.get("name", ""),
-            "calories": alt.get("calories", 0),
-            "price": alt.get("estimated_cost", 0),
+            "calories": int(alt.get("calories") or 0),
+            "price": int(alt.get("estimated_cost") or 0),
             "image_url": url # 병렬 결과 매핑
         })
 
