@@ -606,16 +606,16 @@ async def update_specific_menu_slot(
                 "slot": item.get("meal_order"),
                 "meal_id": str(menu.get("menu_id")),
                 "menu_name": menu.get("name", ""),  # menu_name 변수 말고 menu에서 직접
-                "calories": menu.get("calories", 0),
-                "price": menu.get("estimated_cost", 0),
+                "calories": int(menu.get("calories") or 0),
+                "price": int(menu.get("estimated_cost") or 0),
                 "image_url": img_url,
             }
         )
 
     return {
         "date": plan.meal_date,
-        "calories_per_day": plan.total_calories,
-        "price_per_day": plan.estimated_cost,
+        "calories_per_day": int(plan.total_calories or 0),
+        "price_per_day": int(plan.estimated_cost or 0),
         "meals": detail_meals,
     }
 
