@@ -30,11 +30,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final List<String> _selectedFoods = [];
   final List<String> _selectedIngredient = [];
   final List<String> _allergies = [];
+  bool _initialized = false;
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+      if (extra != null) {
+        _selectedGoals.addAll(List<String>.from(extra['goals'] ?? []));
+        _selectedFoods.addAll(List<String>.from(extra['foods'] ?? []));
+        _selectedIngredient.addAll(List<String>.from(extra['ingredients'] ?? []));
+        _allergies.addAll(List<String>.from(extra['allergies'] ?? []));
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final notifier = ref.read(onboardingNotifierProvider.notifier);
+          notifier.setGoals(_selectedGoals);
+          notifier.setFoods(_selectedFoods);
+          notifier.setIngredient(_selectedIngredient);
+          notifier.setAllergies(_allergies);
+          notifier.setDiversity(extra['diversity'] ?? 2);
+          notifier.setCookingSkill(extra['cookingSkill'] ?? 3);
+          notifier.setMealCount(extra['mealCount'] ?? 3);
+          notifier.setMonthlyBudget(extra['monthlyBudget'] ?? 300000);
+        });
+      }
+    }
   }
 
   @override
