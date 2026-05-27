@@ -17,7 +17,7 @@ class Env {
   /// 백엔드 base URL. 경로 prefix(/api/v1) 는 호출부에 있으므로 호스트까지만.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.45.240:8000/api/v1',
+    defaultValue: 'http://localhost:8000/api/v1',
   );
 
   /// 카카오 네이티브 앱 키 (Ios/Android).
