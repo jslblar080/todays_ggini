@@ -16,6 +16,14 @@ class TokenPayload(BaseModel):
     """
     sub: Optional[int] = None
 
+# ------- 토큰 재발급 전용 스키마 -------------
+class TokenRefreshRequest(BaseModel):
+    refreshToken: str
+
+class TokenRefreshResponse(BaseModel):
+    accessToken: str
+    tokenType: str = "bearer"
+
 # --- 2. 유저 정보 기본 스키마 ---
 class UserBase(BaseModel):
     provider: str
@@ -70,12 +78,7 @@ class UserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# ------ 로그인 요청을 위한 스키마 ----------
-class LoginRequest(BaseModel):
-    provider: str
-    social_id: str
-
-# ------- 소셜 로그인 전용 스키마 --------
+# ------- 로그인 전용 스키마 --------
 class SocialLoginRequest(BaseModel):
     accessToken: str
 
@@ -93,7 +96,3 @@ class SocialLoginResponse(BaseModel):
 # ------ 닉네임 변경 전용 스키마 --------
 class NicknameUpdateRequest(BaseModel):
     nickname: str
-
-# ------ 이미지 변경 전용 스키마 ---------
-class ProfileImageUpdateRequest(BaseModel):
-    imageUrl: str
