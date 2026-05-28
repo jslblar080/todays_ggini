@@ -227,6 +227,146 @@ def is_convertible_water_unit(
 #     }
 
 
+NON_FOOD_PRODUCT_KEYWORDS = [
+    "와인잔",
+    "글라스",
+    "컵",
+    "머그",
+    "접시",
+    "그릇",
+    "식기",
+    "용기",
+    "도마",
+    "칼",
+    "냄비",
+    "팬",
+    "프라이팬",
+    "로션",
+    "크림",
+    "샴푸",
+    "바디워시",
+    "세제",
+    "비누",
+    "화장품",
+]
+
+
+def normalize_text_for_matching(value: str | None) -> str:
+    """
+    상품명 비교를 위해 공백과 대소문자를 정규화한다.
+    """
+
+    if not value:
+        return ""
+
+    return value.replace(" ", "").lower()
+
+
+def is_invalid_product_match(
+    product_title: str | None,
+) -> bool:
+    """
+    매칭된 상품명이 식재료가 아닌 상품으로 보이는지 확인한다.
+    """
+
+    normalized_title = normalize_text_for_matching(product_title)
+
+    if not normalized_title:
+        return False
+
+    for keyword in NON_FOOD_PRODUCT_KEYWORDS:
+        if normalize_text_for_matching(keyword) in normalized_title:
+            return True
+
+    return False
+
+
+def is_price_outlier(
+    estimated_cost: float,
+    standard_amount: float,
+    standard_unit_type: str | None,
+) -> bool:
+    """
+    표준 단위 기준 가격이 지나치게 높은 경우 이상치로 판단한다.
+
+    1차 기준:
+    - g/ml 기준 100g 또는 100ml당 30,000원 초과 시 이상치
+    """
+
+    normalized_unit = normalize_unit(standard_unit_type)
+
+    if normalized_unit not in ["g", "ml"]:
+        return False
+
+    if standard_amount <= 0:
+        return False
+
+    cost_per_100_unit = estimated_cost * (100 / standard_amount)
+
+    return cost_per_100_unit > 30000
+
+
+def is_cost_gap_outlier(
+    calculated_cost: float,
+    rag_estimated_cost: float | int | None,
+    max_ratio: float = 3.0,
+) -> bool:
+    """
+    ingredient 기반 재계산 비용이 RAG 기준 비용보다 지나치게 큰 경우를 감지한다.
+
+    특정 재료명에 의존하지 않고,
+    메뉴 단위 비용 비율을 기준으로 이상치를 판단한다.
+    """
+
+    if rag_estimated_cost is None:
+        return False
+
+    if rag_estimated_cost <= 0:
+        return False
+
+    if calculated_cost <= 0:
+        return False
+
+    return calculated_cost > rag_estimated_cost * max_ratio
+
+
+def build_invalid_ingredient_cost(
+    ingredient_id: str | None,
+    ingredient_name: str | None,
+    display_amount: str | None,
+    amount: float | int | None,
+    unit: str | None,
+    is_estimated: bool,
+    pricing_status: str,
+    standard_amount: float | int | None,
+    standard_unit_type: str | None,
+    lowest_price_info: dict,
+) -> dict:
+    """
+    비정상 가격 후보를 ingredient_cost 형식으로 반환한다.
+    estimated_cost는 합산되지 않도록 0으로 둔다.
+    """
+
+    return build_failed_ingredient_cost(
+        ingredient_id=ingredient_id,
+        ingredient_name=ingredient_name,
+        display_amount=display_amount,
+        amount=amount,
+        unit=unit,
+        is_estimated=is_estimated,
+        pricing_status=pricing_status,
+        extra_data={
+            "standard_amount": standard_amount,
+            "standard_unit_type": standard_unit_type,
+            "lowest_price": lowest_price_info.get("lowest_price"),
+            "lowest_market": lowest_price_info.get("market"),
+            "delivery_type": lowest_price_info.get("delivery_type"),
+            "product_title": lowest_price_info.get("product_title"),
+            "purchase_link": lowest_price_info.get("purchase_link"),
+        }
+    )
+
+
 def calculate_ingredient_cost(
     ingredient_usage: dict,
     ingredients_pool: dict
@@ -379,6 +519,40 @@ def calculate_ingredient_cost(
         usage_amount / standard_amount
     )
 
+    if is_invalid_product_match(
+        product_title=lowest_price_info.get("product_title"),
+    ):
+        return build_invalid_ingredient_cost(
+            ingredient_id=ingredient_id,
+            ingredient_name=ingredient_name,
+            display_amount=display_amount,
+            amount=amount,
+            unit=unit,
+            is_estimated=is_estimated,
+            pricing_status="invalid_product_match",
+            standard_amount=standard_amount,
+            standard_unit_type=standard_unit_type,
+            lowest_price_info=lowest_price_info,
+        )
+
+    if is_price_outlier(
+        estimated_cost=estimated_cost,
+        standard_amount=standard_amount,
+        standard_unit_type=standard_unit_type,
+    ):
+        return build_invalid_ingredient_cost(
+            ingredient_id=ingredient_id,
+            ingredient_name=ingredient_name,
+            display_amount=display_amount,
+            amount=amount,
+            unit=unit,
+            is_estimated=is_estimated,
+            pricing_status="price_outlier",
+            standard_amount=standard_amount,
+            standard_unit_type=standard_unit_type,
+            lowest_price_info=lowest_price_info,
+        )
+
     return {
         "ingredient_id": ingredient_id,
         "ingredient_name": ingredient_name,
@@ -436,9 +610,29 @@ def calculate_menu_estimated_cost(
     else:
         pricing_status = "not_calculated"
 
+    invalid_pricing_statuses = [
+        "invalid_ingredient_name",
+        "invalid_product_match",
+        "price_outlier",
+    ]
+
+    has_invalid_price = any(
+        status in invalid_pricing_statuses
+        for status in pricing_statuses
+    )
+
     rag_estimated_cost = candidate_menu.get("estimated_cost")
 
-    if total_cost > 0:
+    if has_invalid_price and rag_estimated_cost:
+        final_estimated_cost = rag_estimated_cost
+        pricing_status = "fallback_to_rag_estimated_cost"
+    elif is_cost_gap_outlier(
+        calculated_cost=total_cost,
+        rag_estimated_cost=rag_estimated_cost,
+    ):
+        final_estimated_cost = rag_estimated_cost
+        pricing_status = "fallback_to_rag_estimated_cost_by_cost_gap"
+    elif total_cost > 0:
         final_estimated_cost = round(total_cost)
     else:
         final_estimated_cost = rag_estimated_cost
