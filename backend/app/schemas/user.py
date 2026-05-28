@@ -16,11 +16,6 @@ class TokenPayload(BaseModel):
     """
     sub: Optional[int] = None
 
-# class SocialLoginRequest(BaseModel):
-#     token: str  # 소셜 플랫폼(카카오 등)에서 발급받은 액세스 토큰
-#     provider: SocialProvider
-
-
 # --- 2. 유저 정보 기본 스키마 ---
 class UserBase(BaseModel):
     provider: str
@@ -32,6 +27,8 @@ class UserInfo(BaseModel):
     provider: str
     social_id: str
     email: Optional[EmailStr] = None
+    nickname : str
+    image_url : Optional[str] = None
     is_guest: bool
     is_onboarded: bool
 
@@ -49,6 +46,7 @@ class UserInfo(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# ---------- 온보딩 전용 스키마 -------------
 class UserOnboardingUpdate(BaseModel):
     """
     로그인 후 진행하는 '개인화 설정(온보딩)' 전용 스키마.
@@ -65,19 +63,19 @@ class UserOnboardingUpdate(BaseModel):
     preferred_ingredients: Optional[List[str]] = Field(None, description="선택한 선호 재료군")
     excluded_ingredients: Optional[List[str]] = Field(None, description="기호/알러지 제외 식재료")
 
-# API 응답 시 유저 정보를 돌려주는 스키마
+# ------ API 응답 시 유저 정보를 돌려주는 스키마 --------
 class UserResponse(BaseModel):
     id: int
     is_onboarded: bool
 
     model_config = ConfigDict(from_attributes=True)
 
-# 로그인 요청을 위한 스키마 추가
+# ------ 로그인 요청을 위한 스키마 ----------
 class LoginRequest(BaseModel):
     provider: str
     social_id: str
 
-# ---- 3. 소셜 로그인 전용 스키마 ----
+# ------- 소셜 로그인 전용 스키마 --------
 class SocialLoginRequest(BaseModel):
     accessToken: str
 
@@ -91,3 +89,11 @@ class SocialLoginResponse(BaseModel):
     accessToken: str
     refreshToken: str
     user: UserInformation
+
+# ------ 닉네임 변경 전용 스키마 --------
+class NicknameUpdateRequest(BaseModel):
+    nickname: str
+
+# ------ 이미지 변경 전용 스키마 ---------
+class ProfileImageUpdateRequest(BaseModel):
+    imageUrl: str

@@ -28,6 +28,7 @@ class User(Base):
     social_id = Column(String, unique=True, index=True, nullable=True) # 소셜 앱의 고유 ID
     provider = Column(Enum(SocialProvider), nullable=False) # "kakao", "google", "naver"
     nickname = Column(String, nullable=True, default="자취생")
+    image_url = Column(String, nullable=True)
 
     # 데이터베이스 상에서 해당 유저의 계정이 현재 활성화 상태인지 아니면 비활성화(휴면) 상태인지를 구분
     is_active = Column(Boolean, default=True)

@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+import os
+from fastapi.staticfiles import StaticFiles
+
 from app.api import user, auth, meal, shopping
 from app.db.session import engine
 from app.db import base  # 중요: 모델들을 import 해야 테이블이 생성됨
@@ -19,6 +22,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 1. 이미지가 저장될 실제 폴더가 없으면 자동 생성합니다.
+os.makedirs("app/static/images", exist_ok=True) 
+
+# 2. /images URL로 요청이 오면 app/static/images 폴더의 파일을 제공하도록 연결합니다.
+app.mount("/images", StaticFiles(directory="app/static/images"), name="images")
 
 # 라우터 연결
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
