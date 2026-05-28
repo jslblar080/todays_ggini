@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="kkinipick"
+        android:label="today's kkini"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> <!-- 백엔드가 http:// (TLS 없음) 라서 필요. 배포 직전에는 false 로 돌리고 백엔드를 HTTPS 화 -->

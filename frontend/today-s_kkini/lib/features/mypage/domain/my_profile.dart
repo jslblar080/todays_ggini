@@ -1,7 +1,9 @@
 class MyProfile {
   final int id;
   final String provider;
+  final String? nickname;
   final String? email;
+  final String? imageUrl;
   final bool isGuest;
   final bool isOnboarded;
   final int personaId;
@@ -18,7 +20,9 @@ class MyProfile {
   const MyProfile({
     required this.id,
     required this.provider,
+    this.nickname,
     this.email,
+    this.imageUrl,
     required this.isGuest,
     required this.isOnboarded,
     required this.personaId,
@@ -37,7 +41,9 @@ class MyProfile {
     return MyProfile(
       id: json['id'] as int,
       provider: json['provider'] as String,
+      nickname: json['nickname'] as String?,
       email: json['email'] as String?,
+      imageUrl: json['image_url'] as String?,
       isGuest: json['is_guest'] as bool,
       isOnboarded: json['is_onboarded'] as bool,
       personaId: json['persona_id'] as int,

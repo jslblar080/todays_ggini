@@ -275,7 +275,23 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              ProfileSection(persona: _personaLabel(profile.personaId)),
+              ProfileSection(
+                name: profile.nickname,
+                imageUrl: profile.imageUrl,
+                persona: _personaLabel(profile.personaId),
+                onNameChanged: (newName) async {
+                  final repo = ref.read(myPageRepositoryProvider);
+                  final saved = await repo.updateNickname(newName);
+                  ref.read(myPageProvider.notifier).fetchMyProfile();
+                  return saved;
+                },
+                onImageChanged: (bytes, filename) async {
+                  final repo = ref.read(myPageRepositoryProvider);
+                  final url = await repo.uploadProfileImage(bytes, filename);
+                  ref.read(myPageProvider.notifier).fetchMyProfile();
+                  return url;
+                },
+              ),
               const SizedBox(height: 24),
               const SectionTitle(title: '내 설정'),
               SettingItem(
