@@ -570,6 +570,7 @@ async def update_specific_menu_slot(
         raise HTTPException(status_code=400, detail="유효하지 않은 슬롯 번호입니다.")
 
     # 3. 대안 메뉴 리스트에서 사용자가 선택한 메뉴 찾기
+    # 같은 meal_id가 여러 슬롯에 존재할 수 있으므로 플랜 전체에서 검색
     current_slot_data = plan.content[target_index]
     alt_menus = current_slot_data.get("alternative_menus", [])
 
@@ -578,6 +579,15 @@ async def update_specific_menu_slot(
         if str(alt.get("menu_id")) == str(request.new_menu_id):
             new_menu_data = alt
             break
+
+    if not new_menu_data:
+        for meal_slot in plan.content:
+            for alt in meal_slot.get("alternative_menus", []):
+                if str(alt.get("menu_id")) == str(request.new_menu_id):
+                    new_menu_data = alt
+                    break
+            if new_menu_data:
+                break
 
     if not new_menu_data:
         raise HTTPException(

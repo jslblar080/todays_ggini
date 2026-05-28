@@ -138,6 +138,7 @@ class ShoppingItem {
   final String productTitle;
   final String purchaseLink;
   final bool isChecked;
+  final String? status;
 
   const ShoppingItem({
     required this.itemId,
@@ -149,6 +150,7 @@ class ShoppingItem {
     required this.productTitle,
     required this.purchaseLink,
     required this.isChecked,
+    this.status,
   });
 
   factory ShoppingItem.fromJson(Map<String, dynamic> json) {
@@ -162,6 +164,7 @@ class ShoppingItem {
       productTitle: json['product_title'] as String,
       purchaseLink: json['purchase_link'] as String,
       isChecked: json['is_checked'] as bool,
+      status: json['status'] as String?,
     );
   }
 
@@ -175,6 +178,7 @@ class ShoppingItem {
     String? productTitle,
     String? purchaseLink,
     bool? isChecked,
+    String? status,
   }) {
     return ShoppingItem(
       itemId: itemId ?? this.itemId,
@@ -186,6 +190,7 @@ class ShoppingItem {
       productTitle: productTitle ?? this.productTitle,
       purchaseLink: purchaseLink ?? this.purchaseLink,
       isChecked: isChecked ?? this.isChecked,
+      status: status ?? this.status,
     );
   }
 }

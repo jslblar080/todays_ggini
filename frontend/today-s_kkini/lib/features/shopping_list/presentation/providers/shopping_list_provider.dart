@@ -92,13 +92,11 @@ class ShoppingListNotifier extends StateNotifier<ShoppingListState> {
         (itemId: itemId, isChecked: newCheckedValue!),
       ]);
       if (!mounted) return;
-      // 3) 실서버 모드일 때만 서버 summary 로 덮어쓰기
       if (!Env.useMocks) {
         state = state.copyWith(data: _applyServerSummary(state.data!, summary));
       }
     } catch (e) {
       if (!mounted) return;
-      // 실패해도 로컬 결과는 유지 (사용자 경험 우선). 에러는 state 에 노출.
       state = state.copyWith(error: e);
     }
   }

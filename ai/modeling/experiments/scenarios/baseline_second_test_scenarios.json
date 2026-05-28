@@ -1,0 +1,227 @@
+{
+  "experiment_name": "baseline_second_test",
+  "description": "1차 baseline에서 발견된 후보 부족 및 예산 초과 문제를 더 세분화하기 위한 2차 테스트 시나리오",
+  "scenarios": [
+    {
+      "scenario_id": "A01_S08_original_narrow_preference",
+      "description": "S08 원본: 고단백+간편식, 샐러드/건강식, 육류 선호",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 350000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["샐러드/건강식"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A02_S08_relax_category",
+      "description": "S08 변형: 선호 카테고리를 다 좋아요로 완화",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 350000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["다 좋아요"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A03_S08_relax_ingredient",
+      "description": "S08 변형: 선호 재료군을 육류에서 육류+채소류+식물성 단백질류로 완화",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 350000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["샐러드/건강식"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류", "채소류", "식물성 단백질류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A04_S09_original_taste_fastfood_dairy",
+      "description": "S09 원본: 맛 중심, 패스트푸드, 계란 및 유제품류 선호",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["맛 중심"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 2,
+        "preferred_categories": ["패스트푸드"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A05_S09_relax_category",
+      "description": "S09 변형: 패스트푸드를 다 좋아요로 완화",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["맛 중심"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 2,
+        "preferred_categories": ["다 좋아요"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A06_S09_relax_ingredient",
+      "description": "S09 변형: 계란 및 유제품류에 육류와 채소류 추가",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["맛 중심"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 2,
+        "preferred_categories": ["패스트푸드"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["계란 및 유제품류", "육류", "채소류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "A07_S10_original_complex_constraints",
+      "description": "S10 원본: 고단백+식비 절약+간편식, 낮은 예산, 알레르기 포함",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "식비 절약", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 220000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["샐러드/건강식", "패스트푸드"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류", "계란 및 유제품류"],
+        "allergy_ingredients": ["우유", "새우"]
+      }
+    },
+    {
+      "scenario_id": "A08_S10_relax_budget",
+      "description": "S10 변형: 예산만 220000원에서 450000원으로 완화",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "식비 절약", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 450000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["샐러드/건강식", "패스트푸드"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류", "계란 및 유제품류"],
+        "allergy_ingredients": ["우유", "새우"]
+      }
+    },
+    {
+      "scenario_id": "A09_S10_relax_category_and_ingredient",
+      "description": "S10 변형: 카테고리와 재료군 완화, 알레르기는 유지",
+      "test_group": "candidate_empty_relaxation",
+      "profile": {
+        "goals": ["고단백", "식비 절약", "간편식"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 220000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": ["다 좋아요"],
+        "diversity_level": "높음",
+        "ingredient_preferences": ["육류", "계란 및 유제품류", "채소류", "식물성 단백질류"],
+        "allergy_ingredients": ["우유", "새우"]
+      }
+    },
+    {
+      "scenario_id": "B01_budget_250000_balanced",
+      "description": "예산 민감도: 기본 균형형, 월 예산 250000원",
+      "test_group": "budget_sensitivity",
+      "profile": {
+        "goals": ["영양 균형"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 250000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": ["한식", "양식"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["채소류", "육류", "식물성 단백질류", "계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "B02_budget_450000_balanced",
+      "description": "예산 민감도: 기본 균형형, 월 예산 450000원",
+      "test_group": "budget_sensitivity",
+      "profile": {
+        "goals": ["영양 균형"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 450000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": ["한식", "양식"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["채소류", "육류", "식물성 단백질류", "계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "B03_budget_700000_balanced",
+      "description": "예산 민감도: 기본 균형형, 월 예산 700000원",
+      "test_group": "budget_sensitivity",
+      "profile": {
+        "goals": ["영양 균형"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 700000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": ["한식", "양식"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["채소류", "육류", "식물성 단백질류", "계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    },
+    {
+      "scenario_id": "B04_budget_1000000_balanced",
+      "description": "예산 민감도: 기본 균형형, 월 예산 1000000원",
+      "test_group": "budget_sensitivity",
+      "profile": {
+        "goals": ["영양 균형"],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 1000000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": ["한식", "양식"],
+        "diversity_level": "보통",
+        "ingredient_preferences": ["채소류", "육류", "식물성 단백질류", "계란 및 유제품류"],
+        "allergy_ingredients": []
+      }
+    }
+  ]
+}
