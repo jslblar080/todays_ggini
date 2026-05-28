@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+import os
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from typing import Any
 
@@ -46,16 +47,32 @@ def update_nickname(
 
 # ----------------- 프로필 이미지 변경 API ---------------------------
 @router.post("/profile/image")
-def update_profile_image(
-    request: ProfileImageUpdateRequest,
+async def update_profile_image(
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    [프로필 이미지 변경] 프론트엔드가 업로드 후 전달한 이미지 URL을 DB에 저장합니다.
+    [프로필 이미지 변경] 원본 파일명 앞에 유저 ID를 붙여서 충돌을 방지하고 로컬에 저장합니다.
     """
-    # DB에 이미지 URL 업데이트
-    current_user.image_url = request.imageUrl
+    UPLOAD_DIR = "app/static/images"
+    
+    # 1. 유저 ID와 원본 파일명 결합 (예: 유저ID 4, 파일명 abc123.jpg -> "4_abc123.jpg")
+    filename = f"{current_user.id}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    # 2. 로컬 하드디스크에 파일 저장
+    try:
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"이미지 저장 실패: {str(e)}")
+    
+    # 3. 저장된 고유 파일명으로 URL 조립
+    image_url = f"http://localhost:8000/images/{filename}"
+    
+    # 4. DB에 이미지 URL 업데이트
+    current_user.image_url = image_url
     db.commit()
     db.refresh(current_user)
     
