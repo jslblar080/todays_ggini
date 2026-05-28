@@ -28,3 +28,7 @@ result.json
 .DS_Store
 result.json
 debug_result.json
+
+# experiment results
+experiments/results/*.json
+experiments/results/*.csv
