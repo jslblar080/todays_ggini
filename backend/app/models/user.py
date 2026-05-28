@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, JSON, Enum, Boolean
+from sqlalchemy import Column, Integer, String, Enum, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 import enum
 from app.db.base_class import Base
 
@@ -27,6 +28,7 @@ class User(Base):
     social_id = Column(String, unique=True, index=True, nullable=True) # 소셜 앱의 고유 ID
     provider = Column(Enum(SocialProvider), nullable=False) # "kakao", "google", "naver"
     nickname = Column(String, nullable=True, default="자취생")
+    image_url = Column(String, nullable=True)
 
     # 데이터베이스 상에서 해당 유저의 계정이 현재 활성화 상태인지 아니면 비활성화(휴면) 상태인지를 구분
     is_active = Column(Boolean, default=True)
@@ -38,7 +40,7 @@ class User(Base):
     is_onboarded = Column(Boolean, default=False)
 
     # [목적 설정] AI 가중치 계산의 핵심
-    purpose = Column(JSON, default=list)
+    purpose = Column(JSONB, default=list)
 
     # [생활 조건 설정]
     monthly_budget = Column(Integer, default=300000)  # 월 예산
@@ -46,16 +48,16 @@ class User(Base):
     cooking_skill = Column(Integer, default=3)        # 요리 실력 (1~5단계)
 
     # [취향 설정]
-    preferred_categories = Column(JSON, default=list) # 한식, 중식 등
+    preferred_categories = Column(JSONB, default=list) # 한식, 중식 등
     diversity_level = Column(String, default="낮음") # 다양성 (1:낮음, 2:보통, 3:높음)
 
     # 재료 관련 설정
     # 선호 재료군: ["식물성 단백질류", "채소류"]
-    preferred_ingredients = Column(JSON, default=list, nullable=True)
+    preferred_ingredients = Column(JSONB, default=list, nullable=True)
 
     # [알레르기 / 제외 재료]
     # 리스트 형태의 데이터를 저장하기 위해 JSON 타입을 사용하거나 별도 테이블 운영
-    excluded_ingredients = Column(JSON, default=list, nullable=True)  # ["견과류", "우유"] 등
+    excluded_ingredients = Column(JSONB, default=list, nullable=True)  # ["견과류", "우유"] 등
     
     # 페르소나 (화면 1 관련)
     persona_id = Column(Integer, nullable=True) # nullable=True : 비어있을 수 있음

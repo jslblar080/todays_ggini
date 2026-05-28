@@ -6,6 +6,7 @@ import '../../../../core/widgets/bottom_nav_bar.dart';
 import '../../../../core/widgets/popup.dart';
 import '../../domain/shopping_list.dart';
 import '../providers/shopping_list_provider.dart';
+import '../widgets/checkout_market_sheet.dart';
 import '../widgets/shopping_bottom_actions.dart';
 import '../widgets/shopping_item_row.dart';
 import '../widgets/shopping_list_summary.dart';
@@ -90,7 +91,7 @@ class ShoppingListScreen extends ConsumerWidget {
           child: ShoppingBottomActions(
             hasCheckedItems: data.checkedItemsCount > 0,
             onDeleteChecked: () => _confirmDelete(context, notifier),
-            onCheckoutByMarket: () => _notImplemented(context),
+            onCheckoutByMarket: () => showCheckoutMarketSheet(context, data),
           ),
         ),
       ],
@@ -126,11 +127,6 @@ class ShoppingListScreen extends ConsumerWidget {
     );
   }
 
-  void _notImplemented(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('외부 마켓 결제 연동 예정')));
-  }
 }
 
 class _EmptyState extends StatelessWidget {

@@ -13,6 +13,7 @@ from app.schemas.shopping import (
     CheckUpdateItem,
     CheckUpdateResponse,
     BatchDeleteResponse,
+    ItemStatus
 )
 from app.utils.image_search import get_food_image_url
 from app.models.user import User
@@ -157,6 +158,7 @@ async def sync_shopping_items(
             "is_checked": item_data.is_checked,
             "is_essential": item_data.is_essential,
             "is_lowest": item_data.market_name == found.get("lowest_market"),
+            "status": item_data.status # [추가됨] 스키마에서 넘어온 상태값(기본 CHECKED) 저장
         }
 
         # 3. 기존 항목 있으면 update, 없으면 새로 추가
@@ -271,6 +273,7 @@ async def get_shopping_list(
                 "is_checked": item.is_checked,
                 "is_essential": item.is_essential,
                 "is_lowest": item.is_lowest,
+                "status": item.status
             }
 
             market_data[m_name]["items"].append(mapped_item)
@@ -320,7 +323,7 @@ async def update_item_checks(
         item = (
             db.query(ShoppingItem)
             .filter(
-                ShoppingItem.id == int(update.item_id),
+                ShoppingItem.ingredient_id == update.item_id, 
                 ShoppingItem.list_id == shopping_list.id,
             )
             .first()
@@ -328,8 +331,9 @@ async def update_item_checks(
 
         if item:
             item.is_checked = update.is_checked
+            item.status = ItemStatus.CHECKED if update.is_checked else ItemStatus.PENDING
             updated_results.append(
-                {"item_id": str(item.id), "is_checked": item.is_checked}
+                {"item_id": str(item.id), "is_checked": item.is_checked, "status": item.status}
             )
 
     # 변경사항을 DB에 한 번에 반영 (트랜잭션 최적화)
@@ -359,7 +363,7 @@ async def batch_delete_items(
     deleted_count = (
         db.query(ShoppingItem)
         .filter(
-            ShoppingItem.id.in_(request.item_ids),
+            ShoppingItem.ingredient_id.in_(request.item_ids), 
             ShoppingItem.list_id == shopping_list.id,
         )
         .delete(synchronize_session=False)

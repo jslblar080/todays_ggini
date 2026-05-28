@@ -15,6 +15,7 @@ dependencies:
   go_router: ^17.0.0
   dio: ^5.9.2
   intl: ^0.20.2
+  url_launcher: ^6.3.1
 
   # 소셜 로그인
   kakao_flutter_sdk_user: ^1.9.0
@@ -25,6 +26,7 @@ dependencies:
   # 토큰 로컬 저장
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.2.3
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:

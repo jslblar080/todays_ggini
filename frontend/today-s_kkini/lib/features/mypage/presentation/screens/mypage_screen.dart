@@ -130,6 +130,25 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     }
   }
 
+  void _goToOnboardingWithProfile() {
+    Navigator.pop(context);
+    final profile = ref.read(myPageProvider).profile;
+    if (profile != null) {
+      context.go(AppRoutes.onboarding, extra: {
+        'goals': profile.purpose,
+        'foods': profile.preferredCategories,
+        'ingredients': profile.preferredIngredients,
+        'allergies': profile.excludedIngredients,
+        'diversity': _diversityToInt(profile.diversityLevel),
+        'cookingSkill': profile.cookingSkill,
+        'mealCount': profile.mealsPerDay,
+        'monthlyBudget': profile.monthlyBudget,
+      });
+    } else {
+      context.go(AppRoutes.onboarding);
+    }
+  }
+
   void _showChipDialog(String title, List<String> options, List<String> selected) {
     showAppPopupWidget(
       context: context,
@@ -139,10 +158,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       rightButtonText: '확인',
       leftButtonColor: AppColors.primary,
       rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () {
-        Navigator.pop(context);
-        context.go(AppRoutes.onboarding);
-      },
+      onLeftTap: () => _goToOnboardingWithProfile(),
       onRightTap: () => Navigator.pop(context),
     );
   }
@@ -161,10 +177,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       rightButtonText: '확인',
       leftButtonColor: AppColors.textSecondary,
       rightButtonColor: AppColors.primary,
-      onLeftTap: () {
-        Navigator.pop(context);
-        context.go(AppRoutes.onboarding);
-      },
+      onLeftTap: () => _goToOnboardingWithProfile(),
       onRightTap: () => Navigator.pop(context),
     );
   }
@@ -178,10 +191,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       rightButtonText: '확인',
       leftButtonColor: AppColors.primary,
       rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () {
-        Navigator.pop(context);
-        context.go(AppRoutes.onboarding);
-      },
+      onLeftTap: () => _goToOnboardingWithProfile(),
       onRightTap: () => Navigator.pop(context),
     );
   }
@@ -195,10 +205,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       rightButtonText: '확인',
       leftButtonColor: AppColors.primary,
       rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () {
-        Navigator.pop(context);
-        context.go(AppRoutes.onboarding);
-      },
+      onLeftTap: () => _goToOnboardingWithProfile(),
       onRightTap: () => Navigator.pop(context),
     );
   }
@@ -268,7 +275,23 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              ProfileSection(persona: _personaLabel(profile.personaId)),
+              ProfileSection(
+                name: profile.nickname,
+                imageUrl: profile.imageUrl,
+                persona: _personaLabel(profile.personaId),
+                onNameChanged: (newName) async {
+                  final repo = ref.read(myPageRepositoryProvider);
+                  final saved = await repo.updateNickname(newName);
+                  ref.read(myPageProvider.notifier).fetchMyProfile();
+                  return saved;
+                },
+                onImageChanged: (bytes, filename) async {
+                  final repo = ref.read(myPageRepositoryProvider);
+                  final url = await repo.uploadProfileImage(bytes, filename);
+                  ref.read(myPageProvider.notifier).fetchMyProfile();
+                  return url;
+                },
+              ),
               const SizedBox(height: 24),
               const SectionTitle(title: '내 설정'),
               SettingItem(

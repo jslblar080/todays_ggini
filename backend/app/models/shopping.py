@@ -1,6 +1,14 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func, Enum
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
+import enum
 from app.db.base_class import Base
+
+class ItemStatus(str, enum.Enum):
+    PENDING = "PENDING"       # 담기만 한 상태
+    CHECKED = "CHECKED"       # 구매하려고 체크한 상태
+    ORDERED = "ORDERED"       # 결제 완료
+    OUT_OF_STOCK = "OUT_OF_STOCK" # 품절
 
 class ShoppingList(Base):
     __tablename__ = "shopping_lists"
@@ -23,7 +31,7 @@ class ShoppingItem(Base):
     list_id = Column(Integer, ForeignKey("shopping_lists.id", ondelete="CASCADE"), nullable=False)
     
     # 재료 정보
-    ingredient_id = Column(String, index=True)  # 외부 식재료 마스터 ID
+    ingredient_id = Column(String, index=True, nullable=False) # 외부 식재료 마스터 ID
     ingredient_name = Column(String, nullable=False)
     standard_unit = Column(String)  # 예: 100g, 10구
     
@@ -41,6 +49,8 @@ class ShoppingItem(Base):
 
     # 가격 비교 데이터 (명세서 image_9830b9의 계층 구조를 저장)
     # 팝업을 열었을 때 다른 마켓 가격을 즉시 보여주기 위해 JSON 형태로 캐싱
-    market_details = Column(JSON, nullable=True)
+    market_details = Column(JSONB, nullable=True)
+
+    status = Column(Enum(ItemStatus), default=ItemStatus.PENDING)
 
     shopping_list = relationship("ShoppingList", back_populates="items")

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="kkinipick"
+        android:label="today's kkini"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> <!-- 백엔드가 http:// (TLS 없음) 라서 필요. 배포 직전에는 false 로 돌리고 백엔드를 HTTPS 화 -->
@@ -76,5 +76,10 @@
         </intent>
         <!-- 카카오톡 앱 설치 여부 확인용 (추가) -->
         <package android:name="com.kakao.talk" />
+        <!-- url_launcher: https 링크 열기 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 </manifest>

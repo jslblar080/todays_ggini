@@ -19,4 +19,7 @@ python-dotenv==1.0.1
 httpx==0.27.0
 email-validator
 
-requests==2.34.2 
+requests==2.34.2
+
+# PostgreSQL 드라이버
+psycopg2-binary

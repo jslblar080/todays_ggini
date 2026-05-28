@@ -1,5 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
+from enum import Enum
+
+class ItemStatus(str, Enum):
+    PENDING = "PENDING"
+    CHECKED = "CHECKED"
+    ORDERED = "ORDERED"
+    OUT_OF_STOCK = "OUT_OF_STOCK"
 
 # -------------- 재료 마켓별 가격 비교 상세 전용 스키마 -----------------
 class MarketProductDetail(BaseModel):
@@ -37,6 +44,9 @@ class ShoppingItem(BaseModel):
     product_title: str
     purchase_link: str
     is_checked: bool
+    status: Optional[ItemStatus] = None # [추가됨] 커머스 라이프사이클 상태
+
+    model_config = ConfigDict(from_attributes=True) # [추가됨] ORM 매핑
 
 class MarketGroup(BaseModel):
     market: str
@@ -63,6 +73,7 @@ class IngredientSelectRequest(BaseModel):
     purchase_link: Optional[str] = None
     is_essential: bool = True
     is_checked: bool = True # # 체크된 것만 담기 로직용
+    status: ItemStatus = ItemStatus.CHECKED # [추가됨] 기본 상태는 CHECKED
 
 # --- 공통 요약(Summary) 스키마 ---
 class ShoppingSummary(BaseModel):

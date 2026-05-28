@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Date, Integer, ForeignKey, JSON, DateTime, UniqueConstraint
+from sqlalchemy import Column, Date, Integer, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
 
@@ -15,7 +16,7 @@ class MealPlan(Base):
     
     # 아침/점심/저녁 상세 메뉴, 레시피, 재료 정보 등을 담는 JSON 필드
     # schemas/meal.py의 DailyMealPlan 구조가 여기에 저장됩니다.
-    content = Column(JSON, nullable=False)
+    content = Column(JSONB, nullable=False)
 
     # 캘린더 요약 및 통계(화면 7, 9번)를 위한 별도 컬럼
     # JSON을 매번 파싱하지 않고도 합계 데이터를 빠르게 조회할 수 있습니다.

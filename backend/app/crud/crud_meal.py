@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.dialects.postgresql import insert
 from datetime import date, timedelta
 from app.models.meal import MealPlan
 
@@ -29,8 +29,8 @@ def save_monthly_plan(db: Session, user_id: int, ai_days_list: list) -> bool:
                 day_total_cost += menu.get("estimated_cost", 0)
                 day_total_kcal += menu.get("calories", 0)
 
-            # 2. Upsert 로직 실행 (SQLite 전용)
-            # content 필드에 그 날 먹을 모든 식사(meals) 리스트를 JSON 형태로 통째로 저장합니다.
+            # 2. Upsert 로직 실행 (PostgreSQL 전용)
+            # content 필드(JSONB)에 리스트(daily_meals)를 그대로 넘기면 알아서 이진 압축되어 저장됩니다.
             stmt = insert(MealPlan).values(
                 user_id=user_id,
                 meal_date=target_date,             # 모델에 meal_date 컬럼이 있다고 가정

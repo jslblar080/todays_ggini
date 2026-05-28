@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import date, datetime
 from typing import List, Dict, Any, Optional
 
@@ -109,8 +109,7 @@ class MealPlanResponse(BaseModel):
     # DB의 content 필드(JSON)가 이 리스트 형태로 역직렬화됩니다.
     content: List[MealDetail]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ------------ 캘린더 메인 화면용 경량 요약 스키마 ------------------
 class CalendarMeal(BaseModel):
