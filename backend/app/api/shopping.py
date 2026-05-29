@@ -180,6 +180,7 @@ async def sync_shopping_items(
         added_count += 1
 
     db.commit()
+    db.flush()
     return {
         "message": "선택된 재료들이 장바구니에 반영되었습니다.",
         "added_count": added_count,

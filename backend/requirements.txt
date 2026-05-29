@@ -23,3 +23,6 @@ requests==2.34.2
 
 # PostgreSQL 드라이버
 psycopg2-binary
+
+# redis
+redis

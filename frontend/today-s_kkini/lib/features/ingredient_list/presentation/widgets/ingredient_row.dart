@@ -7,6 +7,7 @@ class IngredientRow extends StatelessWidget {
   final Ingredient ingredient;
   final bool isChecked;
   final String? selectedMarket;
+  final List<String> userMarkets;
   final VoidCallback onToggle;
   final VoidCallback onTapDetail;
 
@@ -15,6 +16,7 @@ class IngredientRow extends StatelessWidget {
     required this.ingredient,
     required this.isChecked,
     this.selectedMarket,
+    this.userMarkets = const ['쿠팡', '컬리', '네이버'],
     required this.onToggle,
     required this.onTapDetail,
   });
@@ -23,8 +25,8 @@ class IngredientRow extends StatelessWidget {
   Widget build(BuildContext context) {
     // 사용자가 선택한 마켓이 있으면 그 가격/마켓을 우선 표시.
     // 선택 없거나 재고 없으면 최저가 마켓으로 폴백 (effective* 가 처리).
-    final shownPrice = ingredient.effectivePrice(selectedMarket);
-    final shownMarket = ingredient.effectiveMarket(selectedMarket);
+    final shownPrice = ingredient.effectivePriceWithin(selectedMarket, userMarkets);
+    final shownMarket = ingredient.effectiveMarketWithin(selectedMarket, userMarkets);
     final isUserPick = selectedMarket != null && shownMarket == selectedMarket;
 
     return Container(

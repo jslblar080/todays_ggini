@@ -6,10 +6,12 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format.dart';
 import '../../../../core/widgets/bottom_nav_bar.dart';
+import '../../../mypage/presentation/providers/mypage_provider.dart';
 import '../../../shopping_selection/presentation/providers/shopping_selection_provider.dart';
 import '../providers/ingredient_list_provider.dart';
 import '../widgets/ingredient_row.dart';
 import '../widgets/menu_summary_card.dart';
+
 
 class IngredientListScreen extends ConsumerWidget {
   final String mealId;
@@ -99,6 +101,9 @@ class IngredientListScreen extends ConsumerWidget {
 
     final menu = state.menu!;
 
+    final userMarkets =
+        ref.watch(myPageProvider).profile?.markets ?? ['쿠팡', '컬리', '네이버'];
+
     final selection = ref.watch(shoppingSelectionProvider);
     final checkedSet =
         selection.selectionFor(sourceDate ?? DateTime.now(), sourceSlot ?? 1) ??
@@ -107,7 +112,7 @@ class IngredientListScreen extends ConsumerWidget {
         .where((i) => checkedSet.contains(i.ingredientId))
         .fold<int>(0, (sum, i) {
           final selectedMarket = selection.selectedMarketFor(i.ingredientId);
-          return sum + (i.effectivePrice(selectedMarket) ?? 0);
+          return sum + (i.effectivePriceWithin(selectedMarket, userMarkets) ?? 0);
         });
 
     return Column(
@@ -132,6 +137,7 @@ class IngredientListScreen extends ConsumerWidget {
                     selectedMarket: selection.selectedMarketFor(
                       ing.ingredientId,
                     ),
+                    userMarkets: userMarkets,
                     onToggle: () => notifier.toggleIngredient(ing.ingredientId),
                     onTapDetail: () {
                       context.push(

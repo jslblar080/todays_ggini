@@ -16,6 +16,14 @@ class TokenPayload(BaseModel):
     """
     sub: Optional[int] = None
 
+# ------- 토큰 재발급 전용 스키마 -------------
+class TokenRefreshRequest(BaseModel):
+    refreshToken: str
+
+class TokenRefreshResponse(BaseModel):
+    accessToken: str
+    tokenType: str = "bearer"
+
 # --- 2. 유저 정보 기본 스키마 ---
 class UserBase(BaseModel):
     provider: str
@@ -31,6 +39,7 @@ class UserInfo(BaseModel):
     image_url : Optional[str] = None
     is_guest: bool
     is_onboarded: bool
+    markets: List[str]
 
     persona_id: Optional[int] = Field(None, ge=1, le=6, description="선택한 페르소나 ID")
     meals_per_day: Optional[int] = Field(None, ge=1, le=5, description="하루 식사 수")
@@ -62,6 +71,7 @@ class UserOnboardingUpdate(BaseModel):
     preferred_categories: Optional[List[str]] = Field(None, description="선호하는 식단 카테고리 (한식, 일식 등)")
     preferred_ingredients: Optional[List[str]] = Field(None, description="선택한 선호 재료군")
     excluded_ingredients: Optional[List[str]] = Field(None, description="기호/알러지 제외 식재료")
+    markets: Optional[List[str]] = Field(None, description="장보기 대상 마켓 리스트 (예: ['쿠팡', '네이버'])")
 
 # ------ API 응답 시 유저 정보를 돌려주는 스키마 --------
 class UserResponse(BaseModel):
@@ -70,12 +80,7 @@ class UserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# ------ 로그인 요청을 위한 스키마 ----------
-class LoginRequest(BaseModel):
-    provider: str
-    social_id: str
-
-# ------- 소셜 로그인 전용 스키마 --------
+# ------- 로그인 전용 스키마 --------
 class SocialLoginRequest(BaseModel):
     accessToken: str
 
@@ -93,7 +98,3 @@ class SocialLoginResponse(BaseModel):
 # ------ 닉네임 변경 전용 스키마 --------
 class NicknameUpdateRequest(BaseModel):
     nickname: str
-
-# ------ 이미지 변경 전용 스키마 ---------
-class ProfileImageUpdateRequest(BaseModel):
-    imageUrl: str

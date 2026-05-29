@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/bottom_nav_bar.dart';
+import '../../../mypage/presentation/providers/mypage_provider.dart';
 import '../../../shopping_selection/presentation/providers/shopping_selection_provider.dart';
 import '../providers/ingredient_detail_provider.dart';
 import '../widgets/ingredient_header_card.dart';
@@ -61,6 +62,15 @@ class IngredientDetailScreen extends ConsumerWidget {
     );
   }
 
+  // 마켓 키를 한글 이름으로 변환
+  String _marketToKorean(String market) {
+    switch (market) {
+      case 'coupang': return '쿠팡';
+      case 'market_kurly': return '컬리';
+      case 'naver_shopping': return '네이버';
+      default: return market;
+    }
+  }
 
   Widget _buildBody(
     BuildContext context,
@@ -75,8 +85,8 @@ class IngredientDetailScreen extends ConsumerWidget {
             '가격 정보를 불러오지 못했습니다.\n${state.error}',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.error
-            )
+              color: AppColors.error,
+            ),
           ),
         ),
       );
@@ -89,6 +99,12 @@ class IngredientDetailScreen extends ConsumerWidget {
     final prices = state.prices!;
     final selection = ref.watch(shoppingSelectionProvider);
     final selectedMarket = selection.selectedMarketFor(ingredientId);
+    final userMarkets = ref.watch(myPageProvider).profile?.markets ?? ['쿠팡', '컬리', '네이버'];
+
+    // 사용자 마켓으로 필터링
+    final filteredPrices = prices.sortedByPrice
+        .where((entry) => userMarkets.contains(_marketToKorean(entry.key)))
+        .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -123,7 +139,7 @@ class IngredientDetailScreen extends ConsumerWidget {
           const SizedBox(height: 4),
           const Divider(color: AppColors.border, height: 1),
           const SizedBox(height: 4),
-          ...prices.sortedByPrice.map(
+          ...filteredPrices.map(
             (entry) => PriceComparisonRow(
               market: entry.key,
               price: entry.value,

@@ -20,4 +20,8 @@ class MyPageRepository {
     final data = await _remote.uploadProfileImage(bytes, filename);
     return data['imageUrl'] as String;
   }
+
+  Future<void> updateMarkets(List<String> markets) async {
+    await _remote.updateMarkets(markets);
+  }
 }

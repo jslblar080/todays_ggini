@@ -18,6 +18,7 @@ def create_user(db: Session, provider: str, social_id: str, email: str = None):
         social_id=social_id,
         email=email,
         is_guest=(provider == "guest"),
+        markets=["쿠팡", "컬리", "네이버"]
     )
     db.add(db_user)
     db.commit()

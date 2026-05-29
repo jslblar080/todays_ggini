@@ -16,6 +16,7 @@ class MyProfile {
   final String diversityLevel;
   final List<String> excludedIngredients;
   final String? selectedStyleId;
+  final List<String> markets;
 
   const MyProfile({
     required this.id,
@@ -35,6 +36,7 @@ class MyProfile {
     required this.diversityLevel,
     required this.excludedIngredients,
     this.selectedStyleId,
+    required this.markets,
   });
 
   factory MyProfile.fromJson(Map<String, dynamic> json) {
@@ -56,6 +58,7 @@ class MyProfile {
       diversityLevel: json['diversity_level'] as String,
       excludedIngredients: List<String>.from(json['excluded_ingredients'] as List),
       selectedStyleId: json['selected_style_id'] as String?,
+      markets: List<String>.from(json['markets'] ?? ['쿠팡', '컬리', '네이버']),
     );
   }
 }

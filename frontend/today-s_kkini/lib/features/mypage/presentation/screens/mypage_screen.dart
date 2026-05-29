@@ -31,6 +31,9 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   final List<String> _ingredientOptions = [
     '육류', '해산물류', '채소류', '식물성 단백질류', '계란 및 유제품류',
   ];
+  final List<String> _marketOptions = [
+    '쿠팡', '컬리', '네이버'
+  ];
 
   @override
   void initState() {
@@ -234,6 +237,86 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
+  void _showMarketDialog(List<String> currentMarkets) {
+    final selected = List<String>.from(currentMarkets);
+
+    showAppPopupWidget(
+      context: context,
+      title: '[이용 마켓]',
+      contentWidget: StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: _marketOptions.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final option = entry.value;
+                  final isSelected = selected.contains(option);
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          if (isSelected) {
+                            selected.remove(option);
+                          } else {
+                            selected.add(option);
+                          }
+                        });
+                      },
+                      child: Container(
+                        margin: EdgeInsets.only(right: index < _marketOptions.length - 1 ? 8 : 0),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : AppColors.buttonGray,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            option,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: isSelected ? Colors.white : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              if (selected.isEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '최소 1개 이상의 마켓을 선택해야 합니다',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      leftButtonText: '취소',
+      rightButtonText: '저장',
+      leftButtonColor: AppColors.textSecondary,
+      rightButtonColor: AppColors.primary,
+      onLeftTap: () => Navigator.pop(context),
+      onRightTap: () async {
+        if (selected.isEmpty) return;  // ← 빈 상태면 저장 안 함
+        try {
+          final repo = ref.read(myPageRepositoryProvider);
+          await repo.updateMarkets(selected);
+          await ref.read(myPageProvider.notifier).fetchMyProfile(); 
+          ref.read(myPageProvider.notifier).fetchMyProfile();
+        } catch (e) {
+          // 에러 처리
+        }
+        if (context.mounted) Navigator.pop(context);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(myPageProvider);
@@ -370,6 +453,12 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                 title: '한달 식비 예산',
                 value: '${(profile.monthlyBudget / 10000).round()}만원',
                 onTap: () => _showBudgetDialog(profile.monthlyBudget),
+              ),
+              SettingItem(
+                emoji: '🛒',
+                title: '이용 마켓',
+                value: _formatList(profile.markets),
+                onTap: () => _showMarketDialog(profile.markets),
               ),
               const SizedBox(height: 12),
               Divider(color: AppColors.border, thickness: 2),

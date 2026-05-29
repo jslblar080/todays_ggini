@@ -32,4 +32,12 @@ class MyPageRemoteDataSource {
     );
     return response.data!;
   }
+
+  Future<Map<String, dynamic>> updateMarkets(List<String> markets) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/user/onboarding',
+      data: {'markets': markets},
+    );
+    return response.data!;
+  }
 }
