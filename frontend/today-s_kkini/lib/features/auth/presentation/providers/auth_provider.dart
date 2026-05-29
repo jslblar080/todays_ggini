@@ -11,6 +11,8 @@ import '../../data/auth_remote_data_source.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/user.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 // Repository Provider
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   return AuthRemoteDataSource(ref.watch(dioProvider));
@@ -23,7 +25,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 // Google Sign In Provider
 final googleSignInProvider = Provider<GoogleSignIn>((ref) {
   return GoogleSignIn(
-    clientId: Env.googleWebClientId,
+    clientId: kIsWeb ? Env.googleWebClientId : null,
     scopes: ['email', 'profile'],
   );
 });
@@ -202,6 +204,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _googleSignIn.signOut();
       await _repository.logout();
       // 토큰 삭제
+      await _storage.delete(key: 'accessToken');
+      await _storage.delete(key: 'refreshToken');
+      if (!mounted) return;
+      state = const AuthState();
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(error: e, isLoading: false);
+    }
+  }
+
+  // 게스트 계정 완전 삭제
+  Future<void> unregister() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _repository.unregister();
       await _storage.delete(key: 'accessToken');
       await _storage.delete(key: 'refreshToken');
       if (!mounted) return;

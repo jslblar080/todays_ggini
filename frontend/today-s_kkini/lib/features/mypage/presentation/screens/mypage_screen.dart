@@ -12,6 +12,7 @@ import '../../../../core/widgets/popup.dart';
 import '../widgets/mypage_slider.dart';
 import '../widgets/mypage_budget_slider.dart';
 import '../../domain/my_profile.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class MyPageScreen extends ConsumerStatefulWidget {
   const MyPageScreen({super.key});
@@ -214,25 +215,43 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final router = GoRouter.of(context);
+    final isGuest = ref.read(authProvider).isGuest;
+
     showAppPopup(
       context: context,
-      content: '정말 로그아웃 하시겠어요?',
+      content: isGuest
+          ? '게스트 계정은 로그아웃 시\n모든 정보가 삭제됩니다.\n정말 로그아웃 하시겠어요?'
+          : '정말 로그아웃 하시겠어요?',
       leftButtonText: '취소',
       rightButtonText: '로그아웃',
       onLeftTap: () => Navigator.pop(context),
-      onRightTap: () => Navigator.pop(context),
+      onRightTap: () async {
+        Navigator.pop(context);
+        if (isGuest) {
+          await ref.read(authProvider.notifier).unregister();
+        } else {
+          await ref.read(authProvider.notifier).logout();
+        }
+        router.go(AppRoutes.auth);
+      },
       rightButtonColor: AppColors.textSecondary,
     );
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
+    final router = GoRouter.of(context);
     showAppPopup(
       context: context,
       content: '정말 탈퇴하시겠어요?\n모든 데이터가 삭제됩니다.',
       leftButtonText: '취소',
       rightButtonText: '탈퇴하기',
       onLeftTap: () => Navigator.pop(context),
-      onRightTap: () => Navigator.pop(context),
+      onRightTap: () async {
+        Navigator.pop(context);
+        await ref.read(authProvider.notifier).unregister();
+        router.go(AppRoutes.auth);
+      },
       rightButtonColor: AppColors.error,
     );
   }

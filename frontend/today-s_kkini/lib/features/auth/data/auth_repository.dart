@@ -45,4 +45,8 @@ class AuthRepository {
       isOnboarded: raw['is_onboarded'] as bool? ?? false,
     );
   }
+
+  Future<void> unregister() async {
+    await _remote.unregister();
+  }
 }

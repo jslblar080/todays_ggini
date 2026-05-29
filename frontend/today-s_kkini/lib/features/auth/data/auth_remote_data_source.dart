@@ -40,4 +40,9 @@ class AuthRemoteDataSource {
     final response = await _dio.get('/user/me');
     return response.data as Map<String, dynamic>;
   }
+
+  /// 회원 탈퇴
+  Future<void> unregister() async {
+    await _dio.delete('/auth/unregister');
+  }
 }
