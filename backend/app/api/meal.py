@@ -589,15 +589,6 @@ async def update_specific_menu_slot(
                 break
 
     if not new_menu_data:
-        for meal_slot in plan.content:
-            for alt in meal_slot.get("alternative_menus", []):
-                if str(alt.get("menu_id")) == str(request.new_menu_id):
-                    new_menu_data = alt
-                    break
-            if new_menu_data:
-                break
-
-    if not new_menu_data:
         raise HTTPException(
             status_code=400, detail="선택한 메뉴가 대안 리스트에 존재하지 않습니다."
         )

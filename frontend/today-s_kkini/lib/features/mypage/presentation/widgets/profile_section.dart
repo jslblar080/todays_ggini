@@ -58,9 +58,9 @@ class _ProfileSectionState extends State<ProfileSection> {
         maxLength: 15,
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: InputDecoration(
-          hintText: '닉네임을 입력하세요',
-          counterText: '',
-          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          hintText: '새 닉네임을 입력하세요',
+          hintStyle: Theme.of(context).textTheme.bodyMedium,
+          counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: AppColors.textSecondary,
           ),
           enabledBorder: UnderlineInputBorder(
