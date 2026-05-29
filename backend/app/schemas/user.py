@@ -39,6 +39,7 @@ class UserInfo(BaseModel):
     image_url : Optional[str] = None
     is_guest: bool
     is_onboarded: bool
+    markets: List[str]
 
     persona_id: Optional[int] = Field(None, ge=1, le=6, description="선택한 페르소나 ID")
     meals_per_day: Optional[int] = Field(None, ge=1, le=5, description="하루 식사 수")
@@ -70,6 +71,7 @@ class UserOnboardingUpdate(BaseModel):
     preferred_categories: Optional[List[str]] = Field(None, description="선호하는 식단 카테고리 (한식, 일식 등)")
     preferred_ingredients: Optional[List[str]] = Field(None, description="선택한 선호 재료군")
     excluded_ingredients: Optional[List[str]] = Field(None, description="기호/알러지 제외 식재료")
+    markets: Optional[List[str]] = Field(None, description="장보기 대상 마켓 리스트 (예: ['쿠팡', '네이버'])")
 
 # ------ API 응답 시 유저 정보를 돌려주는 스키마 --------
 class UserResponse(BaseModel):
