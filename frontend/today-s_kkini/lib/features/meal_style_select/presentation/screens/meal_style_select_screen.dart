@@ -40,34 +40,58 @@ class _MealStyleSelectScreenState
             const MascotSpeech(message: '이런 스타일은\n어떠세요?'),
             const SizedBox(height: 16),
 
+            // 에러일 때: 메시지 + 다시 시도만
+            if (state.error != null)
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            '식단 생성을 완료하지 못했어요.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => ref
+                              .read(mealStyleSelectProvider.notifier)
+                              .fetchCandidates(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                          ),
+                          child: Text(
+                            '다시 시도',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+
             // 로딩 중
-            if (state.isLoading)
+            else if (state.isLoading)
               const Expanded(
                 child: Center(child: CircularProgressIndicator()),
               )
 
-            // 에러
-            else if (state.error != null)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('식단 후보를 불러오지 못했어요.'),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () => ref
-                            .read(mealStyleSelectProvider.notifier)
-                            .fetchCandidates(),
-                        child: const Text('다시 시도'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-
             // 데이터
-            else
+            else ...[
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -87,38 +111,38 @@ class _MealStyleSelectScreenState
                   },
                 ),
               ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Center(
-                child: Text(
-                  '위 식단은 예시 샘플 식단입니다.',
-                  style: Theme.of(context).textTheme.bodySmall,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Center(
+                  child: Text(
+                    '위 식단은 예시 샘플 식단입니다.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _selectedIndex == null
-                      ? null
-                      : () => context.go(AppRoutes.mealPlanLoading),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.buttonGray,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(32),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _selectedIndex == null
+                        ? null
+                        : () => context.go(AppRoutes.mealPlanLoading),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.buttonGray,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                    ),
+                    child: Text(
+                      '이 스타일로 결정하기',
+                      style: Theme.of(context).textTheme.labelLarge,
                     ),
                   ),
-                  child: Text(
-                    '이 스타일로 결정하기',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

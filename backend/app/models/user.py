@@ -39,6 +39,9 @@ class User(Base):
     # 온보딩 상태 체크 (이 값이 False면 페르소나 설정 화면으로 강제 이동)
     is_onboarded = Column(Boolean, default=False)
 
+    # 마켓 정보
+    markets = Column(JSONB, default=["쿠팡", "컬리", "네이버"], nullable=False)
+
     # [목적 설정] AI 가중치 계산의 핵심
     purpose = Column(JSONB, default=list)
 

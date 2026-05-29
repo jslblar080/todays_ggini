@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Any
 
 from app.api.deps import get_db, get_current_user
-from app.schemas.user import UserResponse, UserOnboardingUpdate, UserInfo, NicknameUpdateRequest, ProfileImageUpdateRequest
+from app.schemas.user import UserResponse, UserOnboardingUpdate, UserInfo, NicknameUpdateRequest
 from app.crud import crud_user
 from app.models.user import User
 
@@ -12,7 +12,7 @@ router = APIRouter()
 
 # --------------------------- 온보딩 업데이트 API ---------------------------------    
 @router.patch("/onboarding", response_model=UserResponse)
-def update_onboarding(
+async def update_onboarding(
     obj_in: UserOnboardingUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)) -> Any:
@@ -26,7 +26,7 @@ def update_onboarding(
 # ----------------- 개인 프로필 조회 API -------------------------
 
 @router.get("/me", response_model=UserInfo)
-def get_my_info(current_user: User = Depends(get_current_user)) -> Any:
+async def get_my_info(current_user: User = Depends(get_current_user)) -> Any:
     """
     [내 정보] 현재 로그인된 유저의 정보를 가져옵니다.
     """
@@ -34,7 +34,7 @@ def get_my_info(current_user: User = Depends(get_current_user)) -> Any:
 
 # -------------- 닉네임 변경 API ---------------------
 @router.patch("/profile")
-def update_nickname(
+async def update_nickname(
     request: NicknameUpdateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

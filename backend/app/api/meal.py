@@ -7,7 +7,6 @@ import calendar
 
 from app.api.deps import get_db, get_current_user
 from app.db.session import SessionLocal
-from app.utils.meal_transformer import transform_ai_plan_to_front
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
 from app.models.meal import MealPlan
@@ -160,7 +159,7 @@ async def check_generation_status(job_id: str):
 
 # --------------------- 생성된 30일 식단 최종 확정 및 요약 정보 반환 API -----------------------
 @router.post("/confirm", response_model=MealConfirmResponse)
-def confirm_meal_plan(
+async def confirm_meal_plan(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
@@ -201,7 +200,7 @@ def confirm_meal_plan(
 
 # -------------------- 월간 캘린더 조회 API ----------------------------
 @router.get("/calendar", response_model=CalendarResponse)
-def get_monthly_calendar(
+async def get_monthly_calendar(
     month: str,  # "2026-04" 형식
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -449,7 +448,7 @@ async def get_menu_detail(
 
 # -------------------------- 식단 swap API -----------------------------------
 @router.patch("/{date}/swap", response_model=MealSwapResponse)
-def swap_meal_plans(
+async def swap_meal_plans(
     date: date,
     request: MealSwapRequest,
     db: Session = Depends(get_db),
@@ -579,6 +578,24 @@ async def update_specific_menu_slot(
         if str(alt.get("menu_id")) == str(request.new_menu_id):
             new_menu_data = alt
             break
+    
+    if not new_menu_data:
+        for meal_slot in plan.content:
+            for alt in meal_slot.get("alternative_menus", []):
+                if str(alt.get("menu_id")) == str(request.new_menu_id):
+                    new_menu_data = alt
+                    break
+            if new_menu_data:
+                break
+
+    if not new_menu_data:
+        for meal_slot in plan.content:
+            for alt in meal_slot.get("alternative_menus", []):
+                if str(alt.get("menu_id")) == str(request.new_menu_id):
+                    new_menu_data = alt
+                    break
+            if new_menu_data:
+                break
 
     if not new_menu_data:
         for meal_slot in plan.content:

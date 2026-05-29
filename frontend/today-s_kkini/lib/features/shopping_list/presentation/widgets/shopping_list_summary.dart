@@ -5,11 +5,33 @@ import '../../domain/shopping_list.dart';
 
 class ShoppingListSummary extends StatelessWidget {
   final ShoppingList data;
+  final List<String> userMarkets;
 
-  const ShoppingListSummary({super.key, required this.data});
+  const ShoppingListSummary({
+    super.key,
+    required this.data,
+    this.userMarkets = const ['쿠팡', '컬리', '네이버'],
+  });
+
+  // 마켓 키를 한글로 변환
+  String _marketToKorean(String market) {
+    switch (market) {
+      case 'coupang': return '쿠팡';
+      case 'market_kurly': return '컬리';
+      case 'naver_shopping': return '네이버';
+      default: return market;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final filteredCounts = data.marketCounts
+        .where((c) =>
+            userMarkets.contains(c.market) ||
+            userMarkets.contains(_marketToKorean(c.market)))
+        .toList();
+    final activeCount = filteredCounts.where((c) => c.count > 0).length;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
@@ -26,12 +48,12 @@ class ShoppingListSummary extends StatelessWidget {
               children: [
                 Text(
                   '총 ${data.checkedItemsCount}개 항목',
-                  style: Theme.of(context).textTheme.bodyMedium
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '₩${formatPrice(data.totalPricePerShopping)}',
-                  style: Theme.of(context).textTheme.bodyLarge
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ],
             ),
@@ -40,20 +62,20 @@ class ShoppingListSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '마켓 ${data.activeMarketCount}곳',
+                '마켓 $activeCount곳',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                _marketCountLine(data.marketCounts),
+                _marketCountLine(filteredCounts),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              _MarketIndicators(counts: data.marketCounts),
+              _MarketIndicators(counts: filteredCounts),
             ],
           ),
         ],
@@ -101,10 +123,9 @@ class _IndicatorBox extends StatelessWidget {
         border: Border.all(color: AppColors.textPrimary),
         borderRadius: BorderRadius.circular(3),
       ),
-      child:
-          checked
-              ? const Icon(Icons.check, size: 14, color: AppColors.textPrimary)
-              : null,
+      child: checked
+          ? const Icon(Icons.check, size: 14, color: AppColors.textPrimary)
+          : null,
     );
   }
 }
