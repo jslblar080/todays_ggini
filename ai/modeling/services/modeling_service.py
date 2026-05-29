@@ -596,9 +596,15 @@ def create_monthly_plan(request_data: dict) -> dict:
     use_ortools = request_data.get("use_ortools", False)
 
     if use_ortools:
+        optimizer_config = request_data.get("optimizer_config", {}) or {}
+        optimizer_profile = {
+            **monthly_profile,
+            **optimizer_config,
+        }
+
         optimizer_input = build_optimizer_input(
             recommendations=recommendations,
-            profile=monthly_profile,
+            profile=optimizer_profile,
             period_days=period_days,
             meal_count_per_day=meal_count_per_day,
         )
@@ -611,7 +617,7 @@ def create_monthly_plan(request_data: dict) -> dict:
             optimizer_result=optimizer_result,
             optimizer_input=optimizer_input,
             recommendations=recommendations,
-            profile=monthly_profile,
+            profile=optimizer_profile,
         )
 
     else:

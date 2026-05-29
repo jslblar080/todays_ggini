@@ -68,6 +68,7 @@ def build_monthly_request(scenario: dict) -> dict:
         "profile": profile,
         "selected_style": selected_style,
         "use_ortools": scenario.get("use_ortools", False),
+        "optimizer_config": scenario.get("optimizer_config", {}),
     }
 
     return request_data
