@@ -71,7 +71,11 @@ class UserOnboardingUpdate(BaseModel):
     preferred_categories: Optional[List[str]] = Field(None, description="선호하는 식단 카테고리 (한식, 일식 등)")
     preferred_ingredients: Optional[List[str]] = Field(None, description="선택한 선호 재료군")
     excluded_ingredients: Optional[List[str]] = Field(None, description="기호/알러지 제외 식재료")
-    markets: Optional[List[str]] = Field(None, description="장보기 대상 마켓 리스트 (예: ['쿠팡', '네이버'])")
+    markets: Optional[List[str]] = Field(
+        default_factory=lambda: ["쿠팡", "컬리", "네이버"], 
+        description="장보기 대상 마켓 리스트",
+        examples=[["쿠팡", "컬리", "네이버"]]
+    )
 
 # ------ API 응답 시 유저 정보를 돌려주는 스키마 --------
 class UserResponse(BaseModel):

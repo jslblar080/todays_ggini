@@ -2,10 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Background
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
+from redis.asyncio import Redis
 import uuid
 import calendar
+import hashlib
+import json
 
 from app.api.deps import get_db, get_current_user
+from app.core.redis import get_redis
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
@@ -51,7 +55,7 @@ JOB_STORE = {}
 
 # -------------------- 월간 식단 요청(비동기 실행) ----------------------------
 async def background_monthly_plan_task(
-    job_id: str, user_id: int, selected_style_id: str
+    job_id: str, user_id: int, selected_style_id: str, redis: Redis
 ):
     """
     API 응답이 나간 뒤 백그라운드에서 조용히 실행될 함수
@@ -79,19 +83,53 @@ async def background_monthly_plan_task(
             style_id=selected_style_id,
         )
 
+        request_type = "monthly_plan"
+
+        user_profile = build_modeling_profile_from_user(
+            current_user=current_user,
+            period_days=days_remaining,
+        )
+
         modeling_payload = {
             "user_id": get_modeling_user_id(current_user),
-            "request_type": "monthly_plan",
+            "request_type": request_type,
             "selected_style": selected_style,
-            "profile": build_modeling_profile_from_user(
-                current_user=current_user,
-                period_days=days_remaining,
-            ),
+            "profile":user_profile,
         }
 
-        JOB_STORE[job_id]["progress"] = "식단 후보 생성 중 (AI 연산)"
-        # AI 호출
-        ai_response = await asyncio.to_thread(create_monthly_plan, modeling_payload)
+        # ----------------------- [AI 응답 결과 캐싱 구간 ] -----------------------
+        JOB_STORE[job_id]["progress"] = "기존 식단 캐시 확인 중"
+
+        # 딕셔너리 내부 순서가 달라도 같은 해시가 나오도록 고정 정렬 후 JSON 문자열 덤프
+        # (user_id를 제외한 user_profile과 request_type, selected_style_id만 조합하여 공유 캐시 효율 극대화)
+        profile_json_string = json.dumps(user_profile, sort_keys=True, ensure_ascii=False)
+        raw_cache_string = f"{request_type}:{selected_style_id}:{profile_json_string}"
+        
+        # MD5로 32글자 고유 해시값 생성 후 최종 Redis 캐시 키 완성
+        payload_hash = hashlib.md5(raw_cache_string.encode("utf-8")).hexdigest()
+        cache_key = f"ai:monthly_plan:{payload_hash}"
+
+        # Redis에서 해당 캐시가 존재하는지 비동기 조회 (Cache Hit 확인)
+        cached_response = await redis.get(cache_key)
+
+        if cached_response:
+            # [Cache Hit] 동일한 조건의 캐시 발견 시, 외부 AI 호출을 스킵하고 즉시 파싱
+            JOB_STORE[job_id]["progress"] = "식단 캐시 매칭 성공 (AI 연산 스킵)"
+            ai_response = json.loads(cached_response)
+        else:
+            # [Cache Miss] 일치하는 캐시가 없으므로 실제 AI 호출 진행
+            JOB_STORE[job_id]["progress"] = "새로운 식단 생성 중 (AI 연산)"
+            
+            # AI 호출 (블로킹 오버헤드 방지를 위해 스레드 풀에서 비동기 실행)
+            ai_response = await asyncio.to_thread(create_monthly_plan, modeling_payload)
+
+            # 다음 중복 요청을 위해 연산 결과를 Redis에 캐싱 (TTL: 2일 = 172800초)
+            await redis.setex(
+                name=cache_key,
+                time=172800,
+                value=json.dumps(ai_response, ensure_ascii=False)
+            )
+        # ------------------------------------------------------------------
 
         days_data = ai_response.get("monthly_plan", {}).get("days", [])
 
@@ -117,14 +155,14 @@ async def generate_meal_plans_trigger(
     request: StyleSelectRequest,  # 프론트에서 넘어온 스타일 ID
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
 ):
     """
     [화면 6] 프로필 기반 식단 생성 트리거
-    Celery로 백그라운드 작업을 호출하고 작업 ID를 반환합니다.
+    FastAPI BackgroundTasks로 백그라운드 작업을 호출하고 작업 ID를 반환합니다.
     """
 
-    # 1. Celery Task 백그라운드 호출 (.delay 사용)
-    # 반드시 DB 객체가 아닌 원시 타입(Primitive Type)만 넘겨야 합니다.
+    # 1. 고유한 작업 ID 생성
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
     # 2. 백그라운드에 일거리 던지기 (함수 이름과 인자들을 넘김)
@@ -133,9 +171,10 @@ async def generate_meal_plans_trigger(
         job_id=job_id,
         user_id=current_user.id,
         selected_style_id=request.selected_style_id,
+        redis=redis,
     )
 
-    # 2. Celery가 발급한 고유 Task ID를 프론트에 전달
+    # 3. 고유 Job ID를 프론트에 즉시 반환
     return {
         "job_id": job_id,
         "estimated_seconds": 10,
@@ -748,8 +787,6 @@ async def get_meal_alternatives(
     # 4. 명세서 기반 Alternatives 가공
     alternatives = []
     for alt, url in zip(alt_menus, alt_img_urls):
-        alt_menu_name = alt.get("name", "")
-        alt_menu_category = alt.get("category", "")
         alternatives.append(
             {
                 "meal_id": alt.get("menu_id", ""),
