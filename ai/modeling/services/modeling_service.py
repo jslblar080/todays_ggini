@@ -661,7 +661,16 @@ def build_optimizer_infeasible_monthly_response(
                 "solver_status": optimizer_result.get("solver_status"),
                 "objective_value": optimizer_result.get("objective_value"),
                 "message": optimizer_result.get("message"),
-                "config": optimizer_input.get("optimizer_config", {}),
+                "config": {
+                    **optimizer_input.get("optimizer_config", {}),
+                    "monthly_budget": optimizer_input.get("monthly_budget"),
+                    "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
+                    "solver_time_limit_seconds": optimizer_input.get("solver_time_limit_seconds"),
+                    "score_weight": optimizer_input.get("score_weight"),
+                    "cost_penalty_weight": optimizer_input.get("cost_penalty_weight"),
+                    "cost_penalty_divisor": optimizer_input.get("cost_penalty_divisor"),
+                    "repeat_penalty_weight": optimizer_input.get("repeat_penalty_weight"),
+                },
             },
             "summary": {
                 "selected_menu_count": 0,

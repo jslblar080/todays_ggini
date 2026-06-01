@@ -49,6 +49,7 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
     cost_penalty_weight = optimizer_input.get("cost_penalty_weight", 1)
     cost_penalty_divisor = optimizer_input.get("cost_penalty_divisor", 100)
     repeat_penalty_weight = optimizer_input.get("repeat_penalty_weight", 300)
+    monthly_budget = int(optimizer_input.get("monthly_budget") or 0)
 
     if not slots:
         return {
@@ -100,6 +101,17 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
         menu_usage_vars[menu_index] = usage_count
 
         model.Add(usage_count <= max_repeat_per_menu)
+
+    # 제약 3: 월간 총 예상 비용이 사용자 예산을 넘지 않도록 제한한다.
+    if monthly_budget > 0:
+        total_estimated_cost_expr = sum(
+            decision_vars[(slot_index, menu["index"])]
+            * int(menu.get("estimated_cost", 0) or 0)
+            for slot_index, _slot in enumerate(slots)
+            for menu in menus
+        )
+
+        model.Add(total_estimated_cost_expr <= monthly_budget)
 
     # 목적 함수:
     # final_score는 높일수록 좋고,
@@ -164,6 +176,15 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "selected_items": [],
             "objective_value": None,
             "message": "OR-Tools가 가능한 식단 조합을 찾지 못했습니다.",
+            "optimizer_config": {
+                "score_weight": score_weight,
+                "cost_penalty_weight": cost_penalty_weight,
+                "cost_penalty_divisor": cost_penalty_divisor,
+                "repeat_penalty_weight": repeat_penalty_weight,
+                "max_repeat_per_menu": max_repeat_per_menu,
+                "solver_time_limit_seconds": time_limit,
+                "monthly_budget": monthly_budget,
+            },
         }
 
     selected_items = []
@@ -196,5 +217,6 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "repeat_penalty_weight": repeat_penalty_weight,
             "max_repeat_per_menu": max_repeat_per_menu,
             "solver_time_limit_seconds": time_limit,
+            "monthly_budget": monthly_budget,
         },
     }

@@ -117,6 +117,7 @@ def build_optimizer_input(
         "meal_count_per_day": meal_count_per_day,
         "slots": slots,
         "menus": menus,
+        "monthly_budget": profile.get("monthly_budget"),
         "max_repeat_per_menu": optimizer_config["max_repeat_per_menu"],
         "solver_time_limit_seconds": optimizer_config["solver_time_limit_seconds"],
         "score_weight": optimizer_config["score_weight"],
