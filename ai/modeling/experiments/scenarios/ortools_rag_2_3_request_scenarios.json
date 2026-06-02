@@ -1,0 +1,366 @@
+{
+  "experiment_name": "ortools_rag_2_3_request",
+  "description": "OR-Tools RAG 후보 요청 수 required_meal_count x 2.3 실험",
+  "scenarios": [
+    {
+      "scenario_id": "S01_balanced_default",
+      "description": "기본 균형형 사용자",
+      "purpose": "정상적인 일반 사용자 조건에서 기본 추천 품질을 확인한다.",
+      "profile": {
+        "goals": [
+          "영양 균형"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 450000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "양식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "육류",
+          "식물성 단백질류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "budget_usage_rate",
+        "daily_calorie_satisfaction_rate",
+        "daily_protein_satisfaction_rate",
+        "duplicate_menu_count",
+        "average_preference_score"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S02_low_budget_saving",
+      "description": "식비 절약 + 낮은 예산 사용자",
+      "purpose": "월간 예산이 낮은 상황에서 예산 초과 여부와 비용 안정성을 확인한다.",
+      "profile": {
+        "goals": [
+          "식비 절약"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 250000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "분식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "식물성 단백질류",
+          "채소류",
+          "계란 및 유제품류",
+          "육류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "monthly_total_cost",
+        "budget_usage_rate",
+        "budget_overrun_amount",
+        "average_daily_cost"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S03_high_protein",
+      "description": "고단백 목표 사용자",
+      "purpose": "고단백 목표에서 단백질 충족률과 단백질 부족 일수를 확인한다.",
+      "profile": {
+        "goals": [
+          "고단백"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 500000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "샐러드/건강식",
+          "양식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "육류",
+          "식물성 단백질류",
+          "계란 및 유제품류",
+          "채소류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "daily_protein_satisfaction_rate",
+        "average_daily_protein",
+        "protein_deviation_avg",
+        "protein_violation_count"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S04_diet_calorie_control",
+      "description": "다이어트 + 칼로리 제한 사용자",
+      "purpose": "다이어트 목표에서 하루 칼로리 범위 유지 여부를 확인한다.",
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 420000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류",
+          "육류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "daily_calorie_satisfaction_rate",
+        "average_daily_calorie",
+        "calorie_deviation_avg",
+        "daily_calorie_violation_count"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S05_easy_cooking_low_skill",
+      "description": "간편식 + 낮은 조리 실력 사용자",
+      "purpose": "조리 난이도가 낮은 사용자의 난이도 적합도를 확인한다.",
+      "profile": {
+        "goals": [
+          "간편식"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 1,
+        "preferred_categories": [
+          "다 좋아요",
+          "분식",
+          "한식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "계란 및 유제품류",
+          "육류",
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "difficulty_satisfaction_rate",
+        "average_difficulty",
+        "difficulty_violation_count",
+        "average_final_score"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S06_allergy_safe",
+      "description": "알레르기 조건 포함 사용자",
+      "purpose": "알레르기 조건이 hard constraint로 안전하게 지켜지는지 확인한다.",
+      "profile": {
+        "goals": [
+          "영양 균형"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 450000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "양식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류",
+          "육류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": [
+          "우유",
+          "새우"
+        ]
+      },
+      "main_metrics": [
+        "allergy_violation_count",
+        "allergy_safe_rate",
+        "candidate_removed_by_allergy",
+        "fallback_count"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S07_high_diversity",
+      "description": "다양성 선호가 높은 사용자",
+      "purpose": "다양성 선호가 높은 경우 메뉴 중복, 카테고리 반복, 재료군 반복을 확인한다.",
+      "profile": {
+        "goals": [
+          "영양 균형"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 480000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "양식",
+          "일식",
+          "분식"
+        ],
+        "diversity_level": "높음",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류",
+          "육류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "unique_menu_ratio",
+        "duplicate_menu_count",
+        "category_diversity_score",
+        "ingredient_group_diversity_score",
+        "consecutive_same_category_count",
+        "consecutive_same_ingredient_count"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S08_narrow_preference",
+      "description": "선호 조건이 매우 좁은 사용자",
+      "purpose": "선호 카테고리와 재료군이 좁은 경우 후보 부족, fallback, feasible 여부를 확인한다.",
+      "profile": {
+        "goals": [
+          "고단백",
+          "간편식"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 350000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "높음",
+        "ingredient_preferences": [
+          "육류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "candidate_count",
+        "fallback_count",
+        "feasible_rate",
+        "infeasible_count",
+        "average_preference_score"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S09_taste_fastfood_dairy",
+      "description": "맛 중심 + 패스트푸드 + 계란 및 유제품류 사용자",
+      "purpose": "온보딩에서 맛 중심, 패스트푸드, 계란 및 유제품류 조합이 후보 부족을 유발하는지 확인한다.",
+      "profile": {
+        "goals": [
+          "맛 중심"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 2,
+        "preferred_categories": [
+          "패스트푸드"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "candidate_count",
+        "fallback_count",
+        "empty_result_count",
+        "preferred_category_match_rate",
+        "ingredient_preference_match_rate"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    },
+    {
+      "scenario_id": "S10_complex_constraints_stress",
+      "description": "예산·영양·알레르기·선호 조건이 동시에 강한 사용자",
+      "purpose": "복합 제약 조건에서 추천 실패 여부와 실패 원인 기록 가능성을 확인한다.",
+      "profile": {
+        "goals": [
+          "고단백",
+          "식비 절약",
+          "간편식"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 220000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 1,
+        "preferred_categories": [
+          "샐러드/건강식",
+          "패스트푸드"
+        ],
+        "diversity_level": "높음",
+        "ingredient_preferences": [
+          "육류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": [
+          "우유",
+          "새우"
+        ]
+      },
+      "main_metrics": [
+        "feasible_rate",
+        "infeasible_count",
+        "solver_status",
+        "fallback_count",
+        "relaxed_condition_count",
+        "allergy_violation_count"
+      ],
+      "use_ortools": true,
+      "rag_candidate_multiplier": 2.3
+    }
+  ]
+}
