@@ -1,8 +1,14 @@
 from copy import deepcopy
+import time
 from services.profile.profile_service import build_user_profile_response
 
 from services.rag.rag_request_service import build_rag_request
 from services.rag.rag_client import request_candidate_menus_from_rag
+from services.rag.rag_candidate_diagnostics import (
+    calculate_additional_candidate_count,
+    diagnose_monthly_candidate_pool,
+    merge_candidate_menus,
+)
 from services.rag.rag_response_mapper import map_rag_response_to_candidate_menus
 
 from services.style.meal_style_service import build_meal_style_candidates
@@ -19,6 +25,9 @@ from services.plan.plan_validation_service import (
     enrich_style_validation,
 )
 from services.plan.plan_payload_service import build_modeling_to_back_monthly_response
+from services.optimizer.optimizer_input_builder import build_optimizer_input
+from services.optimizer.ortools_monthly_optimizer import solve_monthly_plan_with_ortools
+from services.optimizer.optimizer_result_mapper import build_ortools_monthly_plan
 
 
 def get_required_user_id(request_data: dict) -> str:
@@ -66,16 +75,72 @@ def calculate_style_candidate_count(profile: dict) -> int:
     return sample_period_days * meal_count_per_day * 3
 
 
+def calculate_monthly_rag_candidate_multiplier(profile: dict) -> float:
+    """
+    월간 식단 생성을 위한 RAG 후보 요청 배수를 계산한다.
+
+    rag_candidate_multiplier가 명시적으로 전달되면 해당 값을 우선 사용한다.
+    값이 없으면 사용자 조건의 복잡도를 기준으로 기본 배수를 동적으로 결정한다.
+    """
+    explicit_multiplier = profile.get("rag_candidate_multiplier")
+
+    if explicit_multiplier is not None:
+        return float(explicit_multiplier)
+
+    monthly_budget = int(profile.get("monthly_budget", 0) or 0)
+    preferred_categories = profile.get("preferred_categories", []) or []
+    ingredient_preferences = profile.get("ingredient_preferences", []) or []
+    allergy_ingredients = profile.get("allergy_ingredients", []) or []
+    diversity_level = profile.get("diversity_level")
+
+    risk_score = 0
+
+    # 예산이 낮으면 가능한 조합이 줄어들 수 있다.
+    if monthly_budget and monthly_budget <= 250000:
+        risk_score += 1
+
+    # 알레르기 조건이 있으면 제외되는 후보가 늘어날 수 있다.
+    if allergy_ingredients:
+        risk_score += 1
+
+    # 선호 카테고리가 좁으면 후보 풀이 부족해질 수 있다.
+    if len(preferred_categories) <= 1:
+        risk_score += 1
+
+    # 선호 재료군이 좁으면 후보 풀이 부족해질 수 있다.
+    if len(ingredient_preferences) <= 1:
+        risk_score += 1
+
+    # 다양성을 높게 요구하면 더 넓은 후보 풀이 필요하다.
+    if diversity_level == "높음":
+        risk_score += 1
+
+    # 복합 제약 조건이 강한 경우에만 안정성 우선 배수를 사용한다.
+    if risk_score >= 3:
+        return 2.8
+
+    # 일반 사용자는 속도를 우선해 요청 후보 수를 줄인다.
+    return 2.4
+
+
 def calculate_monthly_candidate_count(profile: dict) -> int:
     """
-    월간 식단 생성을 위한 후보 메뉴 개수를 계산한다.
+    월간 식단 생성을 위한 RAG 후보 메뉴 요청 개수를 계산한다.
+
+    기본값은 사용자 조건에 따라 required_meal_count x 2.4 또는 x 2.8이다.
+    실험 또는 성능 최적화를 위해 rag_candidate_multiplier를 전달하면
+    해당 배율을 우선 적용한다.
     """
+    period_days = int(profile.get("period_days", 30) or 30)
+    meal_count_per_day = int(profile.get("meal_count_per_day", 1) or 1)
 
-    period_days = profile.get("period_days", 30)
-    meal_count_per_day = profile.get("meal_count_per_day", 1)
+    required_meal_count = period_days * meal_count_per_day
+    rag_candidate_multiplier = calculate_monthly_rag_candidate_multiplier(profile)
 
-    # 월간 식단은 대체 메뉴까지 필요하므로 3배 후보를 요청한다.
-    return period_days * meal_count_per_day * 3
+    candidate_count = int(round(required_meal_count * rag_candidate_multiplier))
+
+    # 최소한 월간 식단 슬롯 수만큼은 후보를 요청한다.
+    return max(required_meal_count, candidate_count)
 
 
 def copy_profile_with_relaxed_conditions(
@@ -345,6 +410,7 @@ def request_monthly_candidate_menus_with_fallback(
         "fallback_steps": [],
         "warnings": [],
         "final_candidate_count": 0,
+        "candidate_diagnostics": None,
     }
 
     rag_request = build_rag_request(
@@ -366,7 +432,19 @@ def request_monthly_candidate_menus_with_fallback(
     )
 
     if candidate_menus:
+        period_days = int(profile.get("period_days", 30) or 30)
+        meal_count_per_day = int(profile.get("meal_count_per_day", 1) or 1)
+        required_meal_count = period_days * meal_count_per_day
+        optimizer_candidate_limit = int(round(required_meal_count * 1.2))
+
+        fallback_info["candidate_diagnostics"] = diagnose_monthly_candidate_pool(
+            candidate_menus=candidate_menus,
+            profile=profile,
+            required_meal_count=required_meal_count,
+            optimizer_candidate_limit=optimizer_candidate_limit,
+        )
         fallback_info["final_candidate_count"] = len(candidate_menus)
+
         return candidate_menus, fallback_info
 
     for fallback_reason, fallback_profile, candidate_count_multiplier in (
@@ -405,6 +483,17 @@ def request_monthly_candidate_menus_with_fallback(
         )
 
         if fallback_candidate_menus:
+            period_days = int(fallback_profile.get("period_days", 30) or 30)
+            meal_count_per_day = int(fallback_profile.get("meal_count_per_day", 1) or 1)
+            required_meal_count = period_days * meal_count_per_day
+            optimizer_candidate_limit = int(round(required_meal_count * 1.2))
+
+            fallback_info["candidate_diagnostics"] = diagnose_monthly_candidate_pool(
+                candidate_menus=fallback_candidate_menus,
+                profile=fallback_profile,
+                required_meal_count=required_meal_count,
+                optimizer_candidate_limit=optimizer_candidate_limit,
+            )
             fallback_info["final_candidate_count"] = len(fallback_candidate_menus)
             fallback_info["warnings"].append(
                 "선호 조건에 맞는 후보 메뉴가 부족하여 일부 조건을 완화해 월간 식단을 생성했습니다."
@@ -524,6 +613,170 @@ def create_meal_style_candidates(request_data: dict) -> dict:
     return meal_style_response
 
 
+def build_candidate_insufficient_monthly_response(
+    user_id: str,
+    selected_style: dict,
+    base_profile: dict,
+    monthly_profile: dict,
+    period_days: int,
+    meal_count_per_day: int,
+    available_recommendation_count: int,
+    max_repeat_per_menu: int,
+    fallback_info: dict,
+) -> dict:
+    """
+    후보는 존재하지만, 반복 제한 조건상 월간 식단 슬롯을 채울 수 없을 때
+    Back에 반환할 실패 응답을 만든다.
+    """
+
+    required_meal_count = period_days * meal_count_per_day
+    max_fillable_meal_count = available_recommendation_count * max_repeat_per_menu
+
+    warnings = list(fallback_info.get("warnings", []))
+    warnings.append(
+        "추천 후보는 존재하지만, 현재 후보 수와 반복 제한 조건으로는 월간 식단을 구성할 수 없습니다."
+    )
+
+    return {
+        "user_id": user_id,
+        "request_type": "monthly_plan",
+        "success": False,
+        "failure_reason": "candidate_insufficient",
+        "message": "현재 후보 수와 반복 제한 조건으로는 월간 식단을 생성할 수 없습니다.",
+        "relaxation_suggestions": [
+            "선호 카테고리를 넓혀주세요.",
+            "선호 재료군을 추가해 주세요.",
+            "다양성 수준을 낮춰 메뉴 반복 허용 범위를 넓혀주세요.",
+            "목표 조건을 1~2개로 줄여주세요.",
+        ],
+        "selected_style": selected_style,
+        "meta": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "max_repeat_per_menu": max_repeat_per_menu,
+            "max_fillable_meal_count": max_fillable_meal_count,
+            "warnings": warnings,
+            "fallback": fallback_info,
+        },
+        "modeling_profile": base_profile,
+        "monthly_profile": monthly_profile,
+        "monthly_plan": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "profiling": profiling or {},
+            "optimizer": {
+                "enabled": False,
+                "solver": "OR-Tools CP-SAT",
+                "solver_status": "SKIPPED",
+                "objective_value": None,
+                "message": "후보 수 부족으로 OR-Tools 최적화를 실행하지 않았습니다.",
+                "config": {
+                    "max_repeat_per_menu": max_repeat_per_menu,
+                },
+            },
+            "summary": {
+                "selected_menu_count": 0,
+                "unique_menu_count": 0,
+                "duplicate_menu_count": 0,
+                "total_estimated_cost": 0,
+                "average_daily_cost": 0,
+            },
+            "days": [],
+        },
+    }
+
+
+def build_optimizer_infeasible_monthly_response(
+    user_id: str,
+    selected_style: dict,
+    base_profile: dict,
+    monthly_profile: dict,
+    period_days: int,
+    meal_count_per_day: int,
+    available_recommendation_count: int,
+    optimizer_result: dict,
+    optimizer_input: dict,
+    fallback_info: dict,
+    profiling: dict | None = None,
+) -> dict:
+    """
+    후보 수 사전 검증은 통과했지만 OR-Tools가 가능한 조합을 찾지 못했을 때
+    Back에 반환할 실패 응답을 만든다.
+    """
+
+    required_meal_count = period_days * meal_count_per_day
+
+    warnings = list(fallback_info.get("warnings", []))
+    warnings.append("OR-Tools가 현재 제약 조건을 만족하는 월간 식단 조합을 찾지 못했습니다.")
+
+    return {
+        "user_id": user_id,
+        "request_type": "monthly_plan",
+        "success": False,
+        "failure_reason": "optimizer_infeasible",
+        "message": "현재 후보와 제약 조건으로는 월간 식단을 구성할 수 없습니다.",
+        "relaxation_suggestions": [
+            "선호 카테고리를 넓혀주세요.",
+            "선호 재료군을 추가해 주세요.",
+            "다양성 수준을 낮춰 메뉴 반복 허용 범위를 넓혀주세요.",
+            "예산 또는 목표 조건을 일부 완화해 주세요.",
+        ],
+        "selected_style": selected_style,
+        "meta": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "fallback": fallback_info,
+        },
+        "modeling_profile": base_profile,
+        "monthly_profile": monthly_profile,
+        "monthly_plan": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "optimizer": {
+                "enabled": True,
+                "solver": "OR-Tools CP-SAT",
+                "solver_status": optimizer_result.get("solver_status"),
+                "objective_value": optimizer_result.get("objective_value"),
+                "message": optimizer_result.get("message"),
+                "config": {
+                    **optimizer_input.get("optimizer_config", {}),
+                    "monthly_budget": optimizer_input.get("monthly_budget"),
+                    "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
+                    "solver_time_limit_seconds": optimizer_input.get("solver_time_limit_seconds"),
+                    "score_weight": optimizer_input.get("score_weight"),
+                    "cost_penalty_weight": optimizer_input.get("cost_penalty_weight"),
+                    "cost_penalty_divisor": optimizer_input.get("cost_penalty_divisor"),
+                    "repeat_penalty_weight": optimizer_input.get("repeat_penalty_weight"),
+                    "required_meal_count": optimizer_input.get("required_meal_count"),
+                    "original_recommendation_count": optimizer_input.get("original_recommendation_count"),
+                    "used_optimizer_candidate_count": optimizer_input.get("used_optimizer_candidate_count"),
+                    "optimizer_candidate_multiplier": optimizer_input.get("optimizer_candidate_multiplier"),
+                    "optimizer_candidate_limit": optimizer_input.get("optimizer_candidate_limit"),
+                },
+            },
+            "summary": {
+                "selected_menu_count": 0,
+                "unique_menu_count": 0,
+                "duplicate_menu_count": 0,
+                "total_estimated_cost": 0,
+                "average_daily_cost": 0,
+            },
+            "days": [],
+        },
+    }
+
+
 def create_monthly_plan(request_data: dict) -> dict:
     """
     Back → Modeling 월간 식단 생성 진입점이다.
@@ -537,6 +790,9 @@ def create_monthly_plan(request_data: dict) -> dict:
     6. MMR 기반으로 기간별 식단을 생성한다.
     7. 스타일 반영 검증과 Back 응답 payload를 생성한다.
     """
+
+    profiling_started_at = time.perf_counter()
+    profiling = {}
 
     user_id = get_required_user_id(request_data)
 
@@ -560,17 +816,39 @@ def create_monthly_plan(request_data: dict) -> dict:
         selected_style=selected_style_summary,
     )
 
+    rag_candidate_multiplier = request_data.get("rag_candidate_multiplier")
+
+    if rag_candidate_multiplier is not None:
+        monthly_profile["rag_candidate_multiplier"] = rag_candidate_multiplier
+
     period_days = monthly_profile.get("period_days", 30)
     meal_count_per_day = monthly_profile.get("meal_count_per_day", 1)
+
+    profiling["profile_time_ms"] = round(
+        (time.perf_counter() - profiling_started_at) * 1000,
+        2,
+    )
 
     candidate_count = calculate_monthly_candidate_count(
         profile=monthly_profile,
     )
 
+    profiling["rag_candidate_multiplier"] = calculate_monthly_rag_candidate_multiplier(
+        monthly_profile
+    )
+    profiling["rag_candidate_request_count"] = candidate_count
+
+    rag_started_at = time.perf_counter()
+
     candidate_menus, fallback_info = request_monthly_candidate_menus_with_fallback(
         request_data=request_data,
         profile=monthly_profile,
         candidate_count=candidate_count,
+    )
+
+    profiling["rag_request_total_time_ms"] = round(
+        (time.perf_counter() - rag_started_at) * 1000,
+        2,
     )
 
     if not candidate_menus:
@@ -584,18 +862,287 @@ def create_monthly_plan(request_data: dict) -> dict:
             fallback_info=fallback_info,
         )
 
+    recommendation_started_at = time.perf_counter()
+
     recommendations = recommend_menus(
         menus=candidate_menus,
         profile=monthly_profile,
         top_n=len(candidate_menus),
     )
 
-    monthly_plan = build_period_meal_plan(
-        recommendations=recommendations,
-        profile=monthly_profile,
-        period_days=period_days,
-        meal_count_per_day=meal_count_per_day,
+    profiling["recommendation_time_ms"] = round(
+        (time.perf_counter() - recommendation_started_at) * 1000,
+        2,
     )
+
+    use_ortools = request_data.get("use_ortools", False)
+
+    if use_ortools:
+        optimizer_config = request_data.get("optimizer_config", {}) or {}
+        enable_optimizer_retry_fallback = bool(
+            optimizer_config.get("enable_optimizer_retry_fallback", False)
+        )
+
+        optimizer_profile = {
+            **monthly_profile,
+            **optimizer_config,
+        }
+
+        optimizer_input_started_at = time.perf_counter()
+
+        optimizer_input = build_optimizer_input(
+            recommendations=recommendations,
+            profile=optimizer_profile,
+            period_days=period_days,
+            meal_count_per_day=meal_count_per_day,
+        )
+
+        profiling["optimizer_input_build_time_ms"] = round(
+            (time.perf_counter() - optimizer_input_started_at) * 1000,
+            2,
+        )
+
+        required_meal_count = period_days * meal_count_per_day
+        available_recommendation_count = len(recommendations)
+        max_repeat_per_menu = optimizer_input.get("max_repeat_per_menu", 1)
+        max_fillable_meal_count = (
+            available_recommendation_count * max_repeat_per_menu
+        )
+
+        if max_fillable_meal_count < required_meal_count:
+            return build_candidate_insufficient_monthly_response(
+                user_id=user_id,
+                selected_style=selected_style_summary,
+                base_profile=base_profile,
+                monthly_profile=monthly_profile,
+                period_days=period_days,
+                meal_count_per_day=meal_count_per_day,
+                available_recommendation_count=available_recommendation_count,
+                max_repeat_per_menu=max_repeat_per_menu,
+                fallback_info=fallback_info,
+            )
+
+        ortools_solver_started_at = time.perf_counter()
+
+        optimizer_result = solve_monthly_plan_with_ortools(
+            optimizer_input=optimizer_input,
+        )
+
+        profiling["ortools_solver_time_ms"] = round(
+            (time.perf_counter() - ortools_solver_started_at) * 1000,
+            2,
+        )
+
+        if (
+            optimizer_result.get("solver_status") not in ["OPTIMAL", "FEASIBLE"]
+            and enable_optimizer_retry_fallback
+        ):
+            initial_solver_time_ms = profiling.get("ortools_solver_time_ms", 0)
+
+            additional_candidate_count = calculate_additional_candidate_count(
+                required_meal_count=required_meal_count,
+                optimizer_candidate_limit=optimizer_input.get(
+                    "optimizer_candidate_limit",
+                    int(round(required_meal_count * 1.2)),
+                ),
+                current_candidate_count=len(candidate_menus),
+            )
+
+            expanded_candidate_count = max(
+                len(candidate_menus) + int(round(required_meal_count * 0.8)),
+                int(round(required_meal_count * 2.8)),
+                additional_candidate_count,
+            )
+
+            expanded_ingredient_preferences = expand_ingredient_preferences(
+                ingredient_preferences=monthly_profile.get(
+                    "ingredient_preferences",
+                    [],
+                ),
+            )
+
+            additional_profile = copy_profile_with_relaxed_conditions(
+                profile=monthly_profile,
+                preferred_categories=["다 좋아요"],
+                ingredient_preferences=expanded_ingredient_preferences,
+                diversity_level="보통",
+            )
+
+            additional_rag_started_at = time.perf_counter()
+
+            additional_rag_request = build_rag_request(
+                user_input=request_data,
+                profile=additional_profile,
+                candidate_count=expanded_candidate_count,
+            )
+
+            additional_rag_response = request_candidate_menus_from_rag(
+                rag_request=additional_rag_request,
+            )
+
+            additional_mapped_rag_response = map_rag_response_to_candidate_menus(
+                rag_response=additional_rag_response,
+            )
+
+            additional_candidate_menus = extract_candidate_menus(
+                mapped_rag_response=additional_mapped_rag_response,
+            )
+
+            profiling["additional_rag_request_time_ms"] = round(
+                (time.perf_counter() - additional_rag_started_at) * 1000,
+                2,
+            )
+
+            merged_candidate_menus = merge_candidate_menus(
+                base_candidate_menus=candidate_menus,
+                additional_candidate_menus=additional_candidate_menus,
+            )
+
+            fallback_info["fallback_used"] = True
+            fallback_info["fallback_steps"].append(
+                {
+                    "reason": "optimizer_infeasible_additional_rag",
+                    "candidate_count": expanded_candidate_count,
+                    "additional_candidate_count": additional_candidate_count,
+                    "result_count": len(additional_candidate_menus),
+                    "merged_candidate_count": len(merged_candidate_menus),
+                    "previous_solver_status": optimizer_result.get("solver_status"),
+                }
+            )
+            fallback_info["final_candidate_count"] = len(merged_candidate_menus)
+            fallback_info["warnings"].append(
+                "OR-Tools가 1차 후보로 가능한 조합을 찾지 못해 RAG 후보를 추가 요청한 뒤 재시도했습니다."
+            )
+
+            fallback_info["candidate_diagnostics"] = diagnose_monthly_candidate_pool(
+                candidate_menus=merged_candidate_menus,
+                profile=monthly_profile,
+                required_meal_count=required_meal_count,
+                optimizer_candidate_limit=optimizer_input.get(
+                    "optimizer_candidate_limit",
+                    int(round(required_meal_count * 1.2)),
+                ),
+                max_repeat_per_menu=max_repeat_per_menu,
+            )
+
+            if len(merged_candidate_menus) > len(candidate_menus):
+                candidate_menus = merged_candidate_menus
+
+                retry_recommendation_started_at = time.perf_counter()
+
+                recommendations = recommend_menus(
+                    menus=candidate_menus,
+                    profile=monthly_profile,
+                    top_n=len(candidate_menus),
+                )
+
+                profiling["recommendation_retry_time_ms"] = round(
+                    (time.perf_counter() - retry_recommendation_started_at) * 1000,
+                    2,
+                )
+
+                retry_optimizer_input_started_at = time.perf_counter()
+
+                optimizer_input = build_optimizer_input(
+                    recommendations=recommendations,
+                    profile=optimizer_profile,
+                    period_days=period_days,
+                    meal_count_per_day=meal_count_per_day,
+                )
+
+                profiling["optimizer_retry_input_build_time_ms"] = round(
+                    (time.perf_counter() - retry_optimizer_input_started_at) * 1000,
+                    2,
+                )
+
+                available_recommendation_count = len(recommendations)
+                max_repeat_per_menu = optimizer_input.get("max_repeat_per_menu", 1)
+                max_fillable_meal_count = (
+                    available_recommendation_count * max_repeat_per_menu
+                )
+
+                if max_fillable_meal_count < required_meal_count:
+                    return build_candidate_insufficient_monthly_response(
+                        user_id=user_id,
+                        selected_style=selected_style_summary,
+                        base_profile=base_profile,
+                        monthly_profile=monthly_profile,
+                        period_days=period_days,
+                        meal_count_per_day=meal_count_per_day,
+                        available_recommendation_count=available_recommendation_count,
+                        max_repeat_per_menu=max_repeat_per_menu,
+                        fallback_info=fallback_info,
+                    )
+
+                retry_solver_started_at = time.perf_counter()
+
+                optimizer_result = solve_monthly_plan_with_ortools(
+                    optimizer_input=optimizer_input,
+                )
+
+                retry_solver_time_ms = round(
+                    (time.perf_counter() - retry_solver_started_at) * 1000,
+                    2,
+                )
+
+                profiling["ortools_initial_solver_time_ms"] = initial_solver_time_ms
+                profiling["ortools_retry_solver_time_ms"] = retry_solver_time_ms
+                profiling["ortools_solver_time_ms"] = round(
+                    initial_solver_time_ms + retry_solver_time_ms,
+                    2,
+                )
+
+            if optimizer_result.get("solver_status") not in ["OPTIMAL", "FEASIBLE"]:
+                return build_optimizer_infeasible_monthly_response(
+                    user_id=user_id,
+                    selected_style=selected_style_summary,
+                    base_profile=base_profile,
+                    monthly_profile=monthly_profile,
+                    period_days=period_days,
+                    meal_count_per_day=meal_count_per_day,
+                    available_recommendation_count=available_recommendation_count,
+                    optimizer_result=optimizer_result,
+                    optimizer_input=optimizer_input,
+                    fallback_info=fallback_info,
+                    profiling=profiling,
+                )
+
+        if optimizer_result.get("solver_status") not in ["OPTIMAL", "FEASIBLE"]:
+            return build_optimizer_infeasible_monthly_response(
+                user_id=user_id,
+                selected_style=selected_style_summary,
+                base_profile=base_profile,
+                monthly_profile=monthly_profile,
+                period_days=period_days,
+                meal_count_per_day=meal_count_per_day,
+                available_recommendation_count=available_recommendation_count,
+                optimizer_result=optimizer_result,
+                optimizer_input=optimizer_input,
+                fallback_info=fallback_info,
+                profiling=profiling,
+            )
+
+        plan_mapping_started_at = time.perf_counter()
+
+        monthly_plan = build_ortools_monthly_plan(
+            optimizer_result=optimizer_result,
+            optimizer_input=optimizer_input,
+            recommendations=recommendations,
+            profile=optimizer_profile,
+        )
+
+        profiling["plan_mapping_time_ms"] = round(
+            (time.perf_counter() - plan_mapping_started_at) * 1000,
+            2,
+        )
+
+    else:
+        monthly_plan = build_period_meal_plan(
+            recommendations=recommendations,
+            profile=monthly_profile,
+            period_days=period_days,
+            meal_count_per_day=meal_count_per_day,
+        )
 
     summary = monthly_plan.get("summary", {})
 
@@ -620,6 +1167,13 @@ def create_monthly_plan(request_data: dict) -> dict:
         )
 
     monthly_plan["fallback"] = fallback_info
+
+    profiling["total_modeling_time_ms"] = round(
+        (time.perf_counter() - profiling_started_at) * 1000,
+        2,
+    )
+
+    monthly_plan["profiling"] = profiling
 
     return build_modeling_to_back_monthly_response(
         user_id=user_id,

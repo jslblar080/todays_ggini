@@ -189,6 +189,9 @@ def format_monthly_plan_for_back(
         ),
         "recent_day_window": monthly_plan.get("recent_day_window"),
         "warnings": monthly_plan.get("warnings", []),
+        "optimizer": monthly_plan.get("optimizer"),
+        "profiling": monthly_plan.get("profiling", {}),
+        "fallback": monthly_plan.get("fallback", {}),
         "summary": monthly_plan.get("summary", {}),
         "style_validation": monthly_plan.get("style_validation", {}),
         "days": formatted_days,
@@ -227,6 +230,7 @@ def build_modeling_to_back_monthly_response(
             "available_recommendation_count": actual_recommendation_count,
             "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "warnings": monthly_plan.get("warnings", []),
+            "fallback": monthly_plan.get("fallback", {}),
         },
         "modeling_profile": build_modeling_profile_summary(
             profile=base_profile

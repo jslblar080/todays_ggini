@@ -1,0 +1,41 @@
+{
+  "experiment_name": "ortools_low_diversity_policy_test",
+  "description": "OR-Tools 다양성 낮음 기본 정책 적용 테스트",
+  "scenarios": [
+    {
+      "scenario_id": "S01_low_diversity_policy",
+      "description": "다양성 낮음 기본 정책 테스트",
+      "purpose": "정상적인 일반 사용자 조건에서 기본 추천 품질을 확인한다.",
+      "profile": {
+        "goals": [
+          "영양 균형"
+        ],
+        "year": 2026,
+        "month": 6,
+        "monthly_budget": 450000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "양식"
+        ],
+        "diversity_level": "낮음",
+        "ingredient_preferences": [
+          "채소류",
+          "육류",
+          "식물성 단백질류",
+          "계란 및 유제품류"
+        ],
+        "allergy_ingredients": []
+      },
+      "main_metrics": [
+        "budget_usage_rate",
+        "daily_calorie_satisfaction_rate",
+        "daily_protein_satisfaction_rate",
+        "duplicate_menu_count",
+        "average_preference_score"
+      ],
+      "use_ortools": true
+    }
+  ]
+}
