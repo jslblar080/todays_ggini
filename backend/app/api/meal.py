@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
 from redis.asyncio import Redis
+import redis as sync_redis
 import uuid
 import calendar
 import hashlib
@@ -10,6 +11,7 @@ import json
 
 from app.api.deps import get_db, get_current_user
 from app.core.redis import get_redis
+from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
@@ -51,25 +53,33 @@ router = APIRouter()
 
 # ---------------------------  프론트엔드 호출용 API ---------------------------------
 # -------------------- 월간 식단 요청(비동기 실행) ----------------------------
-async def background_monthly_plan_task(
-    job_id: str, user_id: int, selected_style_id: str, redis: Redis
+@celery_app.task(
+    name="app.api.meal.background_monthly_plan_task",
+    acks_late=True, # 작업을 완전히 '성공'했을 때만 큐에서 제거 (중간에 워커가 죽으면 재시도하도록 설정)
+    max_retries=3   # 실패 시 최대 3번까지 자동 재시도)
+)
+def background_monthly_plan_task(
+    job_id: str, user_id: int, selected_style_id: str
 ):
     """
     API 응답이 나간 뒤 백그라운드에서 조용히 실행될 함수
     """
+    # 워커 내부에서 사용할 동기형 Redis 클라이언트 생성 (동기 컨텍스트 환경)
+    redis_client = sync_redis.from_url("redis://localhost:6379/0")
+
     # [도우미 함수] 반복되는 Redis 상태 업데이트 코드를 깔끔하게 관리하기 위해 선언
-    async def update_status(job_status: str, progress: str, error: str = None):
+    def update_status(job_status: str, progress: str, error: str = None):
         data = {"status": job_status, "progress": progress}
         if error:
             data["error"] = error
-        await redis.setex(
+        redis_client.setex(
             name=f"job_status:{job_id}",
             time=86400,  # 1일(24시간) TTL
             value=json.dumps(data, ensure_ascii=False)
         )
 
     # 작업 시작 기록
-    await update_status("PROCESSING", "프로필 분석 중")
+    update_status("PROCESSING", "프로필 분석 중")
 
     # 💡 백그라운드 작업이므로 DB 세션을 새로 엽니다.
     db = SessionLocal()
@@ -106,7 +116,7 @@ async def background_monthly_plan_task(
         }
 
         # ----------------------- [AI 응답 결과 캐싱 구간 ] -----------------------
-        await update_status("PROCESSING", "기존 식단 캐시 확인 중")
+        update_status("PROCESSING", "기존 식단 캐시 확인 중")
 
         # 딕셔너리 내부 순서가 달라도 같은 해시가 나오도록 고정 정렬 후 JSON 문자열 덤프
         # (user_id를 제외한 user_profile과 request_type, selected_style_id만 조합하여 공유 캐시 효율 극대화)
@@ -118,21 +128,21 @@ async def background_monthly_plan_task(
         cache_key = f"ai:monthly_plan:{payload_hash}"
 
         # Redis에서 해당 캐시가 존재하는지 비동기 조회 (Cache Hit 확인)
-        cached_response = await redis.get(cache_key)
+        cached_response = redis_client.get(cache_key)
 
         if cached_response:
             # [Cache Hit] 동일한 조건의 캐시 발견 시, 외부 AI 호출을 스킵하고 즉시 파싱
-            await update_status("PROCESSING", "식단 캐시 매칭 성공 (AI 연산 스킵)")
+            update_status("PROCESSING", "식단 캐시 매칭 성공 (AI 연산 스킵)")
             ai_response = json.loads(cached_response)
         else:
             # [Cache Miss] 일치하는 캐시가 없으므로 실제 AI 호출 진행
-            await update_status("PROCESSING", "새로운 식단 생성 중 (AI 연산)")
+            update_status("PROCESSING", "새로운 식단 생성 중 (AI 연산)")
             
-            # AI 호출 (블로킹 오버헤드 방지를 위해 스레드 풀에서 비동기 실행)
-            ai_response = await asyncio.to_thread(create_monthly_plan, modeling_payload)
+            # AI 호출
+            ai_response = create_monthly_plan(modeling_payload)
 
             # 다음 중복 요청을 위해 연산 결과를 Redis에 캐싱 (TTL: 2일 = 172800초)
-            await redis.setex(
+            redis_client.setex(
                 name=cache_key,
                 time=172800,
                 value=json.dumps(ai_response, ensure_ascii=False)
@@ -141,18 +151,18 @@ async def background_monthly_plan_task(
 
         days_data = ai_response.get("monthly_plan", {}).get("days", [])
 
-        await update_status("PROCESSING", "DB에 결과 저장 중")
+        update_status("PROCESSING", "DB에 결과 저장 중")
         # 💡 DB 저장
         crud_meal.save_monthly_plan(
             db=db, user_id=current_user.id, ai_days_list=days_data
         )
 
         # 모든 작업 완료 기록
-        await update_status("COMPLETED", "완료")
+        update_status("COMPLETED", "완료")
 
     except Exception as e:
         print(f"Background Task Error: {str(e)}")
-        await update_status("FAILED", "오류 발생", error=str(e))
+        update_status("FAILED", "오류 발생", error=str(e))
     finally:
         db.close()  # 필수: 작업이 끝나면 DB 세션 닫기
 
@@ -161,7 +171,6 @@ async def background_monthly_plan_task(
 @router.post("/generate", status_code=status.HTTP_202_ACCEPTED)
 async def generate_meal_plans_trigger(
     request: StyleSelectRequest,  # 프론트에서 넘어온 스타일 ID
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ):
@@ -181,13 +190,12 @@ async def generate_meal_plans_trigger(
         value=json.dumps({"status": "PENDING", "progress": "작업 대기 중"}, ensure_ascii=False)
     )
 
-    # 2. 백그라운드에 일거리 던지기 (함수 이름과 인자들을 넘김)
-    background_tasks.add_task(
-        background_monthly_plan_task,
+    # 2. BackgroundTasks 대신 Celery 비동기 큐에 작업 위임 (.delay 사용)
+    # 인자는 반드시 기본 원시 타입(str, int)들만 순서대로 넘겨야 합니다.
+    background_monthly_plan_task.delay(
         job_id=job_id,
         user_id=current_user.id,
-        selected_style_id=request.selected_style_id,
-        redis=redis,
+        selected_style_id=request.selected_style_id
     )
 
     # 3. 고유 Job ID를 프론트에 즉시 반환
@@ -197,7 +205,7 @@ async def generate_meal_plans_trigger(
         "stages": ["프로필 분석", "식단 후보 생성", "최적 조합 선정", "DB 저장"],
     }
 
-
+# ------------------------ 작업 상태 폴링 API --------------------------
 @router.get("/generate/status/{job_id}")
 async def check_generation_status(job_id: str, redis: Redis = Depends(get_redis)):
     """
