@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 import os
 from fastapi.staticfiles import StaticFiles
-
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.core.scheduler import purge_expired_data
 from app.api import user, auth, meal, shopping
 from app.db.session import engine
 from app.db import base  # 중요: 모델들을 import 해야 테이블이 생성됨
@@ -22,6 +23,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 서버 구동 시 실행될 로직
+@app.on_event("startup")
+def start_scheduler():
+    scheduler = BackgroundScheduler(timezone="Asia/Seoul")
+    
+    # 매일 새벽 4시 0분에 일괄 삭제 함수 실행
+    scheduler.add_job(purge_expired_data, 'cron', hour=4, minute=0)
+    
+    scheduler.start()
+    print("자동 데이터 정리(TTL) 스케줄러 가동 시작 - 매일 04:00")
 
 # 1. 이미지가 저장될 실제 폴더가 없으면 자동 생성합니다.
 os.makedirs("app/static/images", exist_ok=True) 

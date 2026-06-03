@@ -26,3 +26,6 @@ psycopg2-binary
 
 # redis
 redis
+
+# 스케줄러
+apscheduler

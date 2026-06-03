@@ -31,6 +31,6 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = No
     """Refresh Token을 생성합니다."""
     if expires_delta is None:
         # 새로 추가한 REFRESH_TOKEN_EXPIRE_MINUTES 설정을 사용합니다.
-        expires_delta = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
     return create_token(subject, "refresh", expires_delta)

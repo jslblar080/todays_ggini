@@ -32,7 +32,7 @@ async def generate_and_save_tokens(user_id: int, redis: Redis) -> tuple[str, str
     redis_key = f"refresh_token:{user_id}"
     await redis.setex(
         name=redis_key,
-        time=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,  # 분 단위를 초 단위로 변환
+        time=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # 일 단위를 초 단위로 변환
         value=refresh_token
     )
     
