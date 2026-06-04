@@ -29,3 +29,6 @@ redis
 
 # 스케줄러
 apscheduler
+
+# celery
+celery==5.6.3
