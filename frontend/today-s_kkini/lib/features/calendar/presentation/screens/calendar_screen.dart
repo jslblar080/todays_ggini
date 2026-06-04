@@ -86,11 +86,41 @@ class CalendarScreen extends ConsumerWidget {
               onDayTap: (date) {
                 context.push(AppRoutes.mealDetailPath(date));
               },
+              onSwap: (from, to) => _handleSwap(context, notifier, from, to),
             ),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
+  }
+
+  // 드롭 시: 즉시 교환 → "교환했어요 [실행취소]" SnackBar.
+  // 실행취소는 같은 두 날짜를 다시 교환하면 원래대로 돌아간다.
+  Future<void> _handleSwap(
+    BuildContext context,
+    CalendarNotifier notifier,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await notifier.swapDates(from, to);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('식단을 교환했어요.'),
+            action: SnackBarAction(
+              label: '실행취소',
+              onPressed: () => notifier.swapDates(to, from),
+            ),
+          ),
+        );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('교환에 실패했어요: $e')),
+      );
+    }
   }
 }

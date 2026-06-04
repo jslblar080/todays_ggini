@@ -7,12 +7,14 @@ class DayCell extends StatelessWidget {
   final DayEntry? day;
   final VoidCallback? onTap;
   final bool isToday;
+  final bool highlight; // 드래그 중 드롭 대상으로 떠 있을 때 강조
 
   const DayCell({
     super.key,
     this.day,
     this.onTap,
     this.isToday = false,
+    this.highlight = false,
   });
 
   @override
@@ -31,15 +33,21 @@ class DayCell extends StatelessWidget {
     final hasPlan = day!.hasMealPlan;
 
     return InkWell(
-      onTap: hasPlan ? onTap : null,
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: isToday ? AppColors.mypage : Colors.transparent, 
-          border: const Border(
-            right: BorderSide(color: AppColors.border, width: 1),
-            bottom: BorderSide(color: AppColors.border, width: 1),
-          ),
+          color: highlight
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : isToday
+                  ? AppColors.mypage
+                  : Colors.transparent,
+          border: highlight
+              ? Border.all(color: AppColors.primary, width: 2)
+              : const Border(
+                  right: BorderSide(color: AppColors.border, width: 1),
+                  bottom: BorderSide(color: AppColors.border, width: 1),
+                ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

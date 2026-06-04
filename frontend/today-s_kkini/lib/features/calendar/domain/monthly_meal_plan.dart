@@ -26,6 +26,18 @@ class MonthlyMealPlan {
               .toList(),
     );
   }
+
+  // 일부 날짜만 교체한 새 인스턴스 (swap 후 캐시 갱신용).
+  // 월 내 swap은 합계/평균이 불변이므로 days만 갈아끼우면 된다.
+  MonthlyMealPlan copyWith({List<DayEntry>? days}) {
+    return MonthlyMealPlan(
+      month: month,
+      durationDays: durationDays,
+      totalPricePerMonth: totalPricePerMonth,
+      averageCaloriesPerMonth: averageCaloriesPerMonth,
+      days: days ?? this.days,
+    );
+  }
 }
 
 // 한 날짜의 식단 정보

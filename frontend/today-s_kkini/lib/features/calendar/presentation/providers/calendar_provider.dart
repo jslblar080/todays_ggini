@@ -99,6 +99,31 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     }
   }
 
+  // 두 날짜의 식단을 교환한다 (드래그-앤-드롭으로 from을 to에 떨어뜨림).
+  // 성공 시 백엔드 응답으로 받은 두 날짜만 현재 달 캐시에서 갈아끼운다(월 재요청 X).
+  // 같은 쌍으로 다시 호출하면 원래대로 되돌아간다 → 실행취소(Undo)에 그대로 재사용.
+  // 실패 시 예외를 다시 던져 화면에서 안내한다.
+  Future<void> swapDates(DateTime from, DateTime to) async {
+    if (_sameYmd(from, to)) return;
+    final swapped = await _repository.swapDays(from, to);
+    if (!mounted) return;
+
+    final key = CalendarState._monthKey(state.currentYear, state.currentMonth);
+    final plan = state.cache[key];
+    if (plan == null) return;
+
+    final updatedDays = [
+      for (final d in plan.days)
+        swapped.firstWhere(
+          (s) => _sameYmd(s.date, d.date),
+          orElse: () => d,
+        ),
+    ];
+    final newCache = Map<String, MonthlyMealPlan>.from(state.cache);
+    newCache[key] = plan.copyWith(days: updatedDays);
+    state = state.copyWith(cache: newCache);
+  }
+
   (int, int) _prevMonth(int y, int m) {
     if (m == 1) return (y - 1, 12);
     return (y, m - 1);
@@ -109,6 +134,10 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     return (y, m + 1);
   }
 }
+
+// 연/월/일이 같은 날짜인지 비교 (시각 무시)
+bool _sameYmd(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 // StateNotifierProvider
 final calendarProvider =
