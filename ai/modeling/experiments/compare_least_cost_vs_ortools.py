@@ -49,6 +49,108 @@ def get_profiling(result: dict) -> dict:
     return get_monthly_plan(result).get("profiling") or {}
 
 
+
+def extract_selected_menus(result: dict) -> list[dict]:
+    """
+    월간 식단 결과에서 selected_menu 목록을 추출한다.
+    OR-Tools 결과와 Least-cost 결과 모두 동일한 방식으로 처리한다.
+    """
+
+    monthly_plan = get_monthly_plan(result)
+    selected_menus = []
+
+    for day in monthly_plan.get("days", []):
+        for meal in day.get("meals", []):
+            selected_menu = meal.get("selected_menu")
+
+            if selected_menu:
+                selected_menus.append(selected_menu)
+
+    return selected_menus
+
+
+def average_menu_score(selected_menus: list[dict], score_key: str):
+    """
+    selected_menu 목록에서 scores[score_key] 평균을 계산한다.
+    """
+
+    values = []
+
+    for menu in selected_menus:
+        scores = menu.get("scores", {}) or {}
+        value = scores.get(score_key)
+
+        if value is None:
+            continue
+
+        number = safe_number(value)
+
+        if number is not None:
+            values.append(number)
+
+    if not values:
+        return None
+
+    return round(mean(values), 2)
+
+
+def average_menu_field(selected_menus: list[dict], field_key: str):
+    """
+    selected_menu 목록에서 특정 숫자 필드 평균을 계산한다.
+    예: final_score, calories, protein
+    """
+
+    values = []
+
+    for menu in selected_menus:
+        value = menu.get(field_key)
+        number = safe_number(value)
+
+        if number is not None:
+            values.append(number)
+
+    if not values:
+        return None
+
+    return round(mean(values), 2)
+
+
+def calculate_menu_quality_metrics(result: dict) -> dict:
+    """
+    monthly_plan.summary에 없는 품질 지표를 selected_menu 기준으로 직접 계산한다.
+    """
+
+    selected_menus = extract_selected_menus(result)
+
+    return {
+        "computed_selected_menu_count": len(selected_menus),
+        "computed_average_final_score": average_menu_field(
+            selected_menus,
+            "final_score",
+        ),
+        "computed_average_preference_score": average_menu_score(
+            selected_menus,
+            "preference",
+        ),
+        "computed_average_budget_score": average_menu_score(
+            selected_menus,
+            "budget",
+        ),
+        "computed_average_nutrition_score": average_menu_score(
+            selected_menus,
+            "nutrition",
+        ),
+        "computed_average_calories": average_menu_field(
+            selected_menus,
+            "calories",
+        ),
+        "computed_average_protein": average_menu_field(
+            selected_menus,
+            "protein",
+        ),
+    }
+
+
 def safe_number(value):
     if value is None:
         return None
@@ -94,6 +196,9 @@ def build_row(ortools_result: dict, least_cost_result: dict) -> dict:
 
     ortools_profiling = get_profiling(ortools_result)
     least_cost_profiling = get_profiling(least_cost_result)
+
+    ortools_quality_metrics = calculate_menu_quality_metrics(ortools_result)
+    least_cost_quality_metrics = calculate_menu_quality_metrics(least_cost_result)
 
     ortools_total_cost = ortools_summary.get("total_estimated_cost")
     least_cost_total_cost = least_cost_summary.get("total_estimated_cost")
@@ -173,6 +278,64 @@ def build_row(ortools_result: dict, least_cost_result: dict) -> dict:
         ),
         "least_cost_average_final_score": least_cost_summary.get(
             "average_final_score"
+        ),
+
+        "ortools_computed_average_final_score": ortools_quality_metrics.get(
+            "computed_average_final_score"
+        ),
+        "least_cost_computed_average_final_score": least_cost_quality_metrics.get(
+            "computed_average_final_score"
+        ),
+        "final_score_diff_ortools_minus_least_cost": diff_value(
+            ortools_quality_metrics.get("computed_average_final_score"),
+            least_cost_quality_metrics.get("computed_average_final_score"),
+        ),
+
+        "ortools_computed_average_preference_score": ortools_quality_metrics.get(
+            "computed_average_preference_score"
+        ),
+        "least_cost_computed_average_preference_score": least_cost_quality_metrics.get(
+            "computed_average_preference_score"
+        ),
+        "computed_preference_diff_ortools_minus_least_cost": diff_value(
+            ortools_quality_metrics.get("computed_average_preference_score"),
+            least_cost_quality_metrics.get("computed_average_preference_score"),
+        ),
+
+        "ortools_computed_average_budget_score": ortools_quality_metrics.get(
+            "computed_average_budget_score"
+        ),
+        "least_cost_computed_average_budget_score": least_cost_quality_metrics.get(
+            "computed_average_budget_score"
+        ),
+        "computed_budget_diff_ortools_minus_least_cost": diff_value(
+            ortools_quality_metrics.get("computed_average_budget_score"),
+            least_cost_quality_metrics.get("computed_average_budget_score"),
+        ),
+
+        "ortools_computed_average_nutrition_score": ortools_quality_metrics.get(
+            "computed_average_nutrition_score"
+        ),
+        "least_cost_computed_average_nutrition_score": least_cost_quality_metrics.get(
+            "computed_average_nutrition_score"
+        ),
+        "nutrition_score_diff_ortools_minus_least_cost": diff_value(
+            ortools_quality_metrics.get("computed_average_nutrition_score"),
+            least_cost_quality_metrics.get("computed_average_nutrition_score"),
+        ),
+
+        "ortools_computed_average_calories": ortools_quality_metrics.get(
+            "computed_average_calories"
+        ),
+        "least_cost_computed_average_calories": least_cost_quality_metrics.get(
+            "computed_average_calories"
+        ),
+
+        "ortools_computed_average_protein": ortools_quality_metrics.get(
+            "computed_average_protein"
+        ),
+        "least_cost_computed_average_protein": least_cost_quality_metrics.get(
+            "computed_average_protein"
         ),
 
         "ortools_rag_candidate_multiplier": ortools_profiling.get(
@@ -304,6 +467,76 @@ def summarize_metric_rows(rows: list[dict]) -> dict:
         "avg_least_cost_final_score": average(
             rows,
             "least_cost_average_final_score",
+        ),
+
+        "avg_ortools_computed_final_score": average(
+            rows,
+            "ortools_computed_average_final_score",
+        ),
+        "avg_least_cost_computed_final_score": average(
+            rows,
+            "least_cost_computed_average_final_score",
+        ),
+        "avg_final_score_diff_ortools_minus_least_cost": average(
+            rows,
+            "final_score_diff_ortools_minus_least_cost",
+        ),
+
+        "avg_ortools_computed_preference_score": average(
+            rows,
+            "ortools_computed_average_preference_score",
+        ),
+        "avg_least_cost_computed_preference_score": average(
+            rows,
+            "least_cost_computed_average_preference_score",
+        ),
+        "avg_computed_preference_diff_ortools_minus_least_cost": average(
+            rows,
+            "computed_preference_diff_ortools_minus_least_cost",
+        ),
+
+        "avg_ortools_computed_budget_score": average(
+            rows,
+            "ortools_computed_average_budget_score",
+        ),
+        "avg_least_cost_computed_budget_score": average(
+            rows,
+            "least_cost_computed_average_budget_score",
+        ),
+        "avg_computed_budget_diff_ortools_minus_least_cost": average(
+            rows,
+            "computed_budget_diff_ortools_minus_least_cost",
+        ),
+
+        "avg_ortools_computed_nutrition_score": average(
+            rows,
+            "ortools_computed_average_nutrition_score",
+        ),
+        "avg_least_cost_computed_nutrition_score": average(
+            rows,
+            "least_cost_computed_average_nutrition_score",
+        ),
+        "avg_nutrition_score_diff_ortools_minus_least_cost": average(
+            rows,
+            "nutrition_score_diff_ortools_minus_least_cost",
+        ),
+
+        "avg_ortools_computed_calories": average(
+            rows,
+            "ortools_computed_average_calories",
+        ),
+        "avg_least_cost_computed_calories": average(
+            rows,
+            "least_cost_computed_average_calories",
+        ),
+
+        "avg_ortools_computed_protein": average(
+            rows,
+            "ortools_computed_average_protein",
+        ),
+        "avg_least_cost_computed_protein": average(
+            rows,
+            "least_cost_computed_average_protein",
         ),
     }
 
