@@ -12,3 +12,5 @@ debug_result.json
 **/debug_result.json
 KT_cloud/local.db
 *.db
+.env
+backend/.env
