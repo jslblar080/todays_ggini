@@ -15,6 +15,7 @@ import '../../features/mypage/presentation/screens/mypage_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/ingredient_list/presentation/screens/ingredient_list_screen.dart';
 import '../../features/shopping_list/presentation/screens/shopping_list_screen.dart';
+import '../../features/shopping_list/presentation/screens/shopping_trash_screen.dart';
 import '../../features/ingredient_detail/presentation/screens/ingredient_detail_screen.dart';
 import '../../features/menu_change/presentation/screens/menu_change_screen.dart';
 
@@ -131,6 +132,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.shoppingList,
         builder: (_, __) => const ShoppingListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.shoppingTrash,
+        builder: (_, __) => const ShoppingTrashScreen(),
       ),
       GoRoute(
         path: AppRoutes.ingredientDetail,

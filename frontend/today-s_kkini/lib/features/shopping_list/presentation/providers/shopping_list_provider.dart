@@ -101,9 +101,53 @@ class ShoppingListNotifier extends StateNotifier<ShoppingListState> {
     }
   }
 
-  // 체크된 항목 일괄 삭제
+  // 여러 항목의 체크 상태를 일괄 설정 (전체 선택 / 전체 해제)
+  //
+  // toggleItem 과 같은 optimistic 패턴. 상태가 실제로 바뀌는 항목만 백엔드로 전송.
+  Future<void> setChecked(List<String> itemIds, bool checked) async {
+    final current = state.data;
+    if (current == null || itemIds.isEmpty) return;
+    final idSet = itemIds.toSet();
+
+    // 바뀔 항목이 하나도 없으면 no-op
+    final updates = <({String itemId, bool isChecked})>[
+      for (final group in current.marketGroups)
+        for (final item in group.items)
+          if (idSet.contains(item.itemId) && item.isChecked != checked)
+            (itemId: item.itemId, isChecked: checked),
+    ];
+    if (updates.isEmpty) return;
+
+    // 1) 로컬 일괄 갱신
+    final newGroups =
+        current.marketGroups.map((group) {
+          final newItems =
+              group.items.map((item) {
+                if (!idSet.contains(item.itemId)) return item;
+                return item.copyWith(isChecked: checked);
+              }).toList();
+          return group.copyWith(items: newItems);
+        }).toList();
+
+    state = state.copyWith(data: _recomputeSummary(current, newGroups));
+
+    // 2) 백엔드 sync
+    try {
+      final summary = await _repository.updateItemChecks(updates);
+      if (!mounted) return;
+      if (!Env.useMocks) {
+        state = state.copyWith(data: _applyServerSummary(state.data!, summary));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(error: e);
+    }
+  }
+
+  // 체크된 항목 일괄 삭제 (soft delete)
   //
   // toggleItem 과 같은 optimistic 패턴.
+  // 백엔드는 물리 삭제 대신 deleted_at 만 기록 → 휴지통에서 복원 가능.
   Future<void> deleteCheckedItems() async {
     final current = state.data;
     if (current == null) return;
