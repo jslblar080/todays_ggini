@@ -43,6 +43,27 @@ class ShoppingListRepository {
     return ShoppingSummary.fromJson(data['summary'] as Map<String, dynamic>);
   }
 
+  // 삭제(soft delete)된 항목 목록 조회 — 휴지통 화면용
+  // 백엔드: GET /api/v1/shopping/shopping-list/trash
+  // 응답은 장보기 목록과 동일한 구조(삭제된 항목들을 마켓별 그룹으로 묶음).
+  Future<ShoppingList> fetchTrash() async {
+    final response = await _dio.get('/shopping/shopping-list/trash');
+    return ShoppingList.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // 삭제된 항목 복원 (배치)
+  // 백엔드: POST /api/v1/shopping/shopping-list/items/restore
+  // 응답: { restored_count, restored_item_ids, summary: {...} }
+  // summary 는 복원 후의 "살아있는" 장보기 목록 합계.
+  Future<ShoppingSummary> restoreItems(List<String> itemIds) async {
+    final response = await _dio.post(
+      '/shopping/shopping-list/items/restore',
+      data: {'item_ids': itemIds},
+    );
+    final data = response.data as Map<String, dynamic>;
+    return ShoppingSummary.fromJson(data['summary'] as Map<String, dynamic>);
+  }
+
   // 식단의 재료들을 장보기 목록에 추가
   // 백엔드: POST /api/v1/shopping/add-shopping-items
   // body 로 ShoppingItemRequest 배열 전송.

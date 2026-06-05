@@ -1,8 +1,11 @@
 from datetime import datetime, timedelta
 from sqlalchemy import delete
 from app.db.session import SessionLocal
-from app.models.meal import MealPlan         
-from app.models.shopping import ShoppingList  
+from app.models.meal import MealPlan
+from app.models.shopping import ShoppingList, ShoppingItem
+
+# 휴지통(soft delete) 항목 보관 기간 — 이 기간이 지난 삭제 항목은 영구 삭제(hard delete).
+TRASH_RETENTION_DAYS = 30
 
 def purge_expired_data():
     """
@@ -21,9 +24,21 @@ def purge_expired_data():
         shopping_cutoff = current_time - timedelta(days=62)
         db.execute(delete(ShoppingList).where(ShoppingList.created_at < shopping_cutoff))
 
+        # 3. 휴지통 항목: soft delete 후 TRASH_RETENTION_DAYS(30일) 경과 시 영구 삭제
+        trash_cutoff = current_time - timedelta(days=TRASH_RETENTION_DAYS)
+        db.execute(
+            delete(ShoppingItem).where(
+                ShoppingItem.deleted_at.isnot(None),
+                ShoppingItem.deleted_at < trash_cutoff,
+            )
+        )
+
         # 변경사항 확정
         db.commit()
-        print(f"[Batch] {current_time} - 오래된 식단(32일) 및 장바구니(62일) 데이터 정리 완료")
+        print(
+            f"[Batch] {current_time} - 오래된 식단(32일)·장바구니(62일) 및 "
+            f"휴지통({TRASH_RETENTION_DAYS}일) 데이터 정리 완료"
+        )
         
     except Exception as e:
         db.rollback()

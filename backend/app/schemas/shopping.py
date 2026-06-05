@@ -102,3 +102,13 @@ class BatchDeleteResponse(BaseModel):
     deleted_count: int
     deleted_item_ids: List[str]  # 또는 List[int]
     summary: ShoppingSummary
+
+# 5. 복원 요청 (삭제된 항목 되돌리기) — body 는 삭제와 동일하게 item_ids 만 받음
+class RestoreItemsRequest(BaseModel):
+    item_ids: List[str]
+
+# --- 복원 응답용 스키마 ---
+class RestoreItemsResponse(BaseModel):
+    restored_count: int
+    restored_item_ids: List[str]
+    summary: ShoppingSummary

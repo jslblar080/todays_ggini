@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 
@@ -13,6 +14,8 @@ from app.schemas.shopping import (
     CheckUpdateItem,
     CheckUpdateResponse,
     BatchDeleteResponse,
+    RestoreItemsRequest,
+    RestoreItemsResponse,
     ItemStatus
 )
 from app.utils.image_search import get_food_image_url
@@ -174,6 +177,8 @@ async def sync_shopping_items(
         if existing_item:
             for key, value in enriched.items():
                 setattr(existing_item, key, value)
+            # 삭제(soft delete) 됐던 재료를 다시 담으면 휴지통에서 부활시킨다.
+            existing_item.deleted_at = None
         else:
             new_item = ShoppingItem(list_id=shopping_list.id, **enriched)
             db.add(new_item)
@@ -190,8 +195,15 @@ async def sync_shopping_items(
 # --------------------------- 장보기 목록 화면 관련 --------------------------------
 # --- 공통 요약 정보 계산 Helper 함수 ---
 def calculate_shopping_summary(db: Session, list_id: int) -> dict:
-    """해당 장바구니의 최신 요약 정보를 계산하여 반환합니다."""
-    items = db.query(ShoppingItem).filter(ShoppingItem.list_id == list_id).all()
+    """해당 장바구니의 최신 요약 정보를 계산하여 반환합니다. (삭제된 항목 제외)"""
+    items = (
+        db.query(ShoppingItem)
+        .filter(
+            ShoppingItem.list_id == list_id,
+            ShoppingItem.deleted_at.is_(None),
+        )
+        .all()
+    )
 
     market_data = {"coupang": 0, "market_kurly": 0, "naver_shopping": 0}
 
@@ -241,9 +253,14 @@ async def get_shopping_list(
             "market_groups": [],
         }
 
-    # 체크 여부와 상관없이 내 바구니에 있는 모든 아이템 조회
+    # 체크 여부와 상관없이 내 바구니에 있는 모든 아이템 조회 (삭제된 항목은 제외)
     items = (
-        db.query(ShoppingItem).filter(ShoppingItem.list_id == shopping_list.id).all()
+        db.query(ShoppingItem)
+        .filter(
+            ShoppingItem.list_id == shopping_list.id,
+            ShoppingItem.deleted_at.is_(None),
+        )
+        .all()
     )
 
     # 3. 마켓별 그룹화 및 통계 산출
@@ -354,29 +371,160 @@ async def batch_delete_items(
     current_user: User = Depends(get_current_user),
 ):
     """
-    [화면 9-1] 선택 항목 일괄 삭제 및 최신 요약 정보 반환
+    [화면 9-1] 선택 항목 일괄 삭제 (soft delete) 및 최신 요약 정보 반환
+
+    물리 삭제 대신 deleted_at 만 기록한다. 항목은 DB 에 남아있어
+    휴지통 조회/복원이 가능하고, 사용자의 삭제 패턴도 보존된다.
     """
     shopping_list = (
         db.query(ShoppingList).filter(ShoppingList.user_id == current_user.id).first()
     )
+    if not shopping_list:
+        raise HTTPException(status_code=404, detail="장바구니를 찾을 수 없습니다.")
 
-    # 1. 일괄 삭제 진행
-    deleted_count = (
+    # 1. 대상(이미 삭제된 건 제외)을 조회해 deleted_at 기록 = soft delete
+    items = (
         db.query(ShoppingItem)
         .filter(
             ShoppingItem.id.in_([int(i) for i in request.item_ids]),
             ShoppingItem.list_id == shopping_list.id,
+            ShoppingItem.deleted_at.is_(None),
         )
-        .delete(synchronize_session=False)
+        .all()
     )
+    deleted_item_ids = []
+    for item in items:
+        item.deleted_at = func.now()
+        item.is_checked = False  # 삭제된 항목은 체크 해제 상태로 보관
+        item.status = ItemStatus.PENDING
+        deleted_item_ids.append(str(item.id))
     db.commit()
 
-    # 2. 삭제 반영된 최신 요약 정보 계산
+    # 2. 삭제 반영된 최신 요약 정보 계산 (삭제 항목 제외)
     summary_data = calculate_shopping_summary(db, shopping_list.id)
 
     # 3. 명세서 형식에 맞춰 반환
     return {
-        "deleted_count": deleted_count,
-        "deleted_item_ids": request.item_ids,
+        "deleted_count": len(deleted_item_ids),
+        "deleted_item_ids": deleted_item_ids,
+        "summary": summary_data,
+    }
+
+
+@router.get("/shopping-list/trash", response_model=ShoppingListResponse)
+async def get_shopping_trash(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """
+    [휴지통] soft delete 된 장보기 항목 목록 조회.
+    응답 구조는 장보기 목록과 동일(마켓별 그룹). 삭제된 항목이라 체크/금액 합계는 0.
+    """
+    shopping_list = (
+        db.query(ShoppingList).filter(ShoppingList.user_id == current_user.id).first()
+    )
+    empty = {
+        "total_items": 0,
+        "checked_items_count": 0,
+        "total_price_per_shopping": 0,
+        "market_counts": [],
+        "market_groups": [],
+    }
+    if not shopping_list:
+        return empty
+
+    # 삭제된 항목만 (최근 삭제 순)
+    items = (
+        db.query(ShoppingItem)
+        .filter(
+            ShoppingItem.list_id == shopping_list.id,
+            ShoppingItem.deleted_at.isnot(None),
+        )
+        .order_by(ShoppingItem.deleted_at.desc())
+        .all()
+    )
+
+    market_data = {
+        "coupang": {"items": []},
+        "market_kurly": {"items": []},
+        "naver_shopping": {"items": []},
+    }
+    for item in items:
+        m_name = item.market_name
+        if m_name not in market_data:
+            market_data[m_name] = {"items": []}
+        market_data[m_name]["items"].append(
+            {
+                "item_id": str(item.id),
+                "ingredient_id": item.ingredient_id,
+                "ingredient_name": item.ingredient_name,
+                "standard_unit": item.standard_unit,
+                "market_name": item.market_name,
+                "lowest_price": item.price,
+                "delivery_type": item.delivery_type,
+                "product_title": item.product_title,
+                "purchase_link": item.purchase_link,
+                "is_checked": False,  # 휴지통 항목은 항상 체크 해제 상태로 노출
+                "is_essential": item.is_essential,
+                "is_lowest": item.is_lowest,
+                "status": item.status,
+            }
+        )
+
+    market_groups = [
+        {"market": m, "subtotal": 0, "items": d["items"]}
+        for m, d in market_data.items()
+    ]
+    market_counts = [
+        {"market": m, "count": len(d["items"])} for m, d in market_data.items()
+    ]
+
+    return {
+        "total_items": len(items),
+        "checked_items_count": 0,
+        "total_price_per_shopping": 0,
+        "market_counts": market_counts,
+        "market_groups": market_groups,
+    }
+
+
+@router.post("/shopping-list/items/restore", response_model=RestoreItemsResponse)
+async def restore_items(
+    request: RestoreItemsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    [휴지통] 삭제된 항목 복원 — deleted_at 을 비워 다시 살아있는 항목으로 되돌린다.
+    복원된 항목은 체크 해제(PENDING) 상태로 돌아온다.
+    """
+    shopping_list = (
+        db.query(ShoppingList).filter(ShoppingList.user_id == current_user.id).first()
+    )
+    if not shopping_list:
+        raise HTTPException(status_code=404, detail="장바구니를 찾을 수 없습니다.")
+
+    # 삭제된 항목 중에서만 복원 대상으로 인정
+    items = (
+        db.query(ShoppingItem)
+        .filter(
+            ShoppingItem.id.in_([int(i) for i in request.item_ids]),
+            ShoppingItem.list_id == shopping_list.id,
+            ShoppingItem.deleted_at.isnot(None),
+        )
+        .all()
+    )
+    restored_item_ids = []
+    for item in items:
+        item.deleted_at = None
+        item.is_checked = False
+        item.status = ItemStatus.PENDING
+        restored_item_ids.append(str(item.id))
+    db.commit()
+
+    summary_data = calculate_shopping_summary(db, shopping_list.id)
+
+    return {
+        "restored_count": len(restored_item_ids),
+        "restored_item_ids": restored_item_ids,
         "summary": summary_data,
     }

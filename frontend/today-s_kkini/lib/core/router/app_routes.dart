@@ -15,6 +15,7 @@ class AppRoutes {
   static const mealDetail = '/meal-detail/:date';
   static const ingredientList = '/ingredient-list/:mealId';
   static const shoppingList = '/shopping-list';
+  static const shoppingTrash = '/shopping-list/trash';
 
   static String recipe(String recipeId) => '/recipe/$recipeId';
   static String mealDetailPath(DateTime date) =>

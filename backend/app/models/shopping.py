@@ -53,4 +53,8 @@ class ShoppingItem(Base):
 
     status = Column(Enum(ItemStatus), default=ItemStatus.PENDING)
 
+    # Soft delete: NULL 이면 살아있는 항목, 값이 있으면 삭제된 시각(휴지통).
+    # 평소 목록 조회에서는 deleted_at IS NULL 만 노출하고, 복원 시 NULL 로 되돌린다.
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
     shopping_list = relationship("ShoppingList", back_populates="items")
