@@ -26,8 +26,8 @@ from services.plan.plan_validation_service import (
 )
 from services.plan.plan_payload_service import build_modeling_to_back_monthly_response
 from services.optimizer.optimizer_input_builder import build_optimizer_input
-from services.optimizer.ortools_monthly_optimizer import solve_monthly_plan_with_ortools
-from services.optimizer.optimizer_result_mapper import build_ortools_monthly_plan
+from services.optimizer.ortools.monthly_plan_optimizer import solve_monthly_plan_with_ortools
+from services.optimizer.ortools.result_mapper import build_ortools_monthly_plan
 
 
 def get_required_user_id(request_data: dict) -> str:

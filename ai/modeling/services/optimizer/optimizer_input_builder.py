@@ -32,7 +32,7 @@ DEFAULT_OPTIMIZER_CONFIG = {
 def build_optimizer_config(profile: dict) -> dict:
     """
     사용자 profile과 실험용 override 값을 바탕으로
-    OR-Tools 최적화 설정을 만든다.
+    월간 식단 optimizer 공통 설정을 만든다.
 
     diversity_level은 메뉴 반복 제어 강도를 결정한다.
     profile에 명시된 optimizer 값이 있으면 해당 값을 우선 적용한다.
@@ -73,11 +73,11 @@ def build_optimizer_input(
     meal_count_per_day: int,
 ) -> dict:
     """
-    OR-Tools optimizer에서 사용할 입력 데이터를 만든다.
+    월간 식단 solver 구현체에서 사용할 공통 입력 데이터를 만든다.
 
     recommendations:
     - 기존 scoring + re-ranking이 끝난 후보 메뉴 목록이다.
-    - OR-Tools는 이 후보를 바탕으로 월간 식단 슬롯에 메뉴를 배치한다.
+    - 각 solver 구현체는 이 후보를 바탕으로 월간 식단 슬롯에 메뉴를 배치한다.
 
     profile:
     - 사용자 예산, 영양 목표, 선호 조건 등이 들어 있는 모델링 profile이다.
