@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from services.modeling_service import create_monthly_plan
+from services.rag.rag_client import RagRequestError
 from services.style.meal_style_service import GOAL_STYLE_META
 
 
@@ -77,6 +78,23 @@ def build_monthly_request(scenario: dict) -> dict:
     return request_data
 
 
+
+def build_error_payload(error: Exception) -> dict:
+    """
+    실험 실행 중 발생한 예외를 분석 가능한 구조로 변환한다.
+    """
+
+    if isinstance(error, RagRequestError):
+        return error.to_dict()
+
+    return {
+        "failure_stage": "execution",
+        "failure_reason": "execution_error",
+        "type": type(error).__name__,
+        "message": str(error),
+    }
+
+
 def run_one_scenario(scenario: dict) -> dict:
     """
     단일 시나리오에 대해 기존 MMR + Re-ranking 월간 식단 생성 로직을 실행한다.
@@ -102,6 +120,8 @@ def run_one_scenario(scenario: dict) -> dict:
             "purpose": scenario.get("purpose"),
             "planner": planner_name,
             "success": True,
+            "failure_stage": None,
+            "failure_reason": None,
             "runtime_ms": runtime_ms,
             "error": None,
             "profile": scenario.get("profile"),
@@ -111,6 +131,7 @@ def run_one_scenario(scenario: dict) -> dict:
 
     except Exception as error:
         runtime_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        error_payload = build_error_payload(error)
 
         planner_name = (
             "ortools_cp_sat"
@@ -124,11 +145,10 @@ def run_one_scenario(scenario: dict) -> dict:
             "purpose": scenario.get("purpose"),
             "planner": planner_name,
             "success": False,
+            "failure_stage": error_payload.get("failure_stage"),
+            "failure_reason": error_payload.get("failure_reason"),
             "runtime_ms": runtime_ms,
-            "error": {
-                "type": type(error).__name__,
-                "message": str(error),
-            },
+            "error": error_payload,
             "profile": scenario.get("profile"),
             "selected_style": None,
             "response": None,

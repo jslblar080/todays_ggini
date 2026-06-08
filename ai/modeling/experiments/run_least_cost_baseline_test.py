@@ -10,6 +10,7 @@ from services.modeling_service import (
     calculate_monthly_rag_candidate_multiplier,
     request_monthly_candidate_menus_with_fallback,
 )
+from services.rag.rag_client import RagRequestError
 
 from services.optimizer.baselines.least_cost_baseline import (
     build_least_cost_monthly_plan,
@@ -129,6 +130,23 @@ def build_least_cost_response(
     }
 
 
+
+def build_error_payload(error: Exception) -> dict:
+    """
+    실험 실행 중 발생한 예외를 분석 가능한 구조로 변환한다.
+    """
+
+    if isinstance(error, RagRequestError):
+        return error.to_dict()
+
+    return {
+        "failure_stage": "execution",
+        "failure_reason": "execution_error",
+        "type": type(error).__name__,
+        "message": str(error),
+    }
+
+
 def run_one_scenario(scenario: dict) -> dict:
     """
     단일 시나리오에 대해 Least-cost Diet baseline을 실행한다.
@@ -244,6 +262,8 @@ def run_one_scenario(scenario: dict) -> dict:
             "purpose": scenario.get("purpose"),
             "planner": "least_cost_diet_baseline",
             "success": True,
+            "failure_stage": None,
+            "failure_reason": None,
             "baseline_success": monthly_plan.get("baseline", {}).get("success"),
             "runtime_ms": runtime_ms,
             "error": None,
@@ -254,6 +274,7 @@ def run_one_scenario(scenario: dict) -> dict:
 
     except Exception as error:
         runtime_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        error_payload = build_error_payload(error)
 
         return {
             "scenario_id": scenario_id,
@@ -261,12 +282,11 @@ def run_one_scenario(scenario: dict) -> dict:
             "purpose": scenario.get("purpose"),
             "planner": "least_cost_diet_baseline",
             "success": False,
+            "failure_stage": error_payload.get("failure_stage"),
+            "failure_reason": error_payload.get("failure_reason"),
             "baseline_success": False,
             "runtime_ms": runtime_ms,
-            "error": {
-                "type": type(error).__name__,
-                "message": str(error),
-            },
+            "error": error_payload,
             "profile": scenario.get("profile"),
             "selected_style": None,
             "response": None,
