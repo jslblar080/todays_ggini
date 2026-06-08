@@ -18,5 +18,6 @@ class Settings:
     PIXABAY_API_KEY: str = os.getenv("PIXABAY_API_KEY")
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
 
 settings = Settings()

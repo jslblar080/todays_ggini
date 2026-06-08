@@ -377,23 +377,29 @@ async def get_daily_meal_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"{date}에 해당하는 식단 데이터가 없습니다.",
         )
-
-    # 2. DB의 content(JSON) 데이터 정제 및 타입 변환
-    detail_meals = []
+    
+    # 병렬 처리를 위해 이미지 태스크 목록을 빌드
+    img_tasks = []
     for item in plan.content:
         selected_menu = item.get("selected_menu") or {}
-        menu_name = selected_menu.get("name")
-        category = selected_menu.get("category")
-        img_url = await get_food_image_url(menu_name, category)
+        menu_name = selected_menu.get("name", "")
+        img_tasks.append(get_food_image_url(menu_name, "food"))
 
+    # 아침, 점심, 저녁 이미지 매핑 파이프라인을 한방에 병렬 실행
+    all_img_urls = await asyncio.gather(*img_tasks)
+
+    # 결과를 매핑하여 최종 응답 스키마 조립
+    detail_meals = []
+    for item, img_url in zip(plan.content, all_img_urls):
+        selected_menu = item.get("selected_menu") or {}
         detail_meals.append(
             {
                 "slot": item.get("meal_order"),
                 "meal_id": str(selected_menu.get("menu_id")),
-                "menu_name": menu_name,
+                "menu_name": selected_menu.get("name"),
                 "calories": int(selected_menu.get("calories") or 0),
                 "price": int(selected_menu.get("estimated_cost") or 0),
-                "image_url": img_url,  # Pixabay API를 호출하여 이미지를 가져옴
+                "image_url": img_url,
             }
         )
 
@@ -479,11 +485,10 @@ async def get_menu_detail(
         )
 
     menu_name = target_menu.get("name", "")
-    menu_category = target_menu.get("category", "")
     img_tasks = [
-        get_food_image_url(menu_name, menu_category),  # 메뉴 자체 이미지 (인덱스 0)
+        get_food_image_url(menu_name, "food"),  # 메뉴 자체 이미지 (인덱스 0)
         *[
-            get_food_image_url(ic.get("ingredient_name"), "재료") for ic in ing_costs
+            get_food_image_url(ic.get("ingredient_name"), "food") for ic in ing_costs
         ],  # 재료 이미지들
     ]
     all_img_urls = await asyncio.gather(*img_tasks)
@@ -696,9 +701,8 @@ async def update_specific_menu_slot(
     for item in plan.content:
         menu = item.get("selected_menu", {})
         menu_name = menu.get("name", "")
-        menu_category = menu.get("category", "")
         # Task를 리스트에 담기만 하고 아직 실행(await)하지 않음
-        img_tasks.append(get_food_image_url(menu_name, menu_category))
+        img_tasks.append(get_food_image_url(menu_name, "food"))
 
     # 모아둔 Task를 한꺼번에 병렬로 실행! (시간 단축 핵심)
     all_img_urls = await asyncio.gather(*img_tasks)
@@ -779,7 +783,7 @@ async def get_meal_alternatives(
     current_menu_category = selected_menu.get("category", "")  # 카테고리 추출
 
     # 인덱스 0번은 항상 Current Meal의 이미지가 되도록 세팅
-    img_tasks = [get_food_image_url(current_menu_name, current_menu_category)]
+    img_tasks = [get_food_image_url(current_menu_name, "food")]
 
     # Alternatives 이미지 작업 추가
     for alt in alt_menus:
