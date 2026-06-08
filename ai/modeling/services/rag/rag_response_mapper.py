@@ -947,6 +947,8 @@ def map_candidate_menu_to_modeling_menu(
         candidate_menu=candidate_menu
     )
 
+    nutrition_outlier_result = analyze_nutrition_outlier(candidate_menu)
+
     return {
         "menu_id": candidate_menu.get("menu_id"),
         "name": candidate_menu.get("name"),
@@ -975,7 +977,17 @@ def map_candidate_menu_to_modeling_menu(
         "ingredient_usages": candidate_menu.get("ingredient_usages", []),
         "similar_menu_ids": candidate_menu.get("similar_menu_ids", []),
         "allergy_ingredients": candidate_menu.get("allergy_ingredients", []),
-        "recipe": candidate_menu.get("recipe", {})
+        "recipe": candidate_menu.get("recipe", {}),
+
+        "nutrition_outlier_issues": nutrition_outlier_result[
+            "nutrition_outlier_issues"
+        ],
+        "nutrition_outlier_penalty": nutrition_outlier_result[
+            "nutrition_outlier_penalty"
+        ],
+        "is_extreme_nutrition_outlier": nutrition_outlier_result[
+            "is_extreme_nutrition_outlier"
+        ],
     }
 
 def is_blank_string(value) -> bool:
@@ -1045,6 +1057,108 @@ def get_nutrient_value(menu: dict, key: str) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+
+def analyze_nutrition_outlier(menu: dict) -> dict:
+    """
+    RAG 영양값이 1끼 기준으로 보기 어려운 이상치인지 진단한다.
+
+    1차 구현에서는 후보를 바로 제외하지 않고,
+    이상치 이슈와 penalty 후보 값만 기록한다.
+    """
+
+    calories = get_nutrient_value(menu, "calories")
+    protein = get_nutrient_value(menu, "protein")
+    carbohydrate = get_nutrient_value(menu, "carbohydrate")
+    fat = get_nutrient_value(menu, "fat")
+
+    issues = []
+    penalty = 0
+    is_extreme = False
+
+    # 일반 이상치 기준
+    if calories >= 2000:
+        issues.append("calories_too_high")
+        penalty += 15
+
+    if protein >= 150:
+        issues.append("protein_too_high")
+        penalty += 15
+
+    if carbohydrate >= 300:
+        issues.append("carbohydrate_too_high")
+        penalty += 10
+
+    if fat >= 100:
+        issues.append("fat_too_high")
+        penalty += 15
+
+    # 극단 이상치 기준
+    if calories >= 5000:
+        issues.append("calories_extreme")
+        penalty += 50
+        is_extreme = True
+
+    if protein >= 300:
+        issues.append("protein_extreme")
+        penalty += 40
+        is_extreme = True
+
+    if carbohydrate >= 700:
+        issues.append("carbohydrate_extreme")
+        penalty += 40
+        is_extreme = True
+
+    if fat >= 250:
+        issues.append("fat_extreme")
+        penalty += 50
+        is_extreme = True
+
+    # 영양값 내부 정합성 기준
+    #
+    # calories는 RAG가 내려준 총 열량이고,
+    # macro_calories는 탄수화물/단백질/지방으로부터 계산한 예상 열량이다.
+    # 두 값은 반올림, 식이섬유, 조리 단위 차이 등으로 완전히 같을 필요는 없다.
+    # 다만 macro_calories가 calories보다 지나치게 크면
+    # RAG 영양값의 단위 또는 환산 오류 가능성이 높다.
+    macro_calories = (carbohydrate * 4) + (protein * 4) + (fat * 9)
+
+    if calories > 0 and macro_calories > 0:
+        macro_calorie_ratio = macro_calories / calories
+
+        if macro_calorie_ratio >= 1.5:
+            issues.append("nutrient_calorie_mismatch")
+            penalty += 20
+
+        if macro_calorie_ratio >= 2.0:
+            issues.append("nutrient_calorie_extreme_mismatch")
+            penalty += 40
+            is_extreme = True
+
+        single_macro_calories = {
+            "carbohydrate": carbohydrate * 4,
+            "protein": protein * 4,
+            "fat": fat * 9,
+        }
+
+        for nutrient_name, nutrient_calories in single_macro_calories.items():
+            single_macro_ratio = nutrient_calories / calories
+
+            if single_macro_ratio >= 1.25:
+                issues.append(f"{nutrient_name}_calories_exceed_total")
+                penalty += 25
+
+            if single_macro_ratio >= 1.5:
+                issues.append(f"{nutrient_name}_calories_extreme_exceed_total")
+                penalty += 40
+                is_extreme = True
+
+    return {
+        "nutrition_outlier_issues": issues,
+        "nutrition_outlier_penalty": penalty,
+        "is_extreme_nutrition_outlier": is_extreme,
+    }
 
 
 def validate_rag_candidate_menu(menu: dict) -> tuple[bool, list[str]]:
