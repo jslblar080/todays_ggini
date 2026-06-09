@@ -49,6 +49,12 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
     cost_penalty_weight = optimizer_input.get("cost_penalty_weight", 1)
     cost_penalty_divisor = optimizer_input.get("cost_penalty_divisor", 100)
     repeat_penalty_weight = optimizer_input.get("repeat_penalty_weight", 300)
+    enable_nutrition_outlier_penalty = bool(
+        optimizer_input.get("enable_nutrition_outlier_penalty", False)
+    )
+    nutrition_outlier_penalty_weight = int(
+        optimizer_input.get("nutrition_outlier_penalty_weight", 1) or 0
+    )
     monthly_budget = int(optimizer_input.get("monthly_budget") or 0)
     required_meal_count = optimizer_input.get("required_meal_count")
     original_recommendation_count = optimizer_input.get("original_recommendation_count")
@@ -120,7 +126,7 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
 
     # 목적 함수:
     # final_score는 높일수록 좋고,
-    # estimated_cost와 같은 메뉴 반복은 낮출수록 좋다.
+    # estimated_cost, 영양 이상치, 같은 메뉴 반복은 낮출수록 좋다.
     objective_terms = []
 
     for slot_index, _slot in enumerate(slots):
@@ -133,11 +139,20 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 cost_penalty_divisor=cost_penalty_divisor,
             )
 
+            nutrition_outlier_penalty = 0
+
+            if enable_nutrition_outlier_penalty:
+                nutrition_outlier_penalty = int(round(
+                    float(menu.get("nutrition_outlier_penalty", 0) or 0)
+                    * nutrition_outlier_penalty_weight
+                ))
+
             objective_terms.append(
                 decision_vars[(slot_index, menu_index)]
                 * (
                     score
                     - (cost_penalty * cost_penalty_weight)
+                    - nutrition_outlier_penalty
                 )
             )
 
@@ -186,6 +201,8 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 "cost_penalty_weight": cost_penalty_weight,
                 "cost_penalty_divisor": cost_penalty_divisor,
                 "repeat_penalty_weight": repeat_penalty_weight,
+                "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
+                "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
                 "max_repeat_per_menu": max_repeat_per_menu,
                 "solver_time_limit_seconds": time_limit,
                 "monthly_budget": monthly_budget,
@@ -225,6 +242,8 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "cost_penalty_weight": cost_penalty_weight,
             "cost_penalty_divisor": cost_penalty_divisor,
             "repeat_penalty_weight": repeat_penalty_weight,
+            "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
+            "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
             "max_repeat_per_menu": max_repeat_per_menu,
             "solver_time_limit_seconds": time_limit,
             "monthly_budget": monthly_budget,

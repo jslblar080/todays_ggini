@@ -26,6 +26,8 @@ DEFAULT_OPTIMIZER_CONFIG = {
     "cost_penalty_divisor": 100,
     "solver_time_limit_seconds": 3,
     "optimizer_candidate_multiplier": 1.2,
+    "enable_nutrition_outlier_penalty": False,
+    "nutrition_outlier_penalty_weight": 1,
 }
 
 
@@ -57,6 +59,8 @@ def build_optimizer_config(profile: dict) -> dict:
         "max_repeat_per_menu",
         "solver_time_limit_seconds",
         "optimizer_candidate_multiplier",
+        "enable_nutrition_outlier_penalty",
+        "nutrition_outlier_penalty_weight",
     ]
 
     for key in override_keys:
@@ -137,6 +141,12 @@ def build_optimizer_input(
             "calories": float(menu.get("calories", 0) or 0),
             "protein": float(menu.get("protein", 0) or 0),
             "final_score": float(menu.get("final_score", 0) or 0),
+            "nutrition_outlier_penalty": float(
+                menu.get("nutrition_outlier_penalty", 0) or 0
+            ),
+            "is_extreme_nutrition_outlier": bool(
+                menu.get("is_extreme_nutrition_outlier", False)
+            ),
             "preference_score": float(
                 menu.get("scores", {}).get("preference_score", 0)
                 if isinstance(menu.get("scores"), dict)
@@ -163,5 +173,11 @@ def build_optimizer_input(
         "cost_penalty_weight": optimizer_config["cost_penalty_weight"],
         "cost_penalty_divisor": optimizer_config["cost_penalty_divisor"],
         "repeat_penalty_weight": optimizer_config["repeat_penalty_weight"],
+        "enable_nutrition_outlier_penalty": optimizer_config[
+            "enable_nutrition_outlier_penalty"
+        ],
+        "nutrition_outlier_penalty_weight": optimizer_config[
+            "nutrition_outlier_penalty_weight"
+        ],
         "optimizer_config": optimizer_config,
     }
