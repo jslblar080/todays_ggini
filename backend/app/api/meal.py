@@ -785,7 +785,6 @@ async def get_meal_alternatives(
     alt_menus = target_meal_data.get("alternative_menus", [])
 
     current_menu_name = selected_menu.get("name", "")
-    current_menu_category = selected_menu.get("category", "")  # 카테고리 추출
 
     # 인덱스 0번은 항상 Current Meal의 이미지가 되도록 세팅
     img_tasks = [get_food_image_url(current_menu_name, "food")]
@@ -861,10 +860,10 @@ def build_modeling_profile_from_user(
     taste = current_user.onboarding_setting
     
     profile = {
-        "goals": (persona.purpose if persona else []) or [],  # current_user.purpose 대치
+        "goals": (persona.purpose if persona else []) or [], 
         "monthly_budget": persona.monthly_budget if persona else 300000,
         "meal_count_per_day": persona.meals_per_day if persona else 3,
-        
+
         # 2. UserOnboardingSetting (2단계 온보딩 취향 설정 테이블)에서 추출
         "cooking_skill": taste.cooking_skill if taste else 3,
         "preferred_categories": (taste.preferred_categories if taste else []) or [],

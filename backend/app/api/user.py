@@ -17,14 +17,9 @@ from app.models.user import User
 router = APIRouter()
 
 # --------------------------- 페르소나 추천 요청 API ---------------------------------
-# @router.post(
-#     "/recommend-personas", 
-#     response_model=PersonaRecommendResponse,
-#     status_code=status.HTTP_200_OK,
-#     summary="[온보딩 1단계] 가구/스펙 기반 페르소나 4종 추천"
-# )
+# @router.post("/recommend-personas", response_model=PersonaRecommendResponse, status_code=status.HTTP_200_OK)
 # async def recommend_personas(
-#     payload: UserPersonaSettingInfo,
+#     payload: PersonaRecommendRequest,
 #     current_user: User = Depends(get_current_user),
 #     db: Session = Depends(get_db)
 # ) -> Any:
