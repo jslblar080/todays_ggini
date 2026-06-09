@@ -715,6 +715,12 @@ def calculate_final_score(
         "rag_data_quality_penalty": round(rag_data_quality_penalty, 2),
         "nutrition_missing_penalty": round(nutrition_missing_penalty, 2),
         "total_quality_penalty": round(total_quality_penalty, 2),
+        "nutrition_outlier_issues": menu.get("nutrition_outlier_issues", []),
+        "nutrition_outlier_penalty": menu.get("nutrition_outlier_penalty", 0),
+        "is_extreme_nutrition_outlier": menu.get(
+            "is_extreme_nutrition_outlier",
+            False,
+        ),
     }
 
 
