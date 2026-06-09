@@ -1,5 +1,6 @@
 import httpx
 import logging
+from typing import Optional
 from openai import AsyncOpenAI
 from app.core.config import settings
 from app.core.redis import redis_client
@@ -11,11 +12,14 @@ openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, max_retries=1)
 
 # 이미지 매핑용 고유 접두사와 캐시 만료 기간(30일) 설정
 REDIS_CACHE_PREFIX = "food_image:"
-CACHE_TTL_DAYS = 30
+CACHE_TTL_DAYS = 1
 http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(3.0, connect=1.5),
     limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
 )
+
+# 이미지 매핑이 완전히 실패하거나 타임아웃 시 반환할 디폴트 이미지 URL
+DEFAULT_FOOD_IMAGE_URL = "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=500"
 
 async def _get_optimized_keyword(menu_name: str) -> str:
     """
@@ -53,7 +57,7 @@ async def _get_optimized_keyword(menu_name: str) -> str:
         logger.error(f"LLM 쿼리 최적화 실패 (기본 메뉴명 Fallback 사용): {e}")
         return menu_name  # 에러 발생 시 시스템이 멈추지 않게 원래 이름을 그대로 반환
 
-async def _search_pixabay_images(keyword: str, category: str = "food") -> list:
+async def _search_pixabay_images(keyword: str, category: str = "food") -> Optional[str]:
     """
     [2단계] Pixabay API 호출 (후보군 3개 확보)
     정제된 영문 키워드를 가지고 스톡 이미지 URL 최대 3개를 긁어옵니다.
@@ -103,55 +107,6 @@ async def _search_pixabay_images(keyword: str, category: str = "food") -> list:
             
     return [] # 결과가 없거나 에러 시 빈 리스트 반환
 
-# async def _verify_images_with_vlm(menu_name: str, image_urls: list) -> str:
-#     """
-#     [3단계] VLM(Vision-Language Model) 기반 이미지 검증 필터링
-#     비전 AI가 이미지 URL들을 실제로 분석하여 메뉴명과 가장 매칭되는 이미지의 URL을 반환합니다.
-#     """
-#     if not image_urls:
-#         return None
-
-#     try:
-#         # 비전 모델에게 사진과 텍스트를 함께 전달하기 위한 멀티모달 프롬프트 조립
-#         content = [
-#             {
-#                 "type": "text", 
-#                 "text": (
-#                     f"You are a food image auditor. The user's actual Korean meal is '{menu_name}'. "
-#                     "Review the provided image URLs and choose the one that best and most accurately depicts this specific Korean food. "
-#                     "If all images are irrelevant or look completely different from the Korean dish, answer 'NONE'. "
-#                     "Otherwise, reply ONLY with the exact index number (e.g., 0 or 1) of the best image. Do not write anything else."
-#                 )
-#             }
-#         ]
-        
-#         # 반복문을 돌며 AI에게 각각의 이미지 주소를 '눈(image_url)'으로 넣어줍니다.
-#         for idx, url in enumerate(image_urls):
-#             content.append({"type": "text", "text": f"Image Index {idx}:"})
-#             content.append({"type": "image_url", "image_url": {"url": url}})
-
-#         # gpt-4o-mini는 텍스트뿐만 아니라 이미지도 볼 줄 아는 멀티모달 모델입니다.
-#         response = await openai_client.chat.completions.create(
-#             model="gpt-4o-mini",
-#             messages=[{"role": "user", "content": content}],
-#             temperature=0.2,  # 엄격한 판정을 위해 온도를 대폭 낮춤
-#             max_tokens=5
-#         )
-        
-#         result = response.choices[0].message.content.strip()
-#         # 만약 AI가 'NONE'을 외치거나 숫자가 아닌 답을 주면 부적합 처리
-#         if result == "NONE" or not result.isdigit():
-#             return None
-            
-#         chosen_idx = int(result)
-#         if 0 <= chosen_idx < len(image_urls):
-#             return image_urls[chosen_idx]  # 최종 합격한 이미지 URL 딱 1개 반환
-            
-#     except Exception as e:
-#         print(f"VLM 검증 단계 에러: {e}")
-        
-#     return None
-
 
 async def get_food_image_url(menu_name: str, category: str = "food") -> str:
     """
@@ -173,15 +128,11 @@ async def get_food_image_url(menu_name: str, category: str = "food") -> str:
     # AI 기반 전처리 및 후보군 수집
     optimized_keyword = await _get_optimized_keyword(menu_name)
     final_img_url = await _search_pixabay_images(optimized_keyword, category)
-    
-    # VLM 검증 단계 가동
-    # final_img_url = await _verify_images_with_vlm(menu_name, candidate_urls)
 
-    # 2. [Fallback 레이어] 
-    # VLM이 탈락시켰거나 에러가 났을 경우, 기존 방식대로 Pixabay가 찾아왔던 첫 번째 원본 이미지[0]를 그대로 차용합니다.
+    # 2. [Fallback 레이어] 최종 매핑 실패 시 디폴트 이미지 반환
     if not final_img_url:
         logger.warning(f"❌ 매핑 실패(결과 없음): {menu_name}")
-        return None  # 검색 자체가 완전 실패한 경우
+        return DEFAULT_FOOD_IMAGE_URL  # 검색 자체가 완전 실패한 경우
 
     # 3. 원본을 썼든, AI 검증을 통과했든 최종 확정된 URL을 Redis에 캐싱하여 다음 요청부턴 돈이 안 들게 방어합니다.
     try:

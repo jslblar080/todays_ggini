@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
 from redis.asyncio import Redis
@@ -85,7 +85,12 @@ def background_monthly_plan_task(
     db = SessionLocal()
 
     try:
-        current_user = db.query(User).filter(User.id == user_id).first()
+        current_user = db.query(User).options(
+            joinedload(User.family_members),
+            joinedload(User.persona_setting),
+            joinedload(User.onboarding_setting)
+        ).filter(User.id == user_id).first()
+
         if not current_user:
             raise ValueError("유저를 찾을 수 없습니다.")
 
@@ -852,15 +857,20 @@ def build_modeling_profile_from_user(
     DB의 User 정보를 모델링 profile 형식으로 변환합니다.
     """
 
+    persona = current_user.persona_setting
+    taste = current_user.onboarding_setting
+    
     profile = {
-        "goals": current_user.purpose or [],
-        "monthly_budget": current_user.monthly_budget,
-        "meal_count_per_day": current_user.meals_per_day,
-        "cooking_skill": current_user.cooking_skill,
-        "preferred_categories": current_user.preferred_categories or [],
-        "diversity_level": current_user.diversity_level,
-        "ingredient_preferences": current_user.preferred_ingredients or [],
-        "allergy_ingredients": current_user.excluded_ingredients or [],
+        "goals": (persona.purpose if persona else []) or [],  # current_user.purpose 대치
+        "monthly_budget": persona.monthly_budget if persona else 300000,
+        "meal_count_per_day": persona.meals_per_day if persona else 3,
+        
+        # 2. UserOnboardingSetting (2단계 온보딩 취향 설정 테이블)에서 추출
+        "cooking_skill": taste.cooking_skill if taste else 3,
+        "preferred_categories": (taste.preferred_categories if taste else []) or [],
+        "diversity_level": taste.diversity_level if taste else "보통",
+        "ingredient_preferences": (taste.preferred_ingredients if taste else []) or [],
+        "allergy_ingredients": (taste.excluded_ingredients if taste else []) or [],
     }
 
     if sample_period_days is not None:
