@@ -99,6 +99,12 @@ def format_menu_for_back(
         "rag_data_quality_penalty": menu.get("rag_data_quality_penalty", 0),
         "nutrition_missing_penalty": menu.get("nutrition_missing_penalty", 0),
         "total_quality_penalty": menu.get("total_quality_penalty", 0),
+        "nutrition_outlier_issues": menu.get("nutrition_outlier_issues", []),
+        "nutrition_outlier_penalty": menu.get("nutrition_outlier_penalty", 0),
+        "is_extreme_nutrition_outlier": menu.get(
+            "is_extreme_nutrition_outlier",
+            False,
+        ),
 
         "estimated_cost": menu.get("estimated_cost"),
         "rag_estimated_cost": menu.get("rag_estimated_cost"),
