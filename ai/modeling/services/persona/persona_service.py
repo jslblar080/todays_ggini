@@ -8,23 +8,19 @@ from services.persona.persona_catalog import PERSONA_CATALOG
 ACTIVITY_LEVEL_MAP = {
     1: {
         "label": "거의 앉아서 생활해요",
-        "female_tdee_factor": 1.2,
-        "male_standard_weight_factor": 27.5,
+        "tdee_factor": 1.2,
     },
     2: {
         "label": "가벼운 활동을 해요",
-        "female_tdee_factor": 1.375,
-        "male_standard_weight_factor": 30,
+        "tdee_factor": 1.375,
     },
     3: {
         "label": "보통 활동을 해요",
-        "female_tdee_factor": 1.55,
-        "male_standard_weight_factor": 35,
+        "tdee_factor": 1.55,
     },
     4: {
         "label": "활동이 많아요",
-        "female_tdee_factor": 1.725,
-        "male_standard_weight_factor": 40,
+        "tdee_factor": 1.725,
     },
 }
 
@@ -91,44 +87,57 @@ def get_meal_budget_band(
 
 
 def calculate_bmr(member: dict[str, Any]) -> float:
+    """
+    Mifflin-St Jeor 공식을 사용해 기초대사량(BMR)을 계산한다.
+
+    남성:
+    BMR = 10 × 체중kg + 6.25 × 키cm - 5 × 나이 + 5
+
+    여성:
+    BMR = 10 × 체중kg + 6.25 × 키cm - 5 × 나이 - 161
+    """
+
     gender = member.get("gender")
     weight = float(member.get("weight", 0) or 0)
     height = float(member.get("height", 0) or 0)
     age = int(member.get("age", 0) or 0)
 
     if gender == "여":
-        return 655.1 + (9.56 * weight) + (1.85 * height) - (4.68 * age)
+        return (10 * weight) + (6.25 * height) - (5 * age) - 161
 
-    return 66.47 + (13.75 * weight) + (5.003 * height) - (6.755 * age)
-
-
-def calculate_male_standard_weight_tdee(
-    member: dict[str, Any],
-    activity_level: int,
-) -> float:
-    height_m = float(member.get("height", 0) or 0) / 100
-    standard_weight = height_m * height_m * 22
-
-    activity_config = ACTIVITY_LEVEL_MAP.get(
-        activity_level,
-        ACTIVITY_LEVEL_MAP[2],
-    )
-
-    return standard_weight * activity_config["male_standard_weight_factor"]
+    return (10 * weight) + (6.25 * height) - (5 * age) + 5
 
 
 def apply_goal_calorie_adjustment(
     tdee: float,
+    bmr: float,
     purposes: list[str],
 ) -> int:
-    adjusted = tdee
+    """
+    사용자 목적에 따라 하루 권장 칼로리를 계산한다.
+
+    목적별 기준:
+    - 다이어트: TDEE - 500kcal
+      단, 최소 1200kcal 및 BMR의 95% 이상을 유지한다.
+    - 고단백: TDEE + 300kcal
+      근육량 증가 또는 단백질 중심 식단을 고려한다.
+    - 그 외: TDEE 유지
+
+    다이어트와 고단백이 함께 선택된 경우에는
+    칼로리 제한 목적이 더 직접적이므로 다이어트 기준을 우선 적용한다.
+    """
 
     if "다이어트" in purposes:
-        adjusted -= 400
+        adjusted = max(
+            tdee - 500,
+            1200,
+            bmr * 0.95,
+        )
     elif "고단백" in purposes:
-        adjusted += 250
+        adjusted = tdee + 300
+    else:
+        adjusted = tdee
 
-    adjusted = max(1200, adjusted)
     adjusted = min(3500, adjusted)
 
     return round(adjusted)
@@ -146,17 +155,11 @@ def calculate_member_recommended_calorie(
 
     gender = member.get("gender")
     bmr = calculate_bmr(member)
-
-    if gender == "여":
-        tdee = bmr * activity_config["female_tdee_factor"]
-    else:
-        tdee = calculate_male_standard_weight_tdee(
-            member=member,
-            activity_level=activity_level,
-        )
+    tdee = bmr * activity_config["tdee_factor"]
 
     recommended_daily_calories = apply_goal_calorie_adjustment(
         tdee=tdee,
+        bmr=bmr,
         purposes=purposes,
     )
 
@@ -377,13 +380,10 @@ def build_persona_profile_response(request_data: dict[str, Any]) -> dict[str, An
         limit=4,
     )
 
-    selected_persona = persona_candidates[0] if persona_candidates else None
-
     return {
         "id": request_data.get("id"),
         "request_type": "profile_build",
         "recommended_daily_calories": calorie_result["recommended_daily_calories"],
-        "selected_persona": simplify_persona_candidate(selected_persona),
         "persona_candidates": [
             simplify_persona_candidate(persona)
             for persona in persona_candidates
