@@ -11,12 +11,24 @@ from app.schemas.user import (
 UserOnboardingSettingUpdate, 
 UserInfo, 
 NicknameUpdateRequest, 
-PersonaRecommendRequest,
+PersonaRecommendResponse,
 )
-from app.schemas.user import PersonaRecommendResponse
-from ai.modeling.services.modeling_service import create_persona_profile
 from app.crud import crud_user
 from app.models.user import User
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+MODELING_ROOT = PROJECT_ROOT / "ai" / "modeling"
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+if str(MODELING_ROOT) not in sys.path:
+    sys.path.append(str(MODELING_ROOT))
+
+from ai.modeling.services.modeling_service import create_persona_profile
 
 router = APIRouter()
 
@@ -51,11 +63,17 @@ async def recommend_personas(
         persona = user_details.persona_setting
         members = user_details.family_members
 
+        # 공백이나 오타가 섞여 들어오더라도, 무조건 기획 명세인 '1인 가구' 또는 '다인 가구' 둘 중 하나로 강제 치환합니다.
+        raw_type = persona.household_type.strip() if (persona and persona.household_type) else "1인 가구"
+        
+        # '1인' 글자가 포함되어 있다면 '1인 가구', 그 외의 모든 케이스(오타 포함)는 '다인 가구'로 매핑
+        normalized_household = "1인 가구" if "1인" in raw_type else "다인 가구"
+
         # 2. 모델링 파트가 요청한 JSON 페이로드 구조
         request_payload = {
             "id": current_user.id,                                   
             "request_type": "profile_build",                         
-            "household_type": persona.household_type,
+            "household_type":normalized_household,
             "family_count": persona.family_count,
             "monthly_budget": persona.monthly_budget,
             "meals_per_day": persona.meals_per_day,
@@ -72,7 +90,7 @@ async def recommend_personas(
                 for member in members[:1]  # 최초 온보딩 단계이므로 대표자 1명만 안전 슬라이싱
             ]
         }
-
+    
         # 3. 무거운 AI 프로파일링 연산 함수는 별도 워커 스레드 풀로 격리하여 비동기 대기
         modeling_response = await asyncio.to_thread(
             create_persona_profile,
