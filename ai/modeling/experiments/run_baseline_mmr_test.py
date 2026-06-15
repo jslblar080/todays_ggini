@@ -64,7 +64,7 @@ def build_monthly_request(scenario: dict) -> dict:
     selected_style = build_selected_style(profile)
 
     request_data = {
-        "user_id": scenario["scenario_id"],
+        "id": scenario["scenario_id"],
         "request_type": "monthly_plan",
         "profile": profile,
         "selected_style": selected_style,
