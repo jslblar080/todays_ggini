@@ -433,7 +433,7 @@ def build_meal_style_candidates(
         })
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "meal_style_candidates",
         "meta": {
             "sample_period_days": sample_period_days,

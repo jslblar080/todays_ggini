@@ -75,18 +75,18 @@ def build_user_profile(user_input: UserProfileInput) -> dict:
 def build_user_profile_response(request_data: dict) -> dict:
     """
     Back에서 Modeling으로 전달한 요청 JSON을 받아
-    user_id와 모델링용 profile을 함께 묶어 반환한다.
+    id와 모델링용 profile을 함께 묶어 반환한다.
 
     입력 예:
     {
-      "user_id": "user_004",
+      "id": 4,
       "request_type": "meal_style_candidates",
       "profile": {...}
     }
 
     출력 예:
     {
-      "user_id": "user_004",
+      "id": 4,
       "request_type": "profile_build",
       "profile": {...}
     }
@@ -97,7 +97,7 @@ def build_user_profile_response(request_data: dict) -> dict:
     profile = build_user_profile(request.profile)
 
     return {
-        "user_id": request.user_id,
+        "id": request.id,
         "request_type": "profile_build",
         "profile": profile
     }

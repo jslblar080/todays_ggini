@@ -142,8 +142,8 @@ class UserProfileRequest(BaseModel):
     """
     Front 또는 Back에서 Modeling으로 전달하는 사용자 입력 전체 구조이다.
 
-    user_id:
-    - 로그인 후 생성된 사용자 식별값이다.
+    id:
+    - User 테이블의 id 컬럼과 매핑되는 사용자 식별값이다.
 
     request_type:
     - 요청 종류이다.
@@ -153,6 +153,6 @@ class UserProfileRequest(BaseModel):
     - 사용자가 입력한 식단 설정값이다.
     """
 
-    user_id: str
+    id: int | str
     request_type: str
     profile: UserProfileInput
