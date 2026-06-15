@@ -8,23 +8,19 @@ from services.persona.persona_catalog import PERSONA_CATALOG
 ACTIVITY_LEVEL_MAP = {
     1: {
         "label": "거의 앉아서 생활해요",
-        "female_tdee_factor": 1.2,
-        "male_standard_weight_factor": 27.5,
+        "tdee_factor": 1.2,
     },
     2: {
         "label": "가벼운 활동을 해요",
-        "female_tdee_factor": 1.375,
-        "male_standard_weight_factor": 30,
+        "tdee_factor": 1.375,
     },
     3: {
         "label": "보통 활동을 해요",
-        "female_tdee_factor": 1.55,
-        "male_standard_weight_factor": 35,
+        "tdee_factor": 1.55,
     },
     4: {
         "label": "활동이 많아요",
-        "female_tdee_factor": 1.725,
-        "male_standard_weight_factor": 40,
+        "tdee_factor": 1.725,
     },
 }
 
@@ -91,30 +87,25 @@ def get_meal_budget_band(
 
 
 def calculate_bmr(member: dict[str, Any]) -> float:
+    """
+    Mifflin-St Jeor 공식을 사용해 기초대사량(BMR)을 계산한다.
+
+    남성:
+    BMR = 10 × 체중kg + 6.25 × 키cm - 5 × 나이 + 5
+
+    여성:
+    BMR = 10 × 체중kg + 6.25 × 키cm - 5 × 나이 - 161
+    """
+
     gender = member.get("gender")
     weight = float(member.get("weight", 0) or 0)
     height = float(member.get("height", 0) or 0)
     age = int(member.get("age", 0) or 0)
 
     if gender == "여":
-        return 655.1 + (9.56 * weight) + (1.85 * height) - (4.68 * age)
+        return (10 * weight) + (6.25 * height) - (5 * age) - 161
 
-    return 66.47 + (13.75 * weight) + (5.003 * height) - (6.755 * age)
-
-
-def calculate_male_standard_weight_tdee(
-    member: dict[str, Any],
-    activity_level: int,
-) -> float:
-    height_m = float(member.get("height", 0) or 0) / 100
-    standard_weight = height_m * height_m * 22
-
-    activity_config = ACTIVITY_LEVEL_MAP.get(
-        activity_level,
-        ACTIVITY_LEVEL_MAP[2],
-    )
-
-    return standard_weight * activity_config["male_standard_weight_factor"]
+    return (10 * weight) + (6.25 * height) - (5 * age) + 5
 
 
 def apply_goal_calorie_adjustment(
@@ -164,14 +155,7 @@ def calculate_member_recommended_calorie(
 
     gender = member.get("gender")
     bmr = calculate_bmr(member)
-
-    if gender == "여":
-        tdee = bmr * activity_config["female_tdee_factor"]
-    else:
-        tdee = calculate_male_standard_weight_tdee(
-            member=member,
-            activity_level=activity_level,
-        )
+    tdee = bmr * activity_config["tdee_factor"]
 
     recommended_daily_calories = apply_goal_calorie_adjustment(
         tdee=tdee,
