@@ -119,16 +119,34 @@ def calculate_male_standard_weight_tdee(
 
 def apply_goal_calorie_adjustment(
     tdee: float,
+    bmr: float,
     purposes: list[str],
 ) -> int:
-    adjusted = tdee
+    """
+    사용자 목적에 따라 하루 권장 칼로리를 계산한다.
+
+    목적별 기준:
+    - 다이어트: TDEE - 500kcal
+      단, 최소 1200kcal 및 BMR의 95% 이상을 유지한다.
+    - 고단백: TDEE + 300kcal
+      근육량 증가 또는 단백질 중심 식단을 고려한다.
+    - 그 외: TDEE 유지
+
+    다이어트와 고단백이 함께 선택된 경우에는
+    칼로리 제한 목적이 더 직접적이므로 다이어트 기준을 우선 적용한다.
+    """
 
     if "다이어트" in purposes:
-        adjusted -= 400
+        adjusted = max(
+            tdee - 500,
+            1200,
+            bmr * 0.95,
+        )
     elif "고단백" in purposes:
-        adjusted += 250
+        adjusted = tdee + 300
+    else:
+        adjusted = tdee
 
-    adjusted = max(1200, adjusted)
     adjusted = min(3500, adjusted)
 
     return round(adjusted)
@@ -157,6 +175,7 @@ def calculate_member_recommended_calorie(
 
     recommended_daily_calories = apply_goal_calorie_adjustment(
         tdee=tdee,
+        bmr=bmr,
         purposes=purposes,
     )
 
@@ -377,13 +396,10 @@ def build_persona_profile_response(request_data: dict[str, Any]) -> dict[str, An
         limit=4,
     )
 
-    selected_persona = persona_candidates[0] if persona_candidates else None
-
     return {
         "id": request_data.get("id"),
         "request_type": "profile_build",
         "recommended_daily_calories": calorie_result["recommended_daily_calories"],
-        "selected_persona": simplify_persona_candidate(selected_persona),
         "persona_candidates": [
             simplify_persona_candidate(persona)
             for persona in persona_candidates
