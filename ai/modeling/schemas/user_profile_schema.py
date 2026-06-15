@@ -74,7 +74,7 @@ class UserProfileInput(BaseModel):
             "중식",
             "분식",
             "샐러드/건강식",
-            "패스트푸드",
+            "디저트",
             "다 좋아요",
         ]
 
