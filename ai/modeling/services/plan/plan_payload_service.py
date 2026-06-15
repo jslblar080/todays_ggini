@@ -74,15 +74,38 @@ def filter_reasons_by_focus_key(
     return reasons[:1]
 
 
+def format_recipe_summary_for_back(recipe: dict) -> dict:
+    """
+    월간 식단 화면에 필요한 레시피 요약 정보만 반환한다.
+    """
+
+    return {
+        "serving_size": recipe.get("serving_size"),
+        "cooking_time": recipe.get("cooking_time"),
+        "required_ingredients": recipe.get("required_ingredients", []),
+    }
+
+
 def format_menu_for_back(
     menu: dict,
     focus_key: str | None
 ) -> dict:
     """
-    selected_menu / alternative_menu 응답 필드 순서를 Back 전달용으로 정리한다.
+    selected_menu / alternative_menu를 Back/Front 전달용으로 경량화한다.
+
+    월간 식단 기본 응답에서는 모델링 디버깅용 점수와 품질 진단 필드를 제외하고,
+    화면 표시와 장보기 계산에 필요한 핵심 필드는 유지한다.
     """
 
     nutrient_summary = menu.get("nutrient_summary", {})
+    recipe = menu.get("recipe", {})
+
+    carbohydrate = menu.get(
+        "carbohydrate",
+        nutrient_summary.get("carbohydrate", 0)
+    )
+    protein = menu.get("protein", nutrient_summary.get("protein", 0))
+    fat = menu.get("fat", nutrient_summary.get("fat", 0))
 
     return {
         "menu_id": menu.get("menu_id"),
@@ -90,52 +113,35 @@ def format_menu_for_back(
         "category": menu.get("category"),
 
         "final_score": menu.get("final_score"),
-        "base_final_score": menu.get("base_final_score"),
-        "style_soft_constraint_score": menu.get("style_soft_constraint_score"),
-        "mmr_score": menu.get("mmr_score"),
-
-        "rag_data_quality_score": menu.get("rag_data_quality_score"),
-        "rag_data_quality_issues": menu.get("rag_data_quality_issues", []),
-        "rag_data_quality_penalty": menu.get("rag_data_quality_penalty", 0),
-        "nutrition_missing_penalty": menu.get("nutrition_missing_penalty", 0),
-        "total_quality_penalty": menu.get("total_quality_penalty", 0),
-        "nutrition_outlier_issues": menu.get("nutrition_outlier_issues", []),
-        "nutrition_outlier_penalty": menu.get("nutrition_outlier_penalty", 0),
-        "is_extreme_nutrition_outlier": menu.get(
-            "is_extreme_nutrition_outlier",
-            False,
-        ),
 
         "estimated_cost": menu.get("estimated_cost"),
         "rag_estimated_cost": menu.get("rag_estimated_cost"),
         "pricing_status": menu.get("pricing_status"),
 
         "calories": menu.get("calories", 0),
-        "protein": menu.get("protein", nutrient_summary.get("protein", 0)),
-        "carbohydrate": menu.get(
-            "carbohydrate",
-            nutrient_summary.get("carbohydrate", 0)
-        ),
-        "fat": menu.get("fat", nutrient_summary.get("fat", 0)),
-        "nutrient_summary": nutrient_summary,
+        "protein": protein,
+        "carbohydrate": carbohydrate,
+        "fat": fat,
+        "nutrient_summary": {
+            "carbohydrate": carbohydrate,
+            "protein": protein,
+            "fat": fat,
+        },
+
+        "difficulty": menu.get("difficulty"),
 
         "ingredients": menu.get("ingredients", []),
         "ingredient_groups": menu.get("ingredient_groups", []),
         "ingredient_usages": menu.get("ingredient_usages", []),
         "ingredient_costs": menu.get("ingredient_costs", []),
 
-        "difficulty": menu.get("difficulty"),
-        "difficulty_detail": menu.get("difficulty_detail", {}),
+        "recipe": format_recipe_summary_for_back(recipe),
 
-        "recipe": menu.get("recipe", {}),
-
-        "scores": menu.get("scores", {}),
         "reasons": filter_reasons_by_focus_key(
             reasons=menu.get("reasons", []),
             focus_key=focus_key
         ),
 
-        "similar_menu_ids": menu.get("similar_menu_ids", []),
         "allergy_ingredients": menu.get("allergy_ingredients", []),
     }
 
