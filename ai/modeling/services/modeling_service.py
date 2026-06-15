@@ -12,6 +12,8 @@ from services.rag.rag_candidate_diagnostics import (
 from services.rag.rag_response_mapper import map_rag_response_to_candidate_menus
 
 from services.style.meal_style_service import build_meal_style_candidates
+from schemas.persona_profile_schema import PersonaProfileBuildInput
+from services.persona.persona_service import build_persona_profile_response
 from services.style.style_selection_service import (
     apply_selected_style_to_profile,
     build_selected_style_summary,
@@ -562,6 +564,23 @@ def build_candidate_empty_monthly_response(
             "days": [],
         },
     }
+
+
+
+def create_persona_profile(request_data: dict) -> dict:
+    """
+    백엔드에서 전달한 1차 온보딩 입력을 바탕으로
+    사용자 페르소나 후보와 권장 칼로리를 생성한다.
+
+    request_type:
+    - profile_build
+    """
+
+    validated_input = PersonaProfileBuildInput(**request_data)
+
+    return build_persona_profile_response(
+        validated_input.model_dump()
+    )
 
 
 def create_meal_style_candidates(request_data: dict) -> dict:
