@@ -123,6 +123,10 @@ async def recommend_personas(
             "summary": item.get("summary"),                
         })
 
+    # 계산된 권장 칼로리 DB에 저장
+    persona.recommended_daily_calories = modeling_response["recommended_daily_calories"]
+    db.commit()
+
     return {
         "recommended_daily_calories": modeling_response.get("recommended_daily_calories", 1800),
         "recommended_personas": recommended_personas

@@ -90,7 +90,10 @@ class UserPersonaSetting(Base):
     activity_level = Column(Integer, nullable=False, default=2)   # 활동량
 
     # 모델링 파트의 응답을 토대로 유저가 최종 고른 페르소나 ID 결과물
-    persona_name = Column(String, nullable=True) 
+    persona_name = Column(String, nullable=True)
+
+    # 페르소나 추천 요청을 통해 계산된 권장 칼로리
+    recommended_daily_calories = Column(Integer, nullable=True, default=1800)
 
     user = relationship("User", back_populates="persona_setting")
 

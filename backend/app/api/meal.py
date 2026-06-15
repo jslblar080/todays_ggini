@@ -114,7 +114,7 @@ def background_monthly_plan_task(
         )
 
         modeling_payload = {
-            "id": get_modeling_user_id(current_user),
+            "id": user_id,
             "request_type": request_type,
             "selected_style": selected_style,
             "profile":user_profile,
@@ -863,6 +863,7 @@ def build_modeling_profile_from_user(
         "goals": (persona.purpose if persona else []) or [], 
         "monthly_budget": persona.monthly_budget if persona else 300000,
         "meal_count_per_day": persona.meals_per_day if persona else 3,
+        "recommended_daily_calories": persona.recommended_daily_calories if persona else 1800,
 
         # 2. UserOnboardingSetting (2단계 온보딩 취향 설정 테이블)에서 추출
         "cooking_skill": taste.cooking_skill if taste else 3,
@@ -1043,7 +1044,7 @@ async def generate_initial_meal_plan(
     ).filter(User.id == current_user.id).first()
 
     ai_payload = {
-        "user_id": get_modeling_user_id(current_user),
+        "id": current_user.id,
         "request_type": "meal_style_candidates",
         "profile": build_modeling_profile_from_user(
             current_user=full_user,
