@@ -228,48 +228,64 @@ def build_request_condition(request_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def calculate_catalog_match_result(
+def calculate_persona_match_score(
     persona: dict[str, Any],
     request_condition: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    저장된 persona 조건과 사용자 입력 조건의 차이를 계산한다.
+    대표 페르소나와 사용자 조건의 적합도를 계산한다.
 
-    임의 가중치를 두지 않고, 조건 불일치 개수와 목적 차이 개수만 사용한다.
+    프론트 이미지 매핑을 위해 persona_id는 대표 페르소나 20개로 고정하고,
+    사용자 입력 조건과 가장 가까운 페르소나 4개를 점수 기반으로 반환한다.
     """
 
-    conditions = persona.get("conditions", {})
-    exact_match_count = 0
-    mismatch_count = 0
+    score = 0
+    reasons = []
 
-    for key in [
-        "household_type",
-        "family_count_group",
-        "meals_per_day",
-        "meal_budget_band",
-        "activity_level",
-    ]:
-        if conditions.get(key) == request_condition.get(key):
-            exact_match_count += 1
-        else:
-            mismatch_count += 1
-
-    persona_purposes = set(conditions.get("purposes", []))
     request_purposes = set(request_condition.get("purposes", []))
+    target_purposes = set(persona.get("target_purposes", []))
 
-    matched_purpose_count = len(persona_purposes.intersection(request_purposes))
-    missing_purpose_count = len(request_purposes - persona_purposes)
-    extra_purpose_count = len(persona_purposes - request_purposes)
+    matched_purpose_count = len(request_purposes & target_purposes)
+    missing_purpose_count = len(request_purposes - target_purposes)
+    extra_purpose_count = len(target_purposes - request_purposes)
 
-    exact_match_count += matched_purpose_count
-    mismatch_count += missing_purpose_count + extra_purpose_count
+    if persona.get("household_type") == request_condition.get("household_type"):
+        score += 100
+        reasons.append("household_type")
+
+    score += matched_purpose_count * 35
+
+    if request_condition.get("meal_budget_band") in persona.get(
+        "target_budget_bands",
+        [],
+    ):
+        score += 18
+        reasons.append("budget_band")
+
+    if request_condition.get("activity_level") in persona.get(
+        "target_activity_levels",
+        [],
+    ):
+        score += 10
+        reasons.append("activity_level")
+
+    if request_condition.get("meals_per_day") in persona.get(
+        "target_meals_per_day",
+        [],
+    ):
+        score += 8
+        reasons.append("meals_per_day")
+
+    # 사용자가 선택한 목적과 너무 멀어진 페르소나는 뒤로 밀기 위한 감점
+    score -= missing_purpose_count * 8
+    score -= extra_purpose_count * 3
 
     return {
-        "match_count": exact_match_count,
-        "mismatch_count": mismatch_count,
+        "score": score,
         "matched_purpose_count": matched_purpose_count,
         "missing_purpose_count": missing_purpose_count,
         "extra_purpose_count": extra_purpose_count,
+        "match_reasons": reasons,
     }
 
 
@@ -278,75 +294,59 @@ def build_persona_candidates(
     limit: int = 4,
 ) -> list[dict[str, Any]]:
     """
-    사용자 입력과 가장 잘 맞는 페르소나 후보를 반환한다.
+    대표 페르소나 20개 중 사용자 조건과 가장 잘 맞는 후보를 반환한다.
 
-    household_type, family_count_group, meals_per_day, meal_budget_band,
-    activity_level은 사용자가 이미 입력한 고정 조건이므로 반드시 일치하는
-    catalog 후보만 사용한다.
-
-    그 안에서 purpose 조합의 일치도를 기준으로 rank를 결정한다.
+    - 1인 가구 요청이면 1인 가구 대표 페르소나 10개 안에서 선택한다.
+    - 다인 가구 요청이면 다인 가구 대표 페르소나 10개 안에서 선택한다.
+    - 프론트는 persona_id 기준으로 이미지를 매핑한다.
     """
 
     request_condition = build_request_condition(request_data)
-    request_purposes = set(request_condition["purposes"])
 
-    exact_condition_personas = []
+    scored_personas = []
 
     for persona in PERSONA_CATALOG:
-        conditions = persona["conditions"]
-
-        if conditions["household_type"] != request_condition["household_type"]:
+        if persona.get("household_type") != request_condition.get("household_type"):
             continue
 
-        if conditions["family_count_group"] != request_condition["family_count_group"]:
-            continue
+        match_result = calculate_persona_match_score(
+            persona=persona,
+            request_condition=request_condition,
+        )
 
-        if conditions["meals_per_day"] != request_condition["meals_per_day"]:
-            continue
-
-        if conditions["meal_budget_band"] != request_condition["meal_budget_band"]:
-            continue
-
-        if conditions["activity_level"] != request_condition["activity_level"]:
-            continue
-
-        persona_purposes = set(conditions["purposes"])
-
-        matched_purpose_count = len(request_purposes & persona_purposes)
-        missing_purpose_count = len(request_purposes - persona_purposes)
-        extra_purpose_count = len(persona_purposes - request_purposes)
-
-        exact_condition_personas.append({
+        scored_personas.append({
             "persona_id": persona["persona_id"],
-            "persona_name": persona["persona_name"],
             "description": persona["description"],
             "summary": persona["summary"],
-            "conditions": persona["conditions"],
-            "match_count": 5 + matched_purpose_count,
-            "mismatch_count": missing_purpose_count,
-            "matched_purpose_count": matched_purpose_count,
-            "missing_purpose_count": missing_purpose_count,
-            "extra_purpose_count": extra_purpose_count,
+            "conditions": {
+                "household_type": persona.get("household_type"),
+                "target_purposes": persona.get("target_purposes", []),
+                "target_budget_bands": persona.get("target_budget_bands", []),
+                "target_activity_levels": persona.get("target_activity_levels", []),
+                "target_meals_per_day": persona.get("target_meals_per_day", []),
+            },
+            **match_result,
         })
 
-    exact_condition_personas = sorted(
-        exact_condition_personas,
+    scored_personas = sorted(
+        scored_personas,
         key=lambda item: (
+            -item["score"],
             item["missing_purpose_count"],
             item["extra_purpose_count"],
-            -item["matched_purpose_count"],
             item["persona_id"],
         ),
     )
+
+    selected_personas = scored_personas[:limit]
 
     return [
         {
             "rank": index,
             **persona,
         }
-        for index, persona in enumerate(exact_condition_personas[:limit], start=1)
+        for index, persona in enumerate(selected_personas, start=1)
     ]
-
 
 def simplify_persona_candidate(persona: dict[str, Any] | None) -> dict[str, Any] | None:
     """
