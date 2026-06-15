@@ -323,6 +323,12 @@ def build_secondary_warnings(summary: dict) -> list[dict]:
     average_preference_score = summary.get("average_preference_score", 0)
     average_diversity_score = summary.get("average_diversity_score", 0)
     duplicate_menu_count = summary.get("duplicate_menu_count", 0)
+    selected_menu_count = summary.get("selected_menu_count", 0)
+
+    if selected_menu_count > 0:
+        duplicate_rate = duplicate_menu_count / selected_menu_count
+    else:
+        duplicate_rate = 0
 
     if average_difficulty_score < 60:
         warnings.append({
@@ -351,12 +357,23 @@ def build_secondary_warnings(summary: dict) -> list[dict]:
             "recommended_minimum": 75
         })
 
-    if duplicate_menu_count > 0:
+    if duplicate_rate >= 0.30:
+        warnings.append({
+            "type": "duplicate_menu",
+            "level": "warning",
+            "message": "월간 식단 내 동일 메뉴 반복 비율이 높아 다양성 보완이 필요합니다.",
+            "value": duplicate_menu_count,
+            "rate": round(duplicate_rate, 3),
+            "recommended_maximum_rate": 0.30,
+        })
+    elif duplicate_rate >= 0.15:
         warnings.append({
             "type": "duplicate_menu",
             "level": "info",
-            "message": "월간 식단 내 동일 menu_id가 일부 반복되었습니다.",
-            "value": duplicate_menu_count
+            "message": "월간 식단 내 동일 메뉴가 일부 반복되었지만 허용 가능한 수준입니다.",
+            "value": duplicate_menu_count,
+            "rate": round(duplicate_rate, 3),
+            "recommended_maximum_rate": 0.30,
         })
 
     return warnings
@@ -422,7 +439,7 @@ def enrich_style_validation(
 
     adjusted_style_validation = dict(style_validation)
 
-    if validation_status == "pass" and duplicate_rate >= 0.25:
+    if validation_status == "pass" and duplicate_rate >= 0.30:
         adjusted_style_validation["status"] = "warning"
         adjusted_style_validation["message"] = (
             adjusted_style_validation.get("message", "")
