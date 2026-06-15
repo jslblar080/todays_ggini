@@ -139,15 +139,36 @@ def get_menu_nutrients(menu: dict) -> dict:
     }
 
 
+def get_meal_calorie_target(profile: dict) -> float | None:
+    """
+    profile에 계산된 한 끼 목표 칼로리가 있으면 반환한다.
+    없거나 잘못된 값이면 None을 반환해 기존 고정 기준을 사용한다.
+    """
+
+    meal_calorie_target = profile.get("meal_calorie_target")
+
+    try:
+        meal_calorie_target = float(meal_calorie_target)
+    except (TypeError, ValueError):
+        return None
+
+    if meal_calorie_target <= 0:
+        return None
+
+    return meal_calorie_target
+
+
 def calculate_diet_score(
     calories: float,
-    fat: float
+    fat: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     다이어트 목표에 대한 영양 점수를 계산한다.
 
-    다이어트 식단에서는 칼로리와 지방을 중심으로 본다.
-    특히 지방이 높은 메뉴는 칼로리가 적당해도 다이어트 적합도가 낮아지도록 제한한다.
+    한 끼 목표 칼로리가 있으면 사용자별 target 기준으로 평가하고,
+    없으면 기존 고정 기준을 사용한다.
+    지방이 높은 메뉴는 칼로리가 적당해도 다이어트 적합도가 낮아지도록 제한한다.
     """
 
     if fat >= 35:
@@ -158,6 +179,23 @@ def calculate_diet_score(
 
     if fat >= 25:
         return 60
+
+    if meal_calorie_target:
+        lower_bound = meal_calorie_target * 0.65
+
+        if lower_bound <= calories <= meal_calorie_target and fat <= 20:
+            return 100
+
+        if calories <= meal_calorie_target * 1.15 and fat <= 22:
+            return 90
+
+        if calories <= meal_calorie_target * 1.30:
+            return 75
+
+        if calories <= meal_calorie_target * 1.50:
+            return 55
+
+        return 40
 
     if calories <= 500 and fat <= 15:
         return 100
@@ -175,45 +213,53 @@ def calculate_diet_score(
 
 
 def calculate_high_protein_score(
-    protein: float
+    protein: float,
+    calories: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     고단백 목표에 대한 영양 점수를 계산한다.
 
-    고단백 식단에서는 단백질 함량을 가장 중요하게 본다.
+    단백질 함량을 가장 중요하게 보되,
+    한 끼 목표 칼로리를 크게 초과하는 메뉴는 과잉 칼로리로 보정한다.
     """
 
     if protein >= 35:
-        return 100
+        score = 100
+    elif protein >= 30:
+        score = 95
+    elif protein >= 25:
+        score = 90
+    elif protein >= 20:
+        score = 80
+    elif protein >= 15:
+        score = 65
+    elif protein >= 10:
+        score = 50
+    else:
+        score = 35
 
-    if protein >= 30:
-        return 95
+    if meal_calorie_target:
+        if calories > meal_calorie_target * 1.60:
+            score -= 20
+        elif calories > meal_calorie_target * 1.35:
+            score -= 10
 
-    if protein >= 25:
-        return 90
-
-    if protein >= 20:
-        return 80
-
-    if protein >= 15:
-        return 65
-
-    if protein >= 10:
-        return 50
-
-    return 35
+    return max(score, 0)
 
 
 def calculate_balanced_nutrition_score(
     calories: float,
     carbohydrate: float,
     protein: float,
-    fat: float
+    fat: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     영양 균형 목표에 대한 영양 점수를 계산한다.
 
-    영양 균형 식단에서는 탄수화물, 단백질, 지방의 비율을 함께 본다.
+    탄수화물, 단백질, 지방 비율을 함께 보고,
+    한 끼 목표 칼로리가 있으면 사용자별 target 근접도도 함께 반영한다.
     """
 
     total_macro = carbohydrate + protein + fat
@@ -225,11 +271,22 @@ def calculate_balanced_nutrition_score(
     protein_ratio = protein / total_macro
     fat_ratio = fat / total_macro
 
+    if meal_calorie_target:
+        very_good_min = meal_calorie_target * 0.80
+        very_good_max = meal_calorie_target * 1.20
+        good_min = meal_calorie_target * 0.65
+        good_max = meal_calorie_target * 1.35
+    else:
+        very_good_min = 400
+        very_good_max = 850
+        good_min = 350
+        good_max = 950
+
     if (
         0.45 <= carbohydrate_ratio <= 0.65
         and 0.15 <= protein_ratio <= 0.35
         and 0.15 <= fat_ratio <= 0.35
-        and 400 <= calories <= 850
+        and very_good_min <= calories <= very_good_max
     ):
         return 100
 
@@ -237,7 +294,7 @@ def calculate_balanced_nutrition_score(
         0.35 <= carbohydrate_ratio <= 0.70
         and 0.10 <= protein_ratio <= 0.40
         and 0.10 <= fat_ratio <= 0.45
-        and 350 <= calories <= 950
+        and good_min <= calories <= good_max
     ):
         return 80
 
@@ -262,19 +319,25 @@ def calculate_nutrition_score(menu: dict, profile: dict) -> float:
     protein = nutrients["protein"]
     fat = nutrients["fat"]
 
+    meal_calorie_target = get_meal_calorie_target(profile)
+
     detail_scores = {
         "diet": calculate_diet_score(
             calories=calories,
-            fat=fat
+            fat=fat,
+            meal_calorie_target=meal_calorie_target,
         ),
         "high_protein": calculate_high_protein_score(
-            protein=protein
+            protein=protein,
+            calories=calories,
+            meal_calorie_target=meal_calorie_target,
         ),
         "balance": calculate_balanced_nutrition_score(
             calories=calories,
             carbohydrate=carbohydrate,
             protein=protein,
-            fat=fat
+            fat=fat,
+            meal_calorie_target=meal_calorie_target,
         )
     }
 

@@ -22,6 +22,10 @@ class UserProfileInput(BaseModel):
 
     monthly_budget: int = Field(..., gt=0)
     meal_count_per_day: int = Field(..., ge=1, le=5)
+
+    # 1차 온보딩 profile_build 단계에서 계산된 하루 권장 칼로리
+    recommended_daily_calories: Optional[int] = Field(default=None, gt=0)
+
     cooking_skill: int = Field(..., ge=1, le=5)
 
     preferred_categories: List[str] = Field(..., min_length=1)
@@ -70,7 +74,7 @@ class UserProfileInput(BaseModel):
             "중식",
             "분식",
             "샐러드/건강식",
-            "패스트푸드",
+            "디저트",
             "다 좋아요",
         ]
 
@@ -138,8 +142,8 @@ class UserProfileRequest(BaseModel):
     """
     Front 또는 Back에서 Modeling으로 전달하는 사용자 입력 전체 구조이다.
 
-    user_id:
-    - 로그인 후 생성된 사용자 식별값이다.
+    id:
+    - User 테이블의 id 컬럼과 매핑되는 사용자 식별값이다.
 
     request_type:
     - 요청 종류이다.
@@ -149,6 +153,6 @@ class UserProfileRequest(BaseModel):
     - 사용자가 입력한 식단 설정값이다.
     """
 
-    user_id: str
+    id: int | str
     request_type: str
     profile: UserProfileInput

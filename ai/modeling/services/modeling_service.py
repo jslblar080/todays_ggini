@@ -32,15 +32,17 @@ from services.optimizer.ortools.monthly_plan_optimizer import solve_monthly_plan
 from services.optimizer.ortools.result_mapper import build_ortools_monthly_plan
 
 
-def get_required_user_id(request_data: dict) -> str:
+def get_required_user_id(request_data: dict) -> int | str:
     """
-    Back 요청에서 user_id를 안전하게 가져온다.
+    요청 데이터에서 사용자 id를 가져온다.
+
+    백엔드 연동 기준은 User 테이블의 id 컬럼이다.
     """
 
-    user_id = request_data.get("user_id")
+    user_id = request_data.get("id")
 
-    if not user_id:
-        raise ValueError("user_id가 없어 모델링 요청을 처리할 수 없습니다.")
+    if user_id is None:
+        raise ValueError("id가 없어 모델링 요청을 처리할 수 없습니다.")
 
     return user_id
 
@@ -526,7 +528,7 @@ def build_candidate_empty_monthly_response(
     required_meal_count = period_days * meal_count_per_day
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "candidate_empty",
@@ -657,7 +659,7 @@ def build_candidate_insufficient_monthly_response(
     )
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "candidate_insufficient",
@@ -854,7 +856,7 @@ def build_optimizer_infeasible_monthly_response(
     warnings.append("OR-Tools가 현재 제약 조건을 만족하는 월간 식단 조합을 찾지 못했습니다.")
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "optimizer_infeasible",

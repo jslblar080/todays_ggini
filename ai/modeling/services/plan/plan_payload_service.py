@@ -226,7 +226,7 @@ def build_modeling_to_back_monthly_response(
     required_meal_count = monthly_plan.get("required_meal_count")
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "selected_style": selected_style,
         "meta": {

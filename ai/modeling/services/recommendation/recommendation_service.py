@@ -131,8 +131,35 @@ def build_nutrition_reason(
 
     nutrition_messages = []
 
+    meal_calorie_target = profile.get("meal_calorie_target")
+
+    try:
+        meal_calorie_target = float(meal_calorie_target)
+    except (TypeError, ValueError):
+        meal_calorie_target = None
+
+    if meal_calorie_target is not None and meal_calorie_target <= 0:
+        meal_calorie_target = None
+
     if "다이어트" in goals:
-        if calories <= 500 and fat <= 15:
+        if meal_calorie_target:
+            if calories <= meal_calorie_target and fat <= 20:
+                nutrition_messages.append(
+                    f"한 끼 목표 {meal_calorie_target:.0f}kcal 이내이고 지방 {fat}g으로 다이어트 목표에 매우 적합합니다."
+                )
+            elif calories <= meal_calorie_target * 1.15 and fat <= 22:
+                nutrition_messages.append(
+                    f"한 끼 목표 {meal_calorie_target:.0f}kcal에 가까워 다이어트 식단에 적합한 편입니다."
+                )
+            elif calories <= meal_calorie_target * 1.30:
+                nutrition_messages.append(
+                    f"칼로리 {calories}kcal로 한 끼 목표 대비 약간 높은 편입니다."
+                )
+            else:
+                nutrition_messages.append(
+                    f"칼로리 {calories}kcal로 한 끼 목표 {meal_calorie_target:.0f}kcal 대비 부담이 있습니다."
+                )
+        elif calories <= 500 and fat <= 15:
             nutrition_messages.append(
                 f"칼로리 {calories}kcal, 지방 {fat}g으로 다이어트 목표에 매우 적합합니다."
             )
