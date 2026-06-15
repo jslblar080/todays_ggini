@@ -291,9 +291,9 @@
       "rag_candidate_multiplier": 2.5
     },
     {
-      "scenario_id": "S09_taste_dessert_dairy",
-      "description": "맛 중심 + 디저트 + 계란 및 유제품류 사용자",
-      "purpose": "온보딩에서 맛 중심, 디저트, 계란 및 유제품류 조합이 취향 반영과 후보 부족을 유발하는지 확인한다.",
+      "scenario_id": "S09_taste_fastfood_dairy",
+      "description": "맛 중심 + 패스트푸드 + 계란 및 유제품류 사용자",
+      "purpose": "온보딩에서 맛 중심, 패스트푸드, 계란 및 유제품류 조합이 후보 부족을 유발하는지 확인한다.",
       "profile": {
         "goals": [
           "맛 중심"
@@ -304,7 +304,7 @@
         "meal_count_per_day": 2,
         "cooking_skill": 2,
         "preferred_categories": [
-          "디저트"
+          "패스트푸드"
         ],
         "diversity_level": "보통",
         "ingredient_preferences": [
@@ -339,7 +339,7 @@
         "cooking_skill": 1,
         "preferred_categories": [
           "샐러드/건강식",
-          "디저트"
+          "패스트푸드"
         ],
         "diversity_level": "높음",
         "ingredient_preferences": [

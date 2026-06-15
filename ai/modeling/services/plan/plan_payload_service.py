@@ -125,7 +125,6 @@ def format_menu_for_back(
         "ingredient_costs": menu.get("ingredient_costs", []),
 
         "difficulty": menu.get("difficulty"),
-        "effective_difficulty": menu.get("effective_difficulty"),
         "difficulty_detail": menu.get("difficulty_detail", {}),
 
         "recipe": menu.get("recipe", {}),
@@ -227,7 +226,7 @@ def build_modeling_to_back_monthly_response(
     required_meal_count = monthly_plan.get("required_meal_count")
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "selected_style": selected_style,
         "meta": {

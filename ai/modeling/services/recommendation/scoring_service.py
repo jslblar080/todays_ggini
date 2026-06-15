@@ -20,75 +20,6 @@ def calculate_budget_score(menu_cost: int | None, meal_budget: int) -> float:
     return max(0, score)
 
 
-def get_effective_difficulty(menu: dict) -> int:
-    """
-    menu.difficulty가 있으면 그대로 사용하고,
-    비어 있으면 recipe 정보를 바탕으로 조리 난이도를 보조 추론한다.
-
-    RAG 응답에서는 difficulty가 비어 있는 경우가 많다.
-    이때 기본값 3으로 처리하면 간편식/낮은 조리 실력 사용자에게
-    과도한 감점이 발생할 수 있으므로 cooking_time과 재료 수를 함께 본다.
-    """
-
-    raw_difficulty = menu.get("difficulty")
-
-    try:
-        if raw_difficulty is not None:
-            difficulty = int(raw_difficulty)
-
-            if difficulty < 1:
-                return 1
-
-            if difficulty > 5:
-                return 5
-
-            return difficulty
-    except (TypeError, ValueError):
-        pass
-
-    recipe = menu.get("recipe", {}) or {}
-
-    cooking_time = recipe.get("cooking_time")
-    required_ingredients = recipe.get("required_ingredients", []) or []
-    steps = recipe.get("steps", []) or []
-
-    try:
-        cooking_time = int(cooking_time or 0)
-    except (TypeError, ValueError):
-        cooking_time = 0
-
-    ingredient_count = len(required_ingredients)
-    step_count = len(steps)
-
-    # 조리 정보가 거의 없으면 중립 난이도 2로 처리한다.
-    # 기존 기본값 3보다 간편식 사용자에게 덜 가혹하게 반영한다.
-    if cooking_time <= 0 and ingredient_count == 0 and step_count == 0:
-        return 2
-
-    if cooking_time > 0 and cooking_time <= 10 and ingredient_count <= 6:
-        return 1
-
-    if cooking_time > 0 and cooking_time <= 20 and ingredient_count <= 9:
-        return 2
-
-    if cooking_time > 0 and cooking_time <= 20 and ingredient_count <= 12:
-        return 2
-
-    # RAG 응답은 steps가 비어 있는 경우가 많다.
-    # 조리 시간이 20분 이내이고 단계 정보가 없으면,
-    # 재료 수가 조금 많아도 간편식 후보로 볼 수 있게 난이도 2로 완화한다.
-    if cooking_time > 0 and cooking_time <= 20 and step_count == 0 and ingredient_count <= 14:
-        return 2
-
-    if cooking_time > 0 and cooking_time <= 20:
-        return 3
-
-    if cooking_time > 0 and cooking_time <= 30 and ingredient_count <= 12:
-        return 3
-
-    return 4
-
-
 def calculate_difficulty_score(menu_difficulty: int, cooking_skill: int) -> float:
     """
     메뉴 난이도가 사용자 요리 실력보다 낮거나 같으면 100점이다.
@@ -103,48 +34,6 @@ def calculate_difficulty_score(menu_difficulty: int, cooking_skill: int) -> floa
     return max(0, score)
 
 
-CATEGORY_ALIASES = {
-    "샐러드/건강식": [
-        "샐러드/건강식",
-        "다이어트",
-    ],
-    "디저트": [
-        "디저트",
-    ],
-    "다 좋아요": [
-        "한식",
-        "양식",
-        "일식",
-        "중식",
-        "분식",
-        "다이어트",
-        "디저트",
-    ],
-}
-
-
-def expand_preferred_categories(preferred_categories: list[str]) -> list[str]:
-    """
-    사용자에게 보이는 UI 카테고리와 RAG가 실제 반환하는 category가 다를 수 있어,
-    preference score 계산 시 내부 매칭 카테고리를 확장한다.
-
-    예:
-    - UI: 샐러드/건강식 -> RAG: 다이어트
-    - UI: 디저트 -> RAG: 디저트
-    """
-
-    expanded_categories = []
-
-    for category in preferred_categories:
-        aliases = CATEGORY_ALIASES.get(category, [category])
-
-        for alias in aliases:
-            if alias not in expanded_categories:
-                expanded_categories.append(alias)
-
-    return expanded_categories
-
-
 def calculate_category_score(
     menu_category: str,
     preferred_categories: list[str]
@@ -155,186 +44,13 @@ def calculate_category_score(
     상관없음을 선택한 경우 카테고리 영향은 중립 점수로 처리한다.
     """
 
-    expanded_categories = expand_preferred_categories(preferred_categories)
-
-    if "상관없음" in preferred_categories or "다 좋아요" in preferred_categories:
+    if "상관없음" in preferred_categories:
         return 70
 
     if menu_category in preferred_categories:
         return 100
 
-    if menu_category in expanded_categories:
-        return 85
-
     return 40
-
-
-INGREDIENT_GROUP_KEYWORDS = {
-    "계란 및 유제품류": [
-        "계란",
-        "달걀",
-        "우유",
-        "치즈",
-        "버터",
-        "크림",
-        "요거트",
-        "요구르트",
-        "마요네즈",
-        "달걀노른자",
-        "계란노른자",
-        "달걀흰자",
-        "계란흰자",
-        "모짜렐라",
-        "체다",
-        "생크림",
-        "요플레",
-    ],
-    "육류": [
-        "소고기",
-        "쇠고기",
-        "돼지고기",
-        "닭고기",
-        "닭",
-        "오리",
-        "햄",
-        "소시지",
-        "스팸",
-        "베이컨",
-        "불고기",
-        "고기",
-        "차돌",
-        "우삼겹",
-        "삼겹살",
-        "목살",
-        "제육",
-        "닭가슴살",
-        "닭다리",
-        "닭봉",
-    ],
-    "해산물류": [
-        "새우",
-        "오징어",
-        "고등어",
-        "연어",
-        "참치",
-        "굴",
-        "바지락",
-        "홍합",
-        "멸치",
-        "어묵",
-        "게맛살",
-        "크래미",
-        "생선",
-        "명태",
-        "동태",
-        "갈치",
-        "꽁치",
-        "조기",
-        "조개",
-        "해물",
-        "미역",
-        "다시마",
-        "김",
-    ],
-    "식물성 단백질류": [
-        "두부",
-        "콩",
-        "병아리콩",
-        "렌틸",
-        "비지",
-        "템페",
-        "순두부",
-        "유부",
-        "콩고기",
-        "낫토",
-        "완두콩",
-        "검은콩",
-        "강낭콩",
-    ],
-    "채소류": [
-        "양파",
-        "대파",
-        "파",
-        "마늘",
-        "당근",
-        "양배추",
-        "배추",
-        "시금치",
-        "상추",
-        "깻잎",
-        "가지",
-        "호박",
-        "애호박",
-        "콩나물",
-        "숙주",
-        "버섯",
-        "브로콜리",
-        "오이",
-        "토마토",
-        "고추",
-        "무",
-        "감자",
-        "고구마",
-        "피망",
-        "파프리카",
-        "부추",
-        "청경채",
-        "양상추",
-        "양송이",
-        "새송이",
-        "표고",
-    ],
-}
-
-
-def normalize_ingredient_name(ingredient: object) -> str:
-    """
-    ingredient 값을 문자열로 변환하고 대체 표기 문구를 제거한다.
-    """
-
-    text = str(ingredient or "").strip()
-    text = text.replace("(대체)", "")
-    text = text.replace(" 대체", "")
-
-    return text
-
-
-def infer_ingredient_groups_from_ingredients(ingredients: list) -> list[str]:
-    """
-    RAG 응답의 ingredient_groups가 비어 있을 때 ingredients 이름을 기반으로
-    재료군을 보조 추론한다.
-
-    이 값은 hard constraint가 아니라 preference score 보조 계산에만 사용한다.
-    """
-
-    inferred_groups = []
-
-    ingredient_text = " ".join(
-        normalize_ingredient_name(ingredient)
-        for ingredient in ingredients
-    )
-
-    for group, keywords in INGREDIENT_GROUP_KEYWORDS.items():
-        if any(keyword in ingredient_text for keyword in keywords):
-            inferred_groups.append(group)
-
-    return inferred_groups
-
-
-def get_effective_ingredient_groups(menu: dict) -> list[str]:
-    """
-    menu.ingredient_groups가 있으면 그대로 사용하고,
-    비어 있으면 ingredients 기반으로 보조 재료군을 추론한다.
-    """
-
-    ingredient_groups = menu.get("ingredient_groups", []) or []
-
-    if ingredient_groups:
-        return ingredient_groups
-
-    return infer_ingredient_groups_from_ingredients(
-        ingredients=menu.get("ingredients", []) or []
-    )
 
 
 def calculate_ingredient_score(
@@ -379,7 +95,7 @@ def calculate_preference_score(menu: dict, profile: dict) -> float:
     ingredient_preferences = profile.get("ingredient_preferences", [])
 
     menu_category = menu.get("category", "")
-    menu_ingredient_groups = get_effective_ingredient_groups(menu)
+    menu_ingredient_groups = menu.get("ingredient_groups", [])
 
     category_score = calculate_category_score(
         menu_category=menu_category,
@@ -423,15 +139,36 @@ def get_menu_nutrients(menu: dict) -> dict:
     }
 
 
+def get_meal_calorie_target(profile: dict) -> float | None:
+    """
+    profile에 계산된 한 끼 목표 칼로리가 있으면 반환한다.
+    없거나 잘못된 값이면 None을 반환해 기존 고정 기준을 사용한다.
+    """
+
+    meal_calorie_target = profile.get("meal_calorie_target")
+
+    try:
+        meal_calorie_target = float(meal_calorie_target)
+    except (TypeError, ValueError):
+        return None
+
+    if meal_calorie_target <= 0:
+        return None
+
+    return meal_calorie_target
+
+
 def calculate_diet_score(
     calories: float,
-    fat: float
+    fat: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     다이어트 목표에 대한 영양 점수를 계산한다.
 
-    다이어트 식단에서는 칼로리와 지방을 중심으로 본다.
-    특히 지방이 높은 메뉴는 칼로리가 적당해도 다이어트 적합도가 낮아지도록 제한한다.
+    한 끼 목표 칼로리가 있으면 사용자별 target 기준으로 평가하고,
+    없으면 기존 고정 기준을 사용한다.
+    지방이 높은 메뉴는 칼로리가 적당해도 다이어트 적합도가 낮아지도록 제한한다.
     """
 
     if fat >= 35:
@@ -442,6 +179,23 @@ def calculate_diet_score(
 
     if fat >= 25:
         return 60
+
+    if meal_calorie_target:
+        lower_bound = meal_calorie_target * 0.65
+
+        if lower_bound <= calories <= meal_calorie_target and fat <= 20:
+            return 100
+
+        if calories <= meal_calorie_target * 1.15 and fat <= 22:
+            return 90
+
+        if calories <= meal_calorie_target * 1.30:
+            return 75
+
+        if calories <= meal_calorie_target * 1.50:
+            return 55
+
+        return 40
 
     if calories <= 500 and fat <= 15:
         return 100
@@ -459,45 +213,53 @@ def calculate_diet_score(
 
 
 def calculate_high_protein_score(
-    protein: float
+    protein: float,
+    calories: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     고단백 목표에 대한 영양 점수를 계산한다.
 
-    고단백 식단에서는 단백질 함량을 가장 중요하게 본다.
+    단백질 함량을 가장 중요하게 보되,
+    한 끼 목표 칼로리를 크게 초과하는 메뉴는 과잉 칼로리로 보정한다.
     """
 
     if protein >= 35:
-        return 100
+        score = 100
+    elif protein >= 30:
+        score = 95
+    elif protein >= 25:
+        score = 90
+    elif protein >= 20:
+        score = 80
+    elif protein >= 15:
+        score = 65
+    elif protein >= 10:
+        score = 50
+    else:
+        score = 35
 
-    if protein >= 30:
-        return 95
+    if meal_calorie_target:
+        if calories > meal_calorie_target * 1.60:
+            score -= 20
+        elif calories > meal_calorie_target * 1.35:
+            score -= 10
 
-    if protein >= 25:
-        return 90
-
-    if protein >= 20:
-        return 80
-
-    if protein >= 15:
-        return 65
-
-    if protein >= 10:
-        return 50
-
-    return 35
+    return max(score, 0)
 
 
 def calculate_balanced_nutrition_score(
     calories: float,
     carbohydrate: float,
     protein: float,
-    fat: float
+    fat: float,
+    meal_calorie_target: float | None = None,
 ) -> float:
     """
     영양 균형 목표에 대한 영양 점수를 계산한다.
 
-    영양 균형 식단에서는 탄수화물, 단백질, 지방의 비율을 함께 본다.
+    탄수화물, 단백질, 지방 비율을 함께 보고,
+    한 끼 목표 칼로리가 있으면 사용자별 target 근접도도 함께 반영한다.
     """
 
     total_macro = carbohydrate + protein + fat
@@ -509,11 +271,22 @@ def calculate_balanced_nutrition_score(
     protein_ratio = protein / total_macro
     fat_ratio = fat / total_macro
 
+    if meal_calorie_target:
+        very_good_min = meal_calorie_target * 0.80
+        very_good_max = meal_calorie_target * 1.20
+        good_min = meal_calorie_target * 0.65
+        good_max = meal_calorie_target * 1.35
+    else:
+        very_good_min = 400
+        very_good_max = 850
+        good_min = 350
+        good_max = 950
+
     if (
         0.45 <= carbohydrate_ratio <= 0.65
         and 0.15 <= protein_ratio <= 0.35
         and 0.15 <= fat_ratio <= 0.35
-        and 400 <= calories <= 850
+        and very_good_min <= calories <= very_good_max
     ):
         return 100
 
@@ -521,7 +294,7 @@ def calculate_balanced_nutrition_score(
         0.35 <= carbohydrate_ratio <= 0.70
         and 0.10 <= protein_ratio <= 0.40
         and 0.10 <= fat_ratio <= 0.45
-        and 350 <= calories <= 950
+        and good_min <= calories <= good_max
     ):
         return 80
 
@@ -546,19 +319,25 @@ def calculate_nutrition_score(menu: dict, profile: dict) -> float:
     protein = nutrients["protein"]
     fat = nutrients["fat"]
 
+    meal_calorie_target = get_meal_calorie_target(profile)
+
     detail_scores = {
         "diet": calculate_diet_score(
             calories=calories,
-            fat=fat
+            fat=fat,
+            meal_calorie_target=meal_calorie_target,
         ),
         "high_protein": calculate_high_protein_score(
-            protein=protein
+            protein=protein,
+            calories=calories,
+            meal_calorie_target=meal_calorie_target,
         ),
         "balance": calculate_balanced_nutrition_score(
             calories=calories,
             carbohydrate=carbohydrate,
             protein=protein,
-            fat=fat
+            fat=fat,
+            meal_calorie_target=meal_calorie_target,
         )
     }
 

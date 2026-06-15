@@ -70,41 +70,6 @@ def build_optimizer_config(profile: dict) -> dict:
     return config
 
 
-def get_effective_max_repeat_per_menu(
-    profile: dict,
-    optimizer_config: dict | None = None,
-) -> int:
-    """
-    사용자 목표와 조리 실력에 따라 월간 식단 반복 허용 횟수를 조정한다.
-
-    간편식 또는 조리 실력 1 사용자에게는
-    다양한 메뉴보다 실제로 만들 수 있는 쉬운 메뉴 반복이 더 중요하므로
-    max_repeat_per_menu를 최소 3까지 완화한다.
-    """
-
-    optimizer_config = optimizer_config or {}
-
-    base_max_repeat = optimizer_config.get("max_repeat_per_menu", 2)
-
-    try:
-        base_max_repeat = int(base_max_repeat)
-    except (TypeError, ValueError):
-        base_max_repeat = 2
-
-    goals = profile.get("goals", []) or []
-    cooking_skill = profile.get("cooking_skill")
-
-    try:
-        cooking_skill = int(cooking_skill)
-    except (TypeError, ValueError):
-        cooking_skill = None
-
-    if "간편식" in goals or cooking_skill == 1:
-        return max(base_max_repeat, 3)
-
-    return base_max_repeat
-
-
 def build_optimizer_input(
     recommendations: list[dict],
     profile: dict,
@@ -202,10 +167,7 @@ def build_optimizer_input(
         "used_optimizer_candidate_count": len(optimizer_recommendations),
         "optimizer_candidate_multiplier": optimizer_candidate_multiplier,
         "optimizer_candidate_limit": optimizer_candidate_limit,
-        "max_repeat_per_menu": get_effective_max_repeat_per_menu(
-            profile=profile,
-            optimizer_config=optimizer_config,
-        ),
+        "max_repeat_per_menu": optimizer_config["max_repeat_per_menu"],
         "solver_time_limit_seconds": optimizer_config["solver_time_limit_seconds"],
         "score_weight": optimizer_config["score_weight"],
         "cost_penalty_weight": optimizer_config["cost_penalty_weight"],

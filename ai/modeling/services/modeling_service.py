@@ -12,6 +12,8 @@ from services.rag.rag_candidate_diagnostics import (
 from services.rag.rag_response_mapper import map_rag_response_to_candidate_menus
 
 from services.style.meal_style_service import build_meal_style_candidates
+from schemas.persona_profile_schema import PersonaProfileBuildInput
+from services.persona.persona_service import build_persona_profile_response
 from services.style.style_selection_service import (
     apply_selected_style_to_profile,
     build_selected_style_summary,
@@ -30,15 +32,17 @@ from services.optimizer.ortools.monthly_plan_optimizer import solve_monthly_plan
 from services.optimizer.ortools.result_mapper import build_ortools_monthly_plan
 
 
-def get_required_user_id(request_data: dict) -> str:
+def get_required_user_id(request_data: dict) -> int | str:
     """
-    Back 요청에서 user_id를 안전하게 가져온다.
+    요청 데이터에서 사용자 id를 가져온다.
+
+    백엔드 연동 기준은 User 테이블의 id 컬럼이다.
     """
 
-    user_id = request_data.get("user_id")
+    user_id = request_data.get("id")
 
-    if not user_id:
-        raise ValueError("user_id가 없어 모델링 요청을 처리할 수 없습니다.")
+    if user_id is None:
+        raise ValueError("id가 없어 모델링 요청을 처리할 수 없습니다.")
 
     return user_id
 
@@ -524,7 +528,7 @@ def build_candidate_empty_monthly_response(
     required_meal_count = period_days * meal_count_per_day
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "candidate_empty",
@@ -562,6 +566,23 @@ def build_candidate_empty_monthly_response(
             "days": [],
         },
     }
+
+
+
+def create_persona_profile(request_data: dict) -> dict:
+    """
+    백엔드에서 전달한 1차 온보딩 입력을 바탕으로
+    사용자 페르소나 후보와 권장 칼로리를 생성한다.
+
+    request_type:
+    - profile_build
+    """
+
+    validated_input = PersonaProfileBuildInput(**request_data)
+
+    return build_persona_profile_response(
+        validated_input.model_dump()
+    )
 
 
 def create_meal_style_candidates(request_data: dict) -> dict:
@@ -638,7 +659,7 @@ def build_candidate_insufficient_monthly_response(
     )
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "candidate_insufficient",
@@ -835,7 +856,7 @@ def build_optimizer_infeasible_monthly_response(
     warnings.append("OR-Tools가 현재 제약 조건을 만족하는 월간 식단 조합을 찾지 못했습니다.")
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "request_type": "monthly_plan",
         "success": False,
         "failure_reason": "optimizer_infeasible",

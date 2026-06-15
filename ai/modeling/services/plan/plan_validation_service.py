@@ -250,15 +250,15 @@ def validate_easy_cooking_style(
     간편식 스타일 검증.
 
     현재 난이도는 재료 수, 조리 단계 수, 조리 시간, 조리 동작 키워드를 기반으로 계산된다.
-    월간 식단 전체 평균 기준에서는 70점 이상이면 간편식 스타일이 잘 반영된 것으로 본다.
+    월간 식단 전체 평균 기준에서는 75점 이상이면 간편식 스타일이 잘 반영된 것으로 본다.
     """
 
     average_difficulty_score = summary.get("average_difficulty_score", 0)
 
-    if average_difficulty_score >= 70:
+    if average_difficulty_score >= 75:
         status = "pass"
         message = "조리 난이도 점수가 충분히 높아 간편식 스타일이 잘 반영되었습니다."
-    elif average_difficulty_score >= 60:
+    elif average_difficulty_score >= 65:
         status = "warning"
         message = "간편식 스타일이 어느 정도 반영되었지만, 더 쉬운 메뉴를 늘릴 수 있습니다."
     else:
@@ -271,7 +271,7 @@ def validate_easy_cooking_style(
         "message": message,
         "checked_metrics": {
             "average_difficulty_score": average_difficulty_score,
-            "recommended_minimum_difficulty_score": 70,
+            "recommended_minimum_difficulty_score": 75,
         },
     }
 
