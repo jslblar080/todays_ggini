@@ -87,7 +87,7 @@ class UserPersonaSetting(Base):
     monthly_budget = Column(Integer, default=300000)            # 한 달 예산
     meals_per_day = Column(Integer, default=3)                  # 하루 식사 수
     purpose = Column(JSONB, default=list)               # 요리 목적 (식비 절약 등)
-    activity_level = Column(String, nullable=False, default="가벼운 활동을 해요")   # 활동량
+    activity_level = Column(Integer, nullable=False, default=2)   # 활동량
 
     # 모델링 파트의 응답을 토대로 유저가 최종 고른 페르소나 ID 결과물
     persona_name = Column(String, nullable=True) 

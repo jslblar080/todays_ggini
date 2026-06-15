@@ -1,4 +1,6 @@
 import os
+import traceback
+import asyncio
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import Any
@@ -11,51 +13,102 @@ UserInfo,
 NicknameUpdateRequest, 
 PersonaRecommendRequest,
 )
+from app.schemas.user import PersonaRecommendResponse
+from ai.modeling.services.modeling_service import create_persona_profile
 from app.crud import crud_user
 from app.models.user import User
 
 router = APIRouter()
 
 # --------------------------- 페르소나 추천 요청 API ---------------------------------
-# @router.post("/recommend-personas", response_model=PersonaRecommendResponse, status_code=status.HTTP_200_OK)
-# async def recommend_personas(
-#     payload: PersonaRecommendRequest,
-#     current_user: User = Depends(get_current_user),
-#     db: Session = Depends(get_db)
-# ) -> Any:
-#     """
-#     유저가 입력한 가구 형태, 신체 스펙 배열, 생활 조건을 기반으로\n
-#     AI 모델링 파트(또는 추천 엔진)와 연동하여 최적의 **페르소나 후보 4개**를 계산해 반환합니다.\n
-#     *이 단계에서는 유저가 선택하기 전이므로 DB 설정을 변경(Write)하지 않습니다.*
-#     """
-#     try:
-#         # TODO: 모델링 담당 파트가 작성해 줄 코어 매칭 알고리즘 함수 연동 구간
-#         # recommended = crud_user.get_persona_recommendations(db, payload=payload)
-        
-#         # 임시 Mock 데이터 구조 (프론트엔드 연동 테스트용 프로토타입)
-#         mock_response = {
-#             "recommended_personas": [
-#                 {
-#                     "persona_name": "내 몸이 곧 재산",
-#                     "title": "알뜰살뜰 식비 절약가",
-#                     "tags": ["#식비절약", f"#다인가구"],
-#                     "description": f"한 달 500000원 예산에 맞춰 가성비 위주의 식재료로 영양소를 알차게 채우는 알뜰 식단 스타일입니다.",
-#                 },
-#                 {
-#                     "persona_name": "가성비 자취생",
-#                     "title": "영양 만점 밸런서",
-#                     "tags": ["#영양균형", "#단백질업"],
-#                     "description": "기초대사량과 활동량을 고려하여 탄단지 비율을 황금 밸런스로 유지해 주는 정석 건강 건강식 스타일입니다.",
-#                 }
-#             ]
-#         }
-#         return mock_response
-        
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"페르소나 추천 연산 중 내부 에러 발생: {str(e)}"
-#         )
+@router.post(
+    "/recommend-personas", 
+    response_model=PersonaRecommendResponse, 
+    status_code=status.HTTP_200_OK
+)
+async def recommend_personas(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Any:
+    """
+    유저가 성공적으로 저장한 가구 형태, 신체 스펙, 생활 조건을 RDB에서 읽어와
+    AI 모델링 파트 엔진(`create_persona_profile`)과 연동하여 최적의 **페르소나 후보 4개**를 계산해 반환합니다.
+    """
+    try:
+        # 1. 단 한 번의 조인 쿼리로 유저 관련 설정을 싹 긁어옵니다.
+        user_details = db.query(User).options(
+            joinedload(User.family_members),
+            joinedload(User.persona_setting),
+            joinedload(User.onboarding_setting)
+        ).filter(User.id == current_user.id).first()
+
+        if not user_details:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="유저 정보를 찾을 수 없습니다."
+            )
+
+        persona = user_details.persona_setting
+        members = user_details.family_members
+
+        # 2. 모델링 파트가 요청한 JSON 페이로드 구조
+        request_payload = {
+            "id": current_user.id,                                   
+            "request_type": "profile_build",                         
+            "household_type": persona.household_type,
+            "family_count": persona.family_count,
+            "monthly_budget": persona.monthly_budget,
+            "meals_per_day": persona.meals_per_day,
+            "purpose": persona.purpose,
+            "activity_level": persona.activity_level,
+            "family_members": [
+                {
+                    "nickname": member.nickname,
+                    "gender": member.gender,
+                    "age": member.age,
+                    "height": float(member.height),
+                    "weight": float(member.weight)
+                }
+                for member in members[:1]  # 최초 온보딩 단계이므로 대표자 1명만 안전 슬라이싱
+            ]
+        }
+
+        # 3. 무거운 AI 프로파일링 연산 함수는 별도 워커 스레드 풀로 격리하여 비동기 대기
+        modeling_response = await asyncio.to_thread(
+            create_persona_profile,
+            request_payload
+        )
+
+        if not modeling_response or "persona_candidates" not in modeling_response:
+            raise ValueError("모델링 인프라로부터 올바른 응답을 받지 못했습니다.")
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"모델링 연동 데이터 규격 오류: {str(error)}"
+        )
+    except Exception as error:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"페르소나 추천 엔진 연산 중 서버 내부 에러 발생: {str(error)}"
+        )
+
+    # 4. 모델링 파트에서 전달받은 확정 응답 스펙을 프론트엔드가 사용할 Response 포맷으로 정제합니다.
+    # (모델링 파트가 준 칼로리 수치와 후보 리스트 4개를 그대로 가공하여 내보냅니다.)
+    recommended_personas = []
+    for item in modeling_response.get("persona_candidates", []):
+        recommended_personas.append({
+            "rank": item.get("rank"),
+            "persona_id": item.get("persona_id"),          # 예: "persona_single_family1_meal3..."
+            "description": item.get("description"),        # 화면 노출용 타이틀 매핑 (예: "실속관리 루틴형")
+            "summary": item.get("summary"),                
+        })
+
+    return {
+        "recommended_daily_calories": modeling_response.get("recommended_daily_calories", 1800),
+        "recommended_personas": recommended_personas
+    }
     
 # --------------------------- 페르소나 설정 및 가구원 정보 업데이트 API ---------------------------------
 @router.put("/persona-setting", response_model=UserInfo)

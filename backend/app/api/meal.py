@@ -114,7 +114,7 @@ def background_monthly_plan_task(
         )
 
         modeling_payload = {
-            "user_id": get_modeling_user_id(current_user),
+            "id": get_modeling_user_id(current_user),
             "request_type": request_type,
             "selected_style": selected_style,
             "profile":user_profile,

@@ -71,12 +71,7 @@ class UserPersonaSettingInfo(BaseModel):
     meals_per_day: int = Field(3, ge=1, le=5, description="하루 식사 수")
     purpose: List[str] = Field(default_factory=list, description="이용 목적 리스트")
     persona_name: Optional[str] = Field(None, description="최종 선택한 페르소나 이름")
-    activity_level: Literal[
-        "거의 앉아서 생활해요", 
-        "가벼운 활동을 해요", 
-        "보통 활동을 해요", 
-        "활동량이 많아요"
-    ] = Field(..., description="평소 활동량 단계")
+    activity_level: int = Field(..., ge=1, le=4, description="평소 활동량 단계")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -120,14 +115,7 @@ class UserPersonaSettingUpdate(BaseModel):
     meals_per_day: int = Field(None, ge=1, le=5, description="하루 식사 수")
     purpose: List[MealPurpose] = Field(None, description="이용 목적 리스트")
     persona_name: Optional[str] = Field(None, description="최종 선택/변경한 페르소나 이름")
-    activity_level: Literal[
-        "거의 앉아서 생활해요", 
-        "가벼운 활동을 해요", 
-        "보통 활동을 해요", 
-        "활동량이 많아요"
-    ] = Field(None, description="평소 활동량 단계")
-    
-    
+    activity_level: int = Field(None, ge=1, le=4, description="활동량 지표 (1: 최소 ~ 4: 최대)")
     # 💡 다인 가구 스펙 변경 시 동적으로 들어올 가구원 리스트
     family_members: List[FamilyMemberInfo] = Field(None, description="가구원 신체 스펙 리스트")
 
@@ -145,13 +133,32 @@ class UserOnboardingSettingUpdate(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# ------------------ 페르소나 추천 요청 스키마 ----------------------
-class PersonaRecommendRequest(BaseModel):
-    household_type: str
-    monthly_budget: int
-    meals_per_day: int
-    purpose: List[MealPurpose]
-    family_members: List[FamilyMemberInfo] = Field(..., description="추천 연산에 사용할 가구원 스펙 배열")
+# ------------------ 페르소나 추천 응답 스키마 ----------------------
+class PersonaCandidateItem(BaseModel):
+    """
+    AI 추천 엔진이 제안하는 개별 페르소나 카드 정보 스키마
+    """
+    rank: int = Field(..., ge=1, le=4, description="추천 순위 (1~4위)")
+    persona_id: str = Field(..., description="모델링 파트의 페르소나 고유 식별 ID (예: 'persona_single_family1_meal3...')")
+    description: str = Field(..., description="화면 노출용 페르소나 타이틀 (예: '실속관리 루틴형')")
+    summary: str = Field(..., description="유저 성향 맞춤형 한 줄 요약/설명")
+
+    class Config:
+        from_attributes = True
+
+
+class PersonaRecommendResponse(BaseModel):
+    """
+    [화면 1] 페르소나 추천 요청 API의 최종 응답 결과 스키마
+    """
+    recommended_daily_calories: int = Field(..., description="해당 페르소나 기준의 일일 권장 칼로리 수치")
+    recommended_personas: List[PersonaCandidateItem] = Field(
+        ..., 
+        description="유저 신체 스펙 및 성향 분석을 통해 매칭된 4개의 페르소나 후보 배열"
+    )
+
+    class Config:
+        from_attributes = True
 
 # ------ 닉네임 변경 전용 스키마 --------
 class NicknameUpdateRequest(BaseModel):
