@@ -114,16 +114,51 @@ def run_one_scenario(scenario: dict) -> dict:
             else "baseline_mmr_reranking"
         )
 
+        response_success = response.get("success", True)
+        response_failure_reason = response.get("failure_reason")
+
+        monthly_plan = response.get("monthly_plan") or {}
+        optimizer = monthly_plan.get("optimizer") or {}
+        solver_status = optimizer.get("solver_status")
+        summary = monthly_plan.get("summary") or {}
+        selected_menu_count = summary.get("selected_menu_count")
+
+        is_optimizer_infeasible = solver_status not in [
+            None,
+            "OPTIMAL",
+            "FEASIBLE",
+        ]
+        is_empty_monthly_plan = selected_menu_count == 0
+
+        success = (
+            bool(response_success)
+            and not is_optimizer_infeasible
+            and not is_empty_monthly_plan
+        )
+
+        failure_reason = response_failure_reason
+
+        if is_optimizer_infeasible:
+            failure_reason = "optimizer_infeasible"
+
+        if is_empty_monthly_plan:
+            failure_reason = failure_reason or "empty_monthly_plan"
+
         return {
             "scenario_id": scenario_id,
             "description": scenario.get("description"),
             "purpose": scenario.get("purpose"),
             "planner": planner_name,
-            "success": True,
-            "failure_stage": None,
-            "failure_reason": None,
+            "success": success,
+            "failure_stage": None if success else "monthly_plan_generation",
+            "failure_reason": None if success else failure_reason,
             "runtime_ms": runtime_ms,
-            "error": None,
+            "error": None if success else {
+                "failure_stage": "monthly_plan_generation",
+                "failure_reason": failure_reason,
+                "solver_status": solver_status,
+                "selected_menu_count": selected_menu_count,
+            },
             "profile": scenario.get("profile"),
             "selected_style": request_data.get("selected_style"),
             "response": response,

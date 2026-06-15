@@ -1,0 +1,43 @@
+{
+  "experiment_name": "style_validation_us02_retry_fallback",
+  "description": "US02 optimizer infeasible 자동 복구 검증",
+  "scenarios": [
+    {
+      "scenario_id": "US02_diet_health_retry_fallback",
+      "description": "다이어트 + 샐러드/건강식 + optimizer retry fallback 활성화",
+      "purpose": "기본 조건에서 OR-Tools infeasible 발생 시 후보 확대 retry로 복구 가능한지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 5,
+        "optimizer_candidate_multiplier": 2.0,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1,
+        "enable_optimizer_retry_fallback": true
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 400000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    }
+  ]
+}

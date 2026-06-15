@@ -1,6 +1,6 @@
 {
-  "experiment_name": "ortools_candidate_ratio_1_5_test",
-  "description": "OR-Tools 입력 후보 수 required_meal_count x 1.5 제한 실험",
+  "experiment_name": "ortools_nutrition_outlier_penalty_weight_3_test",
+  "description": "OR-Tools 영양 이상치 penalty weight=3 적용 실험",
   "scenarios": [
     {
       "scenario_id": "S01_balanced_default",
@@ -37,7 +37,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -74,7 +75,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -112,7 +114,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -149,7 +152,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -187,7 +191,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -227,7 +232,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -268,7 +274,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -303,7 +310,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -337,7 +345,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     },
     {
@@ -379,7 +388,8 @@
       ],
       "use_ortools": true,
       "optimizer_config": {
-        "optimizer_candidate_multiplier": 1.5
+        "enable_nutrition_outlier_penalty": true,
+        "nutrition_outlier_penalty_weight": 3
       }
     }
   ]
