@@ -118,12 +118,84 @@ def collect_response_shape(response: dict) -> dict:
 
 def collect_optimizer_info(monthly_plan: dict) -> dict:
     optimizer = monthly_plan.get("optimizer") or {}
+    config = optimizer.get("config") or {}
 
     return {
         "optimizer_enabled": bool(optimizer.get("enabled")),
         "solver": optimizer.get("solver"),
         "solver_status": optimizer.get("solver_status"),
         "objective_value": optimizer.get("objective_value"),
+        "solver_time_limit_seconds": config.get("solver_time_limit_seconds"),
+        "used_optimizer_candidate_count": config.get(
+            "used_optimizer_candidate_count"
+        ),
+        "optimizer_candidate_multiplier": config.get(
+            "optimizer_candidate_multiplier"
+        ),
+        "max_repeat_per_menu": config.get("max_repeat_per_menu"),
+    }
+
+
+def collect_fallback_info(monthly_plan: dict, response: dict) -> dict:
+    """
+    월간 식단 fallback 및 후보 풀 진단 정보를 수집한다.
+
+    같은 fallback 정보가 response.meta와 monthly_plan 양쪽에 들어갈 수 있으므로,
+    monthly_plan.fallback을 우선 사용하고 없으면 response.meta.fallback을 사용한다.
+    """
+
+    meta = response.get("meta") or {}
+    fallback = monthly_plan.get("fallback") or meta.get("fallback") or {}
+
+    fallback_steps = fallback.get("fallback_steps") or []
+    candidate_diagnostics = fallback.get("candidate_diagnostics") or {}
+
+    fallback_reasons = [
+        step.get("reason")
+        for step in fallback_steps
+        if step.get("reason")
+    ]
+
+    shortage_reasons = candidate_diagnostics.get("shortage_reasons") or []
+
+    candidate_count = candidate_diagnostics.get("candidate_count")
+    required_meal_count = candidate_diagnostics.get("required_meal_count")
+
+    return {
+        "fallback_used": bool(fallback.get("fallback_used")),
+        "fallback_step_count": len(fallback_steps),
+        "fallback_reasons": "|".join(fallback_reasons),
+        "final_candidate_count": fallback.get("final_candidate_count"),
+        "candidate_pool_is_enough": candidate_diagnostics.get("is_enough"),
+        "candidate_pool_shortage_reasons": "|".join(shortage_reasons),
+        "candidate_pool_shortage_reason_count": len(shortage_reasons),
+        "candidate_pool_candidate_count": candidate_count,
+        "candidate_pool_unique_menu_count": candidate_diagnostics.get(
+            "unique_menu_count"
+        ),
+        "candidate_pool_required_meal_count": required_meal_count,
+        "candidate_pool_to_required_ratio": safe_rate(
+            candidate_count or 0,
+            required_meal_count or 0,
+        ),
+        "optimizer_candidate_limit": candidate_diagnostics.get(
+            "optimizer_candidate_limit"
+        ),
+        "candidate_pool_max_repeat_per_menu": candidate_diagnostics.get(
+            "max_repeat_per_menu"
+        ),
+        "max_fillable_meal_count": candidate_diagnostics.get(
+            "max_fillable_meal_count"
+        ),
+        "minimum_unique_menu_count": candidate_diagnostics.get(
+            "minimum_unique_menu_count"
+        ),
+        "recommended_next_step": candidate_diagnostics.get(
+            "recommended_next_step"
+        ),
+        "additional_candidate_count": candidate_diagnostics.get(
+            "additional_candidate_count"
+        ),
     }
 
 
@@ -144,6 +216,20 @@ def analyze_result_file(input_path: str) -> dict:
     solver_status_counter = Counter()
     failure_reason_counter = Counter()
     focus_key_counter = Counter()
+    fallback_reason_counter = Counter()
+    candidate_shortage_reason_counter = Counter()
+    recommended_next_step_counter = Counter()
+
+    fallback_count = 0
+    candidate_pool_enough_count = 0
+    candidate_pool_shortage_count = 0
+    solver_success_count = 0
+    optimal_count = 0
+    feasible_count = 0
+    non_success_solver_count = 0
+    validation_warning_count = 0
+    validation_fail_count = 0
+    duplicate_warning_count = 0
 
     total_selected_menu_count = 0
     total_required_meal_count = 0
@@ -177,6 +263,10 @@ def analyze_result_file(input_path: str) -> dict:
 
         response_shape = collect_response_shape(response)
         optimizer_info = collect_optimizer_info(monthly_plan)
+        fallback_info = collect_fallback_info(
+            monthly_plan=monthly_plan,
+            response=response,
+        )
 
         selected_menu_count = summary.get("selected_menu_count", 0) or 0
         unique_menu_count = summary.get("unique_menu_count", 0) or 0
@@ -210,6 +300,56 @@ def analyze_result_file(input_path: str) -> dict:
         solver_status = optimizer_info.get("solver_status")
         if solver_status:
             solver_status_counter[solver_status] += 1
+
+        if solver_status in ["OPTIMAL", "FEASIBLE"]:
+            solver_success_count += 1
+        elif solver_status:
+            non_success_solver_count += 1
+
+        if solver_status == "OPTIMAL":
+            optimal_count += 1
+
+        if solver_status == "FEASIBLE":
+            feasible_count += 1
+
+        if validation_status == "warning":
+            validation_warning_count += 1
+
+        if validation_status == "fail":
+            validation_fail_count += 1
+
+        if duplicate_warning.get("level") == "warning":
+            duplicate_warning_count += 1
+
+        if fallback_info.get("fallback_used"):
+            fallback_count += 1
+
+        if fallback_info.get("candidate_pool_is_enough") is True:
+            candidate_pool_enough_count += 1
+        elif fallback_info.get("candidate_pool_is_enough") is False:
+            candidate_pool_shortage_count += 1
+
+        fallback_reason_counter.update(
+            [
+                reason
+                for reason in fallback_info.get("fallback_reasons", "").split("|")
+                if reason
+            ]
+        )
+
+        candidate_shortage_reason_counter.update(
+            [
+                reason
+                for reason in fallback_info.get(
+                    "candidate_pool_shortage_reasons", ""
+                ).split("|")
+                if reason
+            ]
+        )
+
+        recommended_next_step = fallback_info.get("recommended_next_step")
+        if recommended_next_step:
+            recommended_next_step_counter[recommended_next_step] += 1
 
         total_selected_menu_count += selected_menu_count
         total_required_meal_count += required_meal_count
@@ -264,6 +404,7 @@ def analyze_result_file(input_path: str) -> dict:
             ),
 
             **optimizer_info,
+            **fallback_info,
         }
 
         checked_metrics = style_validation.get("checked_metrics") or {}
@@ -300,7 +441,54 @@ def analyze_result_file(input_path: str) -> dict:
         "secondary_warning_type_count": dict(warning_type_counter),
         "secondary_warning_level_count": dict(warning_level_counter),
         "solver_status_count": dict(solver_status_counter),
+        "solver_success_count": solver_success_count,
+        "solver_success_rate": safe_rate(solver_success_count, scenario_count),
+        "optimal_count": optimal_count,
+        "optimal_rate": safe_rate(optimal_count, scenario_count),
+        "feasible_count": feasible_count,
+        "feasible_rate": safe_rate(feasible_count, scenario_count),
+        "non_success_solver_count": non_success_solver_count,
+        "non_success_solver_rate": safe_rate(
+            non_success_solver_count,
+            scenario_count,
+        ),
+
         "failure_reason_count": dict(failure_reason_counter),
+
+        "fallback_count": fallback_count,
+        "fallback_rate": safe_rate(fallback_count, scenario_count),
+        "fallback_reason_count": dict(fallback_reason_counter),
+
+        "candidate_pool_enough_count": candidate_pool_enough_count,
+        "candidate_pool_enough_rate": safe_rate(
+            candidate_pool_enough_count,
+            scenario_count,
+        ),
+        "candidate_pool_shortage_count": candidate_pool_shortage_count,
+        "candidate_pool_shortage_rate": safe_rate(
+            candidate_pool_shortage_count,
+            scenario_count,
+        ),
+        "candidate_shortage_reason_count": dict(
+            candidate_shortage_reason_counter
+        ),
+        "recommended_next_step_count": dict(recommended_next_step_counter),
+
+        "validation_warning_count": validation_warning_count,
+        "validation_warning_rate": safe_rate(
+            validation_warning_count,
+            scenario_count,
+        ),
+        "validation_fail_count": validation_fail_count,
+        "validation_fail_rate": safe_rate(
+            validation_fail_count,
+            scenario_count,
+        ),
+        "duplicate_warning_count": duplicate_warning_count,
+        "duplicate_warning_rate": safe_rate(
+            duplicate_warning_count,
+            scenario_count,
+        ),
 
         "required_meal_count": total_required_meal_count,
         "selected_menu_count": total_selected_menu_count,
