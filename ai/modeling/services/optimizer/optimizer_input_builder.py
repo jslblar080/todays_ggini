@@ -1,18 +1,21 @@
 DIVERSITY_OPTIMIZER_CONFIG = {
     "낮음": {
-        "repeat_penalty_weight": 500,
+        "repeat_penalty_weight": 1500,
+        "repeat_penalty_growth": "quadratic",
         "max_repeat_per_menu": 3,
         "optimizer_candidate_multiplier": 1.2,
         "solver_time_limit_seconds": 3,
     },
     "보통": {
-        "repeat_penalty_weight": 800,
+        "repeat_penalty_weight": 3500,
+        "repeat_penalty_growth": "quadratic",
         "max_repeat_per_menu": 2,
         "optimizer_candidate_multiplier": 1.2,
         "solver_time_limit_seconds": 3,
     },
     "높음": {
-        "repeat_penalty_weight": 1000,
+        "repeat_penalty_weight": 6000,
+        "repeat_penalty_growth": "quadratic",
         "max_repeat_per_menu": 2,
         "optimizer_candidate_multiplier": 1.5,
         "solver_time_limit_seconds": 5,
@@ -56,6 +59,7 @@ def build_optimizer_config(profile: dict) -> dict:
         "cost_penalty_weight",
         "cost_penalty_divisor",
         "repeat_penalty_weight",
+        "repeat_penalty_growth",
         "max_repeat_per_menu",
         "solver_time_limit_seconds",
         "optimizer_candidate_multiplier",
@@ -173,6 +177,7 @@ def build_optimizer_input(
         "cost_penalty_weight": optimizer_config["cost_penalty_weight"],
         "cost_penalty_divisor": optimizer_config["cost_penalty_divisor"],
         "repeat_penalty_weight": optimizer_config["repeat_penalty_weight"],
+        "repeat_penalty_growth": optimizer_config["repeat_penalty_growth"],
         "enable_nutrition_outlier_penalty": optimizer_config[
             "enable_nutrition_outlier_penalty"
         ],

@@ -49,6 +49,7 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
     cost_penalty_weight = optimizer_input.get("cost_penalty_weight", 1)
     cost_penalty_divisor = optimizer_input.get("cost_penalty_divisor", 100)
     repeat_penalty_weight = optimizer_input.get("repeat_penalty_weight", 300)
+    repeat_penalty_growth = optimizer_input.get("repeat_penalty_growth", "linear")
     enable_nutrition_outlier_penalty = bool(
         optimizer_input.get("enable_nutrition_outlier_penalty", False)
     )
@@ -157,8 +158,15 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             )
 
     # 반복 penalty:
-    # max_repeat_per_menu=2인 상황에서 같은 메뉴가 2회 선택되면 penalty를 준다.
-    # usage_count가 2 이상인지 여부를 BoolVar로 표현한다.
+    # 같은 메뉴가 반복될수록 objective에서 점진적으로 손해를 보도록 한다.
+    #
+    # 예:
+    # - 1회 사용: penalty 없음
+    # - 2회 사용: repeat_penalty_weight * 1
+    # - 3회 사용: repeat_penalty_weight * 4  추가
+    #
+    # max_repeat_per_menu는 hard constraint로 유지하고,
+    # repeat_penalty는 가능한 경우 더 다양한 메뉴를 선택하도록 유도하는 soft constraint이다.
     repeat_penalty_terms = []
 
     if max_repeat_per_menu >= 2 and repeat_penalty_weight > 0:
@@ -166,15 +174,28 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             menu_index = menu["index"]
             usage_count = menu_usage_vars[menu_index]
 
-            repeated_var = model.NewBoolVar(f"repeated_m{menu_index}")
+            for repeat_level in range(2, max_repeat_per_menu + 1):
+                repeat_level_var = model.NewBoolVar(
+                    f"repeat_level_{repeat_level}_m{menu_index}"
+                )
 
-            # repeated_var = 1이면 usage_count >= 2
-            model.Add(usage_count >= 2).OnlyEnforceIf(repeated_var)
-            model.Add(usage_count <= 1).OnlyEnforceIf(repeated_var.Not())
+                model.Add(usage_count >= repeat_level).OnlyEnforceIf(
+                    repeat_level_var
+                )
+                model.Add(usage_count <= repeat_level - 1).OnlyEnforceIf(
+                    repeat_level_var.Not()
+                )
 
-            repeat_penalty_terms.append(
-                repeated_var * repeat_penalty_weight
-            )
+                if repeat_penalty_growth == "quadratic":
+                    repeat_multiplier = (repeat_level - 1) ** 2
+                else:
+                    repeat_multiplier = repeat_level - 1
+
+                repeat_penalty_terms.append(
+                    repeat_level_var
+                    * repeat_penalty_weight
+                    * repeat_multiplier
+                )
 
     model.Maximize(
         sum(objective_terms)
@@ -201,6 +222,7 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 "cost_penalty_weight": cost_penalty_weight,
                 "cost_penalty_divisor": cost_penalty_divisor,
                 "repeat_penalty_weight": repeat_penalty_weight,
+                "repeat_penalty_growth": repeat_penalty_growth,
                 "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
                 "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
                 "max_repeat_per_menu": max_repeat_per_menu,
@@ -242,6 +264,7 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "cost_penalty_weight": cost_penalty_weight,
             "cost_penalty_divisor": cost_penalty_divisor,
             "repeat_penalty_weight": repeat_penalty_weight,
+            "repeat_penalty_growth": repeat_penalty_growth,
             "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
             "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
             "max_repeat_per_menu": max_repeat_per_menu,
