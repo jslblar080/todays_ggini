@@ -57,6 +57,12 @@ for result in data.get("results", []):
     for issue, count in (rag_mapping.get("quality_issue_type_count") or {}).items():
         print(f"  - {issue}: {count}")
 
+    print("ingredient_group_mapping_status_count:")
+    for status, count in (
+        rag_mapping.get("ingredient_group_mapping_status_count") or {}
+    ).items():
+        print(f"  - {status}: {count}")
+
     print("quality_issue_examples:")
     for issue, examples in (rag_mapping.get("quality_issue_examples") or {}).items():
         print(f"  - {issue}:")

@@ -2,6 +2,8 @@ import logging
 from collections import Counter
 from contextvars import ContextVar
 
+from services.rag.ingredient_group_mapper import fill_missing_ingredient_groups
+
 logger = logging.getLogger(__name__)
 
 _RAG_MAPPING_DIAGNOSTICS_EVENTS: ContextVar[list[dict] | None] = (
@@ -123,6 +125,10 @@ def get_rag_mapping_diagnostics() -> dict:
         key="quality_issue_type_count",
     )
     quality_issue_examples = merge_quality_issue_examples(events)
+    ingredient_group_mapping_status_count = merge_counter_dicts(
+        events=events,
+        key="ingredient_group_mapping_status_count",
+    )
 
     mapping_success_rate = (
         round(total_mapped_menus / total_raw_menus, 4)
@@ -144,6 +150,7 @@ def get_rag_mapping_diagnostics() -> dict:
         "quality_issue_menus": total_quality_issue_menus,
         "quality_issue_type_count": quality_issue_type_count,
         "quality_issue_examples": quality_issue_examples,
+        "ingredient_group_mapping_status_count": ingredient_group_mapping_status_count,
         "mapping_success_rate": mapping_success_rate,
         "quality_issue_rate": quality_issue_rate,
         "events": events,
@@ -157,6 +164,7 @@ def record_rag_mapping_diagnostics(
     quality_issue_menus: int,
     quality_issue_type_count: dict | None = None,
     quality_issue_examples: dict | None = None,
+    ingredient_group_mapping_status_count: dict | None = None,
 ) -> None:
     """
     RAG mapper 호출 단위 diagnostics를 기록한다.
@@ -186,6 +194,10 @@ def record_rag_mapping_diagnostics(
         "quality_issue_menus": quality_issue_menus,
         "quality_issue_type_count": quality_issue_type_count or {},
         "quality_issue_examples": quality_issue_examples or {},
+        "ingredient_group_mapping_status_count": ingredient_group_mapping_status_count or {},
+        "ingredient_group_mapping_status_count": (
+            ingredient_group_mapping_status_count or {}
+        ),
         "mapping_success_rate": mapping_success_rate,
         "quality_issue_rate": quality_issue_rate,
     })
@@ -1125,6 +1137,9 @@ def map_candidate_menu_to_modeling_menu(
     """
 
     nutrient_summary = candidate_menu.get("nutrient_summary", {})
+    ingredient_groups, ingredient_group_mapping = fill_missing_ingredient_groups(
+        candidate_menu
+    )
 
     cost_result = calculate_menu_estimated_cost(
         candidate_menu=candidate_menu,
@@ -1141,7 +1156,8 @@ def map_candidate_menu_to_modeling_menu(
         "menu_id": candidate_menu.get("menu_id"),
         "name": candidate_menu.get("name"),
         "category": candidate_menu.get("category"),
-        "ingredient_groups": candidate_menu.get("ingredient_groups", []),
+        "ingredient_groups": ingredient_groups,
+        "ingredient_group_mapping": ingredient_group_mapping,
         "ingredients": candidate_menu.get("ingredients", []),
         "calories": candidate_menu.get("calories", 0),
 
@@ -1397,7 +1413,7 @@ def validate_rag_candidate_menu(menu: dict) -> tuple[bool, list[str]]:
         issues.append("nutrient_summary_empty")
 
     ingredients = menu.get("ingredients", [])
-    ingredient_groups = menu.get("ingredient_groups", [])
+    ingredient_groups, ingredient_group_mapping = fill_missing_ingredient_groups(menu)
     ingredient_usages = menu.get("ingredient_usages", [])
 
     if is_empty_string_list(ingredients):
@@ -1405,6 +1421,9 @@ def validate_rag_candidate_menu(menu: dict) -> tuple[bool, list[str]]:
 
     if not ingredient_groups:
         issues.append("ingredient_groups_empty")
+
+    if ingredient_group_mapping.get("status") == "mapping_unavailable":
+        issues.append("ingredient_groups_mapping_unavailable")
 
     valid_usage_count = 0
     invalid_usage_name_count = 0
@@ -1497,6 +1516,7 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
     excluded_count = 0
     quality_issue_count = 0
     quality_issue_type_counter = Counter()
+    ingredient_group_mapping_status_counter = Counter()
     quality_issue_examples: dict[str, list[dict]] = {}
     max_examples_per_issue = 5
 
@@ -1534,6 +1554,18 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
 
         candidate_menus.append(mapped_menu)
 
+    for candidate_menu in candidate_menus:
+        ingredient_group_mapping = (
+            candidate_menu.get("ingredient_group_mapping") or {}
+        )
+        ingredient_group_mapping_status = ingredient_group_mapping.get(
+            "status",
+            "unknown",
+        )
+        ingredient_group_mapping_status_counter[
+            ingredient_group_mapping_status
+        ] += 1
+
     record_rag_mapping_diagnostics(
         raw_menus=len(raw_menus),
         mapped_menus=len(candidate_menus),
@@ -1541,6 +1573,9 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         quality_issue_menus=quality_issue_count,
         quality_issue_type_count=dict(quality_issue_type_counter),
         quality_issue_examples=quality_issue_examples,
+        ingredient_group_mapping_status_count=dict(
+            ingredient_group_mapping_status_counter
+        ),
     )
 
     logger.warning(
