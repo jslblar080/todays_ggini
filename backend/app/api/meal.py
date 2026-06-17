@@ -864,7 +864,7 @@ async def create_or_update_meal_feedback(
             # [Case 1] 기존 데이터가 존재하면 -> 새로 들어온 값으로 덮어쓰기 (Update)
             existing_feedback.meal_name = feedback_in.meal_name
             existing_feedback.rating = feedback_in.rating
-            existing_feedback.comment = feedback_in.comment
+            existing_feedback.is_checked = feedback_in.is_checked
             
             db.commit()
             db.refresh(existing_feedback)
@@ -876,7 +876,7 @@ async def create_or_update_meal_feedback(
                 meal_number=existing_feedback.meal_number,
                 meal_name=existing_feedback.meal_name,
                 rating=existing_feedback.rating,
-                comment=existing_feedback.comment
+                is_checked=existing_feedback.is_checked
             )
 
         else:
@@ -887,7 +887,7 @@ async def create_or_update_meal_feedback(
                 meal_number=feedback_in.meal_number,
                 meal_name=feedback_in.meal_name, 
                 rating=feedback_in.rating,
-                comment=feedback_in.comment
+                is_checked=feedback_in.is_checked
             )
             db.add(new_feedback)
             db.commit()
@@ -899,7 +899,7 @@ async def create_or_update_meal_feedback(
                 meal_number=new_feedback.meal_number,
                 meal_name=new_feedback.meal_name,
                 rating=new_feedback.rating,
-                comment=new_feedback.comment
+                is_checked=new_feedback.is_checked
             )
         
     except Exception as error:

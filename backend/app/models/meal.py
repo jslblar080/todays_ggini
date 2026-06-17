@@ -57,8 +57,8 @@ class MealFeedback(Base):
     # 별점 수치 (1점 ~ 5점)
     rating = Column(Integer, nullable=False)
     
-    # 3점 이하일 때 유저가 작성한 상세 피드백 텍스트 (선택 또는 필수)
-    comment = Column(Text, nullable=True)
+    # 선택된 체크박스 텍스트 리스트를 JSONB 형태로 통째로 저장합니다
+    is_checked = Column(JSONB, nullable=False, server_default='[]', comment="체크된 피드백 항목 리스트")
     
     # 데이터 생성 및 최종 수정 시간 관리
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
