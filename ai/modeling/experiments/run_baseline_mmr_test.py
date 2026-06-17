@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from services.modeling_service import create_monthly_plan
+from services.rag.rag_response_mapper import (
+    clear_rag_mapping_diagnostics,
+    get_rag_mapping_diagnostics,
+)
 from services.rag.rag_client import RagRequestError
 from services.style.meal_style_service import GOAL_STYLE_META
 
@@ -99,6 +103,9 @@ def run_one_scenario(scenario: dict) -> dict:
     """
     단일 시나리오에 대해 기존 MMR + Re-ranking 월간 식단 생성 로직을 실행한다.
     """
+
+    clear_rag_mapping_diagnostics()
+
     scenario_id = scenario["scenario_id"]
     started_at = time.perf_counter()
 
@@ -127,6 +134,9 @@ def run_one_scenario(scenario: dict) -> dict:
             "profile": scenario.get("profile"),
             "selected_style": request_data.get("selected_style"),
             "response": response,
+            "diagnostics": {
+                "rag_mapping": get_rag_mapping_diagnostics(),
+            },
         }
 
     except Exception as error:
@@ -152,6 +162,9 @@ def run_one_scenario(scenario: dict) -> dict:
             "profile": scenario.get("profile"),
             "selected_style": None,
             "response": None,
+            "diagnostics": {
+                "rag_mapping": get_rag_mapping_diagnostics(),
+            },
         }
 
 

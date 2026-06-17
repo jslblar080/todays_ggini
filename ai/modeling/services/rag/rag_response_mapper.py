@@ -1,6 +1,98 @@
 import logging
+from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
+
+_RAG_MAPPING_DIAGNOSTICS_EVENTS: ContextVar[list[dict] | None] = (
+    ContextVar("rag_mapping_diagnostics_events", default=None)
+)
+
+
+def clear_rag_mapping_diagnostics() -> None:
+    """
+    실험 실행 단위에서 RAG mapping diagnostics를 초기화한다.
+
+    서비스 응답 payload에는 포함하지 않고,
+    experiments runner가 result artifact에만 저장하기 위한 진단 정보이다.
+    """
+
+    _RAG_MAPPING_DIAGNOSTICS_EVENTS.set([])
+
+
+def get_rag_mapping_diagnostics() -> dict:
+    """
+    현재까지 수집된 RAG mapping diagnostics를 반환한다.
+    """
+
+    events = list(_RAG_MAPPING_DIAGNOSTICS_EVENTS.get() or [])
+
+    total_raw_menus = sum(event["raw_menus"] for event in events)
+    total_mapped_menus = sum(event["mapped_menus"] for event in events)
+    total_excluded_menus = sum(event["excluded_menus"] for event in events)
+    total_quality_issue_menus = sum(
+        event["quality_issue_menus"]
+        for event in events
+    )
+
+    mapping_success_rate = (
+        round(total_mapped_menus / total_raw_menus, 4)
+        if total_raw_menus
+        else 0
+    )
+
+    quality_issue_rate = (
+        round(total_quality_issue_menus / total_mapped_menus, 4)
+        if total_mapped_menus
+        else 0
+    )
+
+    return {
+        "event_count": len(events),
+        "raw_menus": total_raw_menus,
+        "mapped_menus": total_mapped_menus,
+        "excluded_menus": total_excluded_menus,
+        "quality_issue_menus": total_quality_issue_menus,
+        "mapping_success_rate": mapping_success_rate,
+        "quality_issue_rate": quality_issue_rate,
+        "events": events,
+    }
+
+
+def record_rag_mapping_diagnostics(
+    raw_menus: int,
+    mapped_menus: int,
+    excluded_menus: int,
+    quality_issue_menus: int,
+) -> None:
+    """
+    RAG mapper 호출 단위 diagnostics를 기록한다.
+    """
+
+    mapping_success_rate = (
+        round(mapped_menus / raw_menus, 4)
+        if raw_menus
+        else 0
+    )
+
+    quality_issue_rate = (
+        round(quality_issue_menus / mapped_menus, 4)
+        if mapped_menus
+        else 0
+    )
+
+    events = _RAG_MAPPING_DIAGNOSTICS_EVENTS.get()
+
+    if events is None:
+        return
+
+    events.append({
+        "raw_menus": raw_menus,
+        "mapped_menus": mapped_menus,
+        "excluded_menus": excluded_menus,
+        "quality_issue_menus": quality_issue_menus,
+        "mapping_success_rate": mapping_success_rate,
+        "quality_issue_rate": quality_issue_rate,
+    })
 
 def normalize_unit(unit: str | None) -> str | None:
     """
@@ -1330,6 +1422,13 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
             quality_issue_count += 1
 
         candidate_menus.append(mapped_menu)
+
+    record_rag_mapping_diagnostics(
+        raw_menus=len(raw_menus),
+        mapped_menus=len(candidate_menus),
+        excluded_menus=excluded_count,
+        quality_issue_menus=quality_issue_count,
+    )
 
     logger.warning(
         "[RAG Mapper] raw_menus=%s, mapped_menus=%s, excluded_menus=%s, quality_issue_menus=%s",
