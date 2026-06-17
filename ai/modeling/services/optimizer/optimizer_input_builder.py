@@ -31,6 +31,9 @@ DEFAULT_OPTIMIZER_CONFIG = {
     "optimizer_candidate_multiplier": 1.2,
     "enable_nutrition_outlier_penalty": False,
     "nutrition_outlier_penalty_weight": 1,
+    "enable_protein_bonus": False,
+    "protein_bonus_weight": 0,
+    "protein_bonus_cap_grams": 35,
 }
 
 
@@ -54,6 +57,17 @@ def build_optimizer_config(profile: dict) -> dict:
         **diversity_config,
     }
 
+    goals = profile.get("goals", []) or []
+
+    if "고단백" in goals:
+        config["enable_protein_bonus"] = True
+        config["protein_bonus_weight"] = 180
+        config["protein_bonus_cap_grams"] = 35
+        config["repeat_penalty_weight"] = max(
+            int(config.get("repeat_penalty_weight", 0) or 0),
+            4500,
+        )
+
     override_keys = [
         "score_weight",
         "cost_penalty_weight",
@@ -65,6 +79,9 @@ def build_optimizer_config(profile: dict) -> dict:
         "optimizer_candidate_multiplier",
         "enable_nutrition_outlier_penalty",
         "nutrition_outlier_penalty_weight",
+        "enable_protein_bonus",
+        "protein_bonus_weight",
+        "protein_bonus_cap_grams",
     ]
 
     for key in override_keys:
@@ -184,5 +201,8 @@ def build_optimizer_input(
         "nutrition_outlier_penalty_weight": optimizer_config[
             "nutrition_outlier_penalty_weight"
         ],
+        "enable_protein_bonus": optimizer_config["enable_protein_bonus"],
+        "protein_bonus_weight": optimizer_config["protein_bonus_weight"],
+        "protein_bonus_cap_grams": optimizer_config["protein_bonus_cap_grams"],
         "optimizer_config": optimizer_config,
     }

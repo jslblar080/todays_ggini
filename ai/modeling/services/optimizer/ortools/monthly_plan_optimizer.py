@@ -56,6 +56,15 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
     nutrition_outlier_penalty_weight = int(
         optimizer_input.get("nutrition_outlier_penalty_weight", 1) or 0
     )
+    enable_protein_bonus = bool(
+        optimizer_input.get("enable_protein_bonus", False)
+    )
+    protein_bonus_weight = int(
+        optimizer_input.get("protein_bonus_weight", 0) or 0
+    )
+    protein_bonus_cap_grams = float(
+        optimizer_input.get("protein_bonus_cap_grams", 35) or 35
+    )
     monthly_budget = int(optimizer_input.get("monthly_budget") or 0)
     required_meal_count = optimizer_input.get("required_meal_count")
     original_recommendation_count = optimizer_input.get("original_recommendation_count")
@@ -148,10 +157,18 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                     * nutrition_outlier_penalty_weight
                 ))
 
+            protein_bonus = 0
+
+            if enable_protein_bonus and protein_bonus_weight > 0:
+                protein = float(menu.get("protein", 0) or 0)
+                capped_protein = min(protein, protein_bonus_cap_grams)
+                protein_bonus = int(round(capped_protein * protein_bonus_weight))
+
             objective_terms.append(
                 decision_vars[(slot_index, menu_index)]
                 * (
                     score
+                    + protein_bonus
                     - (cost_penalty * cost_penalty_weight)
                     - nutrition_outlier_penalty
                 )
@@ -225,6 +242,9 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 "repeat_penalty_growth": repeat_penalty_growth,
                 "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
                 "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
+                "enable_protein_bonus": enable_protein_bonus,
+                "protein_bonus_weight": protein_bonus_weight,
+                "protein_bonus_cap_grams": protein_bonus_cap_grams,
                 "max_repeat_per_menu": max_repeat_per_menu,
                 "solver_time_limit_seconds": time_limit,
                 "monthly_budget": monthly_budget,
@@ -267,6 +287,9 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "repeat_penalty_growth": repeat_penalty_growth,
             "enable_nutrition_outlier_penalty": enable_nutrition_outlier_penalty,
             "nutrition_outlier_penalty_weight": nutrition_outlier_penalty_weight,
+                "enable_protein_bonus": enable_protein_bonus,
+                "protein_bonus_weight": protein_bonus_weight,
+                "protein_bonus_cap_grams": protein_bonus_cap_grams,
             "max_repeat_per_menu": max_repeat_per_menu,
             "solver_time_limit_seconds": time_limit,
             "monthly_budget": monthly_budget,
