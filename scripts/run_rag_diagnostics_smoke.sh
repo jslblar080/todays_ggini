@@ -53,6 +53,9 @@ for result in data.get("results", []):
     print("quality_issue_menus:", rag_mapping.get("quality_issue_menus"))
     print("mapping_success_rate:", rag_mapping.get("mapping_success_rate"))
     print("quality_issue_rate:", rag_mapping.get("quality_issue_rate"))
+    print("quality_issue_type_count:")
+    for issue, count in (rag_mapping.get("quality_issue_type_count") or {}).items():
+        print(f"  - {issue}: {count}")
 
 print()
 print("[INFO] RAG diagnostics smoke summary finished.")

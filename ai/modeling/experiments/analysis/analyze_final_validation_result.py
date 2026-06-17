@@ -123,6 +123,7 @@ def collect_rag_mapping_info(result: dict) -> dict:
 
     diagnostics = result.get("diagnostics") or {}
     rag_mapping = diagnostics.get("rag_mapping") or {}
+    quality_issue_type_count = rag_mapping.get("quality_issue_type_count") or {}
 
     return {
         "rag_mapping_event_count": rag_mapping.get("event_count", 0),
@@ -130,6 +131,7 @@ def collect_rag_mapping_info(result: dict) -> dict:
         "rag_mapped_menus": rag_mapping.get("mapped_menus", 0),
         "rag_excluded_menus": rag_mapping.get("excluded_menus", 0),
         "rag_quality_issue_menus": rag_mapping.get("quality_issue_menus", 0),
+        "rag_quality_issue_type_count": quality_issue_type_count,
         "rag_mapping_success_rate": rag_mapping.get("mapping_success_rate", 0),
         "rag_quality_issue_rate": rag_mapping.get("quality_issue_rate", 0),
     }
@@ -238,6 +240,7 @@ def analyze_result_file(input_path: str) -> dict:
     fallback_reason_counter = Counter()
     candidate_shortage_reason_counter = Counter()
     recommended_next_step_counter = Counter()
+    rag_quality_issue_type_counter = Counter()
 
     fallback_count = 0
     candidate_pool_enough_count = 0
@@ -395,6 +398,10 @@ def analyze_result_file(input_path: str) -> dict:
             rag_mapping_info.get("rag_quality_issue_menus", 0) or 0
         )
 
+        rag_quality_issue_type_counter.update(
+            rag_mapping_info.get("rag_quality_issue_type_count") or {}
+        )
+
         row = {
             "scenario_id": scenario_id,
             "description": description,
@@ -443,7 +450,15 @@ def analyze_result_file(input_path: str) -> dict:
 
             **optimizer_info,
             **fallback_info,
-            **rag_mapping_info,
+            **{
+                key: value
+                for key, value in rag_mapping_info.items()
+                if key != "rag_quality_issue_type_count"
+            },
+            "rag_quality_issue_type_count_json": json.dumps(
+                rag_mapping_info.get("rag_quality_issue_type_count") or {},
+                ensure_ascii=False,
+            ),
         }
 
         checked_metrics = style_validation.get("checked_metrics") or {}
@@ -557,6 +572,7 @@ def analyze_result_file(input_path: str) -> dict:
         "rag_mapped_menus": total_rag_mapped_menus,
         "rag_excluded_menus": total_rag_excluded_menus,
         "rag_quality_issue_menus": total_rag_quality_issue_menus,
+        "rag_quality_issue_type_count": dict(rag_quality_issue_type_counter),
         "rag_mapping_success_rate": safe_rate(
             total_rag_mapped_menus,
             total_rag_raw_menus,

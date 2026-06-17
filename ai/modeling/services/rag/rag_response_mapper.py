@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,22 @@ def clear_rag_mapping_diagnostics() -> None:
     _RAG_MAPPING_DIAGNOSTICS_EVENTS.set([])
 
 
+def merge_counter_dicts(events: list[dict], key: str) -> dict:
+    """
+    diagnostics event에 저장된 count dict를 합산한다.
+    """
+
+    merged: dict[str, int] = {}
+
+    for event in events:
+        counter = event.get(key) or {}
+
+        for item_key, count in counter.items():
+            merged[item_key] = merged.get(item_key, 0) + int(count or 0)
+
+    return merged
+
+
 def get_rag_mapping_diagnostics() -> dict:
     """
     현재까지 수집된 RAG mapping diagnostics를 반환한다.
@@ -32,6 +49,10 @@ def get_rag_mapping_diagnostics() -> dict:
     total_quality_issue_menus = sum(
         event["quality_issue_menus"]
         for event in events
+    )
+    quality_issue_type_count = merge_counter_dicts(
+        events=events,
+        key="quality_issue_type_count",
     )
 
     mapping_success_rate = (
@@ -52,6 +73,7 @@ def get_rag_mapping_diagnostics() -> dict:
         "mapped_menus": total_mapped_menus,
         "excluded_menus": total_excluded_menus,
         "quality_issue_menus": total_quality_issue_menus,
+        "quality_issue_type_count": quality_issue_type_count,
         "mapping_success_rate": mapping_success_rate,
         "quality_issue_rate": quality_issue_rate,
         "events": events,
@@ -63,6 +85,7 @@ def record_rag_mapping_diagnostics(
     mapped_menus: int,
     excluded_menus: int,
     quality_issue_menus: int,
+    quality_issue_type_count: dict | None = None,
 ) -> None:
     """
     RAG mapper 호출 단위 diagnostics를 기록한다.
@@ -90,6 +113,7 @@ def record_rag_mapping_diagnostics(
         "mapped_menus": mapped_menus,
         "excluded_menus": excluded_menus,
         "quality_issue_menus": quality_issue_menus,
+        "quality_issue_type_count": quality_issue_type_count or {},
         "mapping_success_rate": mapping_success_rate,
         "quality_issue_rate": quality_issue_rate,
     })
@@ -1400,6 +1424,7 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
     candidate_menus = []
     excluded_count = 0
     quality_issue_count = 0
+    quality_issue_type_counter = Counter()
 
     for menu in raw_menus:
         is_valid, issues = validate_rag_candidate_menu(menu)
@@ -1420,6 +1445,7 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
 
         if issues:
             quality_issue_count += 1
+            quality_issue_type_counter.update(issues)
 
         candidate_menus.append(mapped_menu)
 
@@ -1428,6 +1454,7 @@ def map_rag_response_to_candidate_menus(rag_response: dict) -> list[dict]:
         mapped_menus=len(candidate_menus),
         excluded_menus=excluded_count,
         quality_issue_menus=quality_issue_count,
+        quality_issue_type_count=dict(quality_issue_type_counter),
     )
 
     logger.warning(

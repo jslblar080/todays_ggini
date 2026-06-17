@@ -77,6 +77,7 @@ def print_summary(summary_path: str) -> None:
         "rag_mapped_menus",
         "rag_excluded_menus",
         "rag_quality_issue_menus",
+        "rag_quality_issue_type_count",
         "rag_mapping_success_rate",
         "rag_quality_issue_rate",
         "secondary_warning_type_count",
