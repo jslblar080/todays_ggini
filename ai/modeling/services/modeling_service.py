@@ -127,6 +127,69 @@ def calculate_monthly_rag_candidate_multiplier(profile: dict) -> float:
     return 2.4
 
 
+
+
+def build_optimizer_input_snapshot(optimizer_input: dict) -> dict:
+    """
+    optimizer 자동 튜닝 실험을 재현할 수 있도록
+    OR-Tools 입력값 중 필요한 항목만 snapshot으로 저장한다.
+
+    RAG API를 매 실험마다 다시 호출하지 않고,
+    동일 후보 pool 기준으로 grid search / Optuna 실험을 수행하기 위한 artifact다.
+    """
+
+    if not isinstance(optimizer_input, dict):
+        return {}
+
+    return {
+        "profile": optimizer_input.get("profile"),
+        "period_days": optimizer_input.get("period_days"),
+        "meal_count_per_day": optimizer_input.get("meal_count_per_day"),
+        "slots": optimizer_input.get("slots"),
+        "menus": optimizer_input.get("menus"),
+        "monthly_budget": optimizer_input.get("monthly_budget"),
+        "required_meal_count": optimizer_input.get("required_meal_count"),
+        "original_recommendation_count": optimizer_input.get(
+            "original_recommendation_count"
+        ),
+        "used_optimizer_candidate_count": optimizer_input.get(
+            "used_optimizer_candidate_count"
+        ),
+        "optimizer_candidate_multiplier": optimizer_input.get(
+            "optimizer_candidate_multiplier"
+        ),
+        "optimizer_candidate_limit": optimizer_input.get(
+            "optimizer_candidate_limit"
+        ),
+        "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
+        "solver_time_limit_seconds": optimizer_input.get(
+            "solver_time_limit_seconds"
+        ),
+        "score_weight": optimizer_input.get("score_weight"),
+        "cost_penalty_weight": optimizer_input.get("cost_penalty_weight"),
+        "cost_penalty_divisor": optimizer_input.get("cost_penalty_divisor"),
+        "repeat_penalty_weight": optimizer_input.get("repeat_penalty_weight"),
+        "repeat_penalty_growth": optimizer_input.get("repeat_penalty_growth"),
+        "enable_nutrition_outlier_penalty": optimizer_input.get(
+            "enable_nutrition_outlier_penalty"
+        ),
+        "nutrition_outlier_penalty_weight": optimizer_input.get(
+            "nutrition_outlier_penalty_weight"
+        ),
+        "enable_protein_bonus": optimizer_input.get("enable_protein_bonus"),
+        "protein_bonus_weight": optimizer_input.get("protein_bonus_weight"),
+        "protein_bonus_cap_grams": optimizer_input.get(
+            "protein_bonus_cap_grams"
+        ),
+        "enable_difficulty_bonus": optimizer_input.get(
+            "enable_difficulty_bonus"
+        ),
+        "difficulty_bonus_weight": optimizer_input.get(
+            "difficulty_bonus_weight"
+        ),
+        "optimizer_config": optimizer_input.get("optimizer_config"),
+    }
+
 def calculate_monthly_candidate_count(profile: dict) -> int:
     """
     월간 식단 생성을 위한 RAG 후보 메뉴 요청 개수를 계산한다.
@@ -1035,6 +1098,10 @@ def create_monthly_plan(request_data: dict) -> dict:
             meal_count_per_day=meal_count_per_day,
         )
 
+        optimizer_input_snapshot = build_optimizer_input_snapshot(
+            optimizer_input
+        )
+
         profiling["optimizer_input_build_time_ms"] = round(
             (time.perf_counter() - optimizer_input_started_at) * 1000,
             2,
@@ -1188,6 +1255,10 @@ def create_monthly_plan(request_data: dict) -> dict:
                     meal_count_per_day=meal_count_per_day,
                 )
 
+                optimizer_input_snapshot = build_optimizer_input_snapshot(
+                    optimizer_input
+                )
+
                 profiling["optimizer_retry_input_build_time_ms"] = round(
                     (time.perf_counter() - retry_optimizer_input_started_at) * 1000,
                     2,
@@ -1268,6 +1339,10 @@ def create_monthly_plan(request_data: dict) -> dict:
             recommendations=recommendations,
             profile=optimizer_profile,
         )
+
+        monthly_plan.setdefault("optimizer", {})[
+            "input_snapshot"
+        ] = optimizer_input_snapshot
 
         profiling["plan_mapping_time_ms"] = round(
             (time.perf_counter() - plan_mapping_started_at) * 1000,
