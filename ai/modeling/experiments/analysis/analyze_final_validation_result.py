@@ -245,6 +245,8 @@ def analyze_result_file(input_path: str) -> dict:
     focus_key_counter = Counter()
     difficulty_feasibility_status_counter = Counter()
     difficulty_feasibility_reason_counter = Counter()
+    budget_feasibility_status_counter = Counter()
+    budget_feasibility_reason_counter = Counter()
     fallback_reason_counter = Counter()
     candidate_shortage_reason_counter = Counter()
     recommended_next_step_counter = Counter()
@@ -306,6 +308,14 @@ def analyze_result_file(input_path: str) -> dict:
         difficulty_feasibility_status = difficulty_feasibility.get("status")
         difficulty_feasibility_reason = difficulty_feasibility.get("reason")
 
+        budget_feasibility = (
+            monthly_plan
+            .get("optimizer", {})
+            .get("budget_feasibility", {})
+        )
+        budget_feasibility_status = budget_feasibility.get("status")
+        budget_feasibility_reason = budget_feasibility.get("reason")
+
         response_shape = collect_response_shape(response)
         optimizer_info = collect_optimizer_info(monthly_plan)
         fallback_info = collect_fallback_info(
@@ -351,6 +361,16 @@ def analyze_result_file(input_path: str) -> dict:
         if difficulty_feasibility_reason:
             difficulty_feasibility_reason_counter[
                 difficulty_feasibility_reason
+            ] += 1
+
+        if budget_feasibility_status:
+            budget_feasibility_status_counter[
+                budget_feasibility_status
+            ] += 1
+
+        if budget_feasibility_reason:
+            budget_feasibility_reason_counter[
+                budget_feasibility_reason
             ] += 1
 
         solver_status = optimizer_info.get("solver_status")
@@ -503,6 +523,42 @@ def analyze_result_file(input_path: str) -> dict:
                 "candidate_eq0_count"
             ),
 
+            "budget_feasibility_status": budget_feasibility_status,
+            "budget_feasibility_reason": budget_feasibility_reason,
+            "budget_monthly_budget": budget_feasibility.get("monthly_budget"),
+            "budget_required_meal_count": budget_feasibility.get(
+                "required_meal_count"
+            ),
+            "budget_candidate_count": budget_feasibility.get("candidate_count"),
+            "budget_max_repeat_per_menu": budget_feasibility.get(
+                "max_repeat_per_menu"
+            ),
+            "budget_repeat_capacity": budget_feasibility.get("repeat_capacity"),
+            "budget_min_possible_cost_with_repeat_limit": budget_feasibility.get(
+                "min_possible_cost_with_repeat_limit"
+            ),
+            "budget_margin_min_possible": budget_feasibility.get(
+                "budget_margin_min_possible"
+            ),
+            "budget_min_cost": budget_feasibility.get("min_cost"),
+            "budget_p50_cost": budget_feasibility.get("p50_cost"),
+            "budget_max_cost": budget_feasibility.get("max_cost"),
+            "budget_count_cost_le_1000": budget_feasibility.get(
+                "count_cost_le_1000"
+            ),
+            "budget_count_cost_le_1500": budget_feasibility.get(
+                "count_cost_le_1500"
+            ),
+            "budget_count_cost_le_2000": budget_feasibility.get(
+                "count_cost_le_2000"
+            ),
+            "budget_count_cost_le_2500": budget_feasibility.get(
+                "count_cost_le_2500"
+            ),
+            "budget_count_cost_le_3000": budget_feasibility.get(
+                "count_cost_le_3000"
+            ),
+
             "duplicate_menu_warning_level": duplicate_warning.get("level"),
             "duplicate_menu_warning_rate": duplicate_warning.get("rate"),
             "duplicate_menu_recommended_maximum_rate": duplicate_warning.get(
@@ -583,6 +639,32 @@ def analyze_result_file(input_path: str) -> dict:
             difficulty_feasibility_status_counter.get(
                 "candidate_pool_has_pass_options",
                 0,
+            )
+        ),
+        "budget_feasibility_status_count": dict(
+            budget_feasibility_status_counter
+        ),
+        "budget_feasibility_reason_count": dict(
+            budget_feasibility_reason_counter
+        ),
+        "budget_absolute_unreachable_count": (
+            budget_feasibility_status_counter.get(
+                "absolute_budget_unreachable", 0
+            )
+        ),
+        "budget_threshold_tight_count": (
+            budget_feasibility_status_counter.get(
+                "budget_threshold_very_tight", 0
+            )
+        ),
+        "budget_pool_feasible_count": (
+            budget_feasibility_status_counter.get(
+                "budget_pool_has_feasible_options", 0
+            )
+        ),
+        "budget_unconstrained_count": (
+            budget_feasibility_status_counter.get(
+                "budget_unconstrained", 0
             )
         ),
         "solver_status_count": dict(solver_status_counter),
