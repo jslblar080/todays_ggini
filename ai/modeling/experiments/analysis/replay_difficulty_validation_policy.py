@@ -117,6 +117,20 @@ def build_rows(data: dict) -> list[dict]:
                 "replay_reason": replay_reason,
                 "style_id": selected_style.get("style_id"),
                 "focus_key": selected_style.get("focus_key"),
+                "goals": (
+                    monthly_plan
+                    .get("optimizer", {})
+                    .get("input_snapshot", {})
+                    .get("profile", {})
+                    .get("goals")
+                ),
+                "max_difficulty": (
+                    monthly_plan
+                    .get("optimizer", {})
+                    .get("input_snapshot", {})
+                    .get("profile", {})
+                    .get("max_difficulty")
+                ),
                 "summary_avg_difficulty": selected_avg,
                 "candidate_count": len(candidate_scores),
                 "candidate_p90": round(candidate_p90, 2) if candidate_p90 is not None else None,
@@ -137,31 +151,68 @@ def build_rows(data: dict) -> list[dict]:
     return rows
 
 
-def summarize(rows: list[dict]) -> dict:
+def init_policy_summary() -> dict:
+    return {
+        "pass": 0,
+        "warning": 0,
+        "fail": 0,
+        "reason_count": {},
+    }
+
+
+def update_policy_summary(summary_by_policy: dict, row: dict) -> None:
+    policy_name = row["policy_name"]
+
+    if policy_name not in summary_by_policy:
+        summary_by_policy[policy_name] = init_policy_summary()
+
+    replay_status = row["replay_status"]
+    replay_reason = row["replay_reason"]
+
+    summary_by_policy[policy_name][replay_status] += 1
+
+    reason_count = summary_by_policy[policy_name]["reason_count"]
+    reason_count[replay_reason] = reason_count.get(replay_reason, 0) + 1
+
+
+def summarize_group(rows: list[dict]) -> dict:
     summary_by_policy = {}
 
     for row in rows:
-        policy_name = row["policy_name"]
+        update_policy_summary(summary_by_policy, row)
 
-        if policy_name not in summary_by_policy:
-            summary_by_policy[policy_name] = {
-                "pass": 0,
-                "warning": 0,
-                "fail": 0,
-                "reason_count": {},
-            }
+    return summary_by_policy
 
-        replay_status = row["replay_status"]
-        replay_reason = row["replay_reason"]
 
-        summary_by_policy[policy_name][replay_status] += 1
+def summarize(rows: list[dict]) -> dict:
+    focus_difficulty_rows = [
+        row for row in rows
+        if row.get("focus_key") == "difficulty"
+    ]
 
-        reason_count = summary_by_policy[policy_name]["reason_count"]
-        reason_count[replay_reason] = reason_count.get(replay_reason, 0) + 1
+    easy_cooking_goal_rows = [
+        row for row in rows
+        if "간편식" in (row.get("goals") or [])
+    ]
+
+    low_skill_rows = [
+        row for row in rows
+        if row.get("max_difficulty") == 1
+    ]
 
     return {
-        "policy_count": len(summary_by_policy),
-        "summary_by_policy": summary_by_policy,
+        "policy_count": len(POLICIES),
+        "scenario_count": len({row["scenario_id"] for row in rows}),
+        "group_counts": {
+            "all": len({row["scenario_id"] for row in rows}),
+            "focus_difficulty": len({row["scenario_id"] for row in focus_difficulty_rows}),
+            "easy_cooking_goal": len({row["scenario_id"] for row in easy_cooking_goal_rows}),
+            "low_skill": len({row["scenario_id"] for row in low_skill_rows}),
+        },
+        "summary_by_policy_all": summarize_group(rows),
+        "summary_by_policy_focus_difficulty": summarize_group(focus_difficulty_rows),
+        "summary_by_policy_easy_cooking_goal": summarize_group(easy_cooking_goal_rows),
+        "summary_by_policy_low_skill": summarize_group(low_skill_rows),
     }
 
 
