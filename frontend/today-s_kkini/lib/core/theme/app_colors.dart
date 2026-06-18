@@ -21,17 +21,6 @@ class AppColors {
   
   // Semantic
   static const Color error = Color(0xFFD64545); // 오류 메시지, 경고 등
-
-
-
-
-  // 임시
-  static const Color mypage = Color(0xFF0D00FF); // 마이페이지 프로필 부분
-  static const Color stylegray = Color(0xFF0D00FF); // 더 옅은 회색 (식단 스타일)
-  static const Color buttonGray = Color(0xFF0D00FF); // 회색 배경용 (버튼)
-  static const Color textGray = Color(0xFF0D00FF); // 글씨 회색
-
-
 }
 
 
