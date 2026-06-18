@@ -24,7 +24,18 @@ def calculate_fallback_difficulty_score(menu: dict, profile: dict) -> float:
 
 
 def get_menu_difficulty_score(menu: dict, profile: dict) -> float:
+    """
+    optimizer에서 사용할 조리 난이도 적합 점수를 가져온다.
+
+    추천/검증 단계에서는 scores.difficulty를
+    "사용자 조리 실력 대비 쉬운 정도" 점수로 사용한다.
+    따라서 optimizer도 동일한 기준을 우선 사용해야 한다.
+    """
+
     scores = menu.get("scores") if isinstance(menu.get("scores"), dict) else {}
+
+    if scores.get("difficulty") is not None:
+        return safe_float(scores.get("difficulty"))
 
     if scores.get("difficulty_score") is not None:
         return safe_float(scores.get("difficulty_score"))
