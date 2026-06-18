@@ -63,7 +63,7 @@ class _AuthScreenState extends State<AuthScreen> {
       useSafeArea: true,
       constraints: const BoxConstraints(maxWidth: double.infinity),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       builder: (context) => const SocialLoginSheet(),
     );
@@ -90,7 +90,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 8,
                     decoration: BoxDecoration(
                       color: isActive ? AppColors.primary : AppColors.gray,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                   );
                 }),

@@ -1,3 +1,37 @@
+class FamilyMemberInfo {
+  final String nickname;
+  final String gender;
+  final int age;
+  final double height;
+  final double weight;
+
+  const FamilyMemberInfo({
+    required this.nickname,
+    required this.gender,
+    required this.age,
+    required this.height,
+    required this.weight,
+  });
+
+  factory FamilyMemberInfo.fromJson(Map<String, dynamic> json) {
+    return FamilyMemberInfo(
+      nickname: json['nickname'] as String? ?? '',
+      gender: json['gender'] as String? ?? '',
+      age: json['age'] as int? ?? 0,
+      height: (json['height'] as num?)?.toDouble() ?? 0,
+      weight: (json['weight'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'nickname': nickname,
+        'gender': gender,
+        'age': age,
+        'height': height,
+        'weight': weight,
+      };
+}
+
 class MyProfile {
   final int id;
   final String provider;
@@ -6,17 +40,25 @@ class MyProfile {
   final String? imageUrl;
   final bool isGuest;
   final bool isOnboarded;
-  final int personaId;
+  final List<String> markets;
+  final List<FamilyMemberInfo> familyMembers;
+
+  // persona_setting
+  final String householdType;
+  final int familyCount;
+  final int monthlyBudget;
   final int mealsPerDay;
   final List<String> purpose;
-  final int monthlyBudget;
-  final int cookingSkill;
-  final List<String> preferredIngredients;
+  final String? personaName;
+  final int activityLevel;
+
+  // onboarding_setting
   final List<String> preferredCategories;
-  final String diversityLevel;
+  final List<String> preferredIngredients;
   final List<String> excludedIngredients;
+  final int cookingSkill;
+  final String diversityLevel;
   final String? selectedStyleId;
-  final List<String> markets;
 
   const MyProfile({
     required this.id,
@@ -26,20 +68,29 @@ class MyProfile {
     this.imageUrl,
     required this.isGuest,
     required this.isOnboarded,
-    required this.personaId,
+    required this.markets,
+    required this.familyMembers,
+    required this.householdType,
+    required this.familyCount,
+    required this.monthlyBudget,
     required this.mealsPerDay,
     required this.purpose,
-    required this.monthlyBudget,
-    required this.cookingSkill,
-    required this.preferredIngredients,
+    this.personaName,
+    required this.activityLevel,
     required this.preferredCategories,
-    required this.diversityLevel,
+    required this.preferredIngredients,
     required this.excludedIngredients,
+    required this.cookingSkill,
+    required this.diversityLevel,
     this.selectedStyleId,
-    required this.markets,
   });
 
   factory MyProfile.fromJson(Map<String, dynamic> json) {
+    final personaSetting =
+        json['persona_setting'] as Map<String, dynamic>? ?? {};
+    final onboardingSetting =
+        json['onboarding_setting'] as Map<String, dynamic>? ?? {};
+
     return MyProfile(
       id: json['id'] as int,
       provider: json['provider'] as String,
@@ -48,17 +99,26 @@ class MyProfile {
       imageUrl: json['image_url'] as String?,
       isGuest: json['is_guest'] as bool,
       isOnboarded: json['is_onboarded'] as bool,
-      personaId: json['persona_id'] as int,
-      mealsPerDay: json['meals_per_day'] as int,
-      purpose: List<String>.from(json['purpose'] as List),
-      monthlyBudget: json['monthly_budget'] as int,
-      cookingSkill: json['cooking_skill'] as int,
-      preferredIngredients: List<String>.from(json['preferred_ingredients'] as List),
-      preferredCategories: List<String>.from(json['preferred_categories'] as List),
-      diversityLevel: json['diversity_level'] as String,
-      excludedIngredients: List<String>.from(json['excluded_ingredients'] as List),
-      selectedStyleId: json['selected_style_id'] as String?,
       markets: List<String>.from(json['markets'] ?? ['쿠팡', '컬리', '네이버']),
+      familyMembers: (json['family_members'] as List<dynamic>? ?? [])
+          .map((m) => FamilyMemberInfo.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      householdType: personaSetting['household_type'] as String? ?? '1인 가구',
+      familyCount: personaSetting['family_count'] as int? ?? 1,
+      monthlyBudget: personaSetting['monthly_budget'] as int? ?? 300000,
+      mealsPerDay: personaSetting['meals_per_day'] as int? ?? 3,
+      purpose: List<String>.from(personaSetting['purpose'] ?? []),
+      personaName: personaSetting['persona_name'] as String?,
+      activityLevel: personaSetting['activity_level'] as int? ?? 0,
+      preferredCategories:
+          List<String>.from(onboardingSetting['preferred_categories'] ?? []),
+      preferredIngredients:
+          List<String>.from(onboardingSetting['preferred_ingredients'] ?? []),
+      excludedIngredients:
+          List<String>.from(onboardingSetting['excluded_ingredients'] ?? []),
+      cookingSkill: onboardingSetting['cooking_skill'] as int? ?? 3,
+      diversityLevel: onboardingSetting['diversity_level'] as String? ?? '보통',
+      selectedStyleId: onboardingSetting['selected_style_id'] as String?,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format.dart';
@@ -40,6 +41,17 @@ class SlotCard extends StatelessWidget {
                     width: 100,
                     height: 100,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 100,
+                        height: 100,
+                        color: AppColors.gray,
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: AppColors.textSecondary,
+                        ),
+                      );
+                    },
                   ),
           ),
           const SizedBox(width: 12),
@@ -49,14 +61,11 @@ class SlotCard extends StatelessWidget {
               children: [
                 SizedBox(
                   height: 28,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      meal.menuName,
-                      maxLines: 1,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
+                  child: AutoSizeText(
+                    meal.menuName,
+                    maxLines: 1,
+                    minFontSize: 12,
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -81,7 +90,7 @@ class SlotCard extends StatelessWidget {
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(0),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
@@ -106,7 +115,7 @@ class SlotCard extends StatelessWidget {
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(0),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 8),
                         ),

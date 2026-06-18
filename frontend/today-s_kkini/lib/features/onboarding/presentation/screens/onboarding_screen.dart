@@ -12,6 +12,7 @@ import '../widgets/food_selector.dart';
 import '../widgets/ingredient_selector.dart';
 import '../widgets/allergy_input.dart';
 import '../widgets/labeled_slider.dart';
+import '../../../mypage/presentation/providers/mypage_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -29,6 +30,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final List<String> _selectedIngredient = [];
   final List<String> _allergies = [];
   bool _initialized = false;
+  bool _isResetFlow = false; // 마이페이지 재설정하기로 들어온 경우
 
   static const Map<String, List<String>> _categoryIngredients = {
     '육류': ['소고기', '돼지고기', '닭고기', '양고기', '오리고기', '양갈비', '베이컨', '햄', '소시지'],
@@ -41,9 +43,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _conflictingCategory() {
     for (final entry in _categoryIngredients.entries) {
       final isCategorySelected = _selectedIngredient.contains(entry.key);
-      final allergiesInCategory = _allergies
-          .where((a) => entry.value.contains(a))
-          .toSet();
+      final allergiesInCategory =
+          _allergies.where((a) => entry.value.contains(a)).toSet();
       if (isCategorySelected && allergiesInCategory.length >= 2) {
         return entry.key;
       }
@@ -79,8 +80,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _initialized = true;
       final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
       if (extra != null) {
+        _isResetFlow = true;
         _selectedFoods.addAll(List<String>.from(extra['foods'] ?? []));
-        _selectedIngredient.addAll(List<String>.from(extra['ingredients'] ?? []));
+        _selectedIngredient
+            .addAll(List<String>.from(extra['ingredients'] ?? []));
         _allergies.addAll(List<String>.from(extra['allergies'] ?? []));
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -127,10 +130,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         const AsyncValue.loading();
     try {
       final saved = await notifier.submit();
-      await ref.read(authProvider.notifier).refreshUser();
+      if (!_isResetFlow) {
+        await ref.read(authProvider.notifier).refreshUser();
+      }
       ref.read(submitOnboardingProvider.notifier).state =
           AsyncValue.data(saved);
-      if (mounted) context.go(AppRoutes.mealStyleSelect);
+      if (!mounted) return;
+      if (_isResetFlow) {
+        await ref.read(myPageProvider.notifier).fetchMyProfile();
+        if (!mounted) return;
+        context.pop();
+      } else {
+        context.go(AppRoutes.mealStyleSelect);
+      }
     } catch (e, st) {
       ref.read(submitOnboardingProvider.notifier).state =
           AsyncValue.error(e, st);
@@ -138,7 +150,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   String _buttonLabel() {
-    if (_currentPage == _totalPages - 1) return '식단 생성하기';
+    if (_currentPage == _totalPages - 1) {
+      return _isResetFlow ? '설정 저장하기' : '식단 생성하기';
+    }
     return '다음';
   }
 
@@ -200,49 +214,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           physics: const NeverScrollableScrollPhysics(),
           onPageChanged: (index) => setState(() => _currentPage = index),
           children: [
-            // Step 1: 취향 선택
             _StepPage(
               title: '취향을 선택해 주세요',
               child: FoodSelector(
                 selectedFoods: _selectedFoods,
                 onChanged: (v) {
                   setState(() {
-                    _selectedFoods..clear()..addAll(v);
+                    _selectedFoods
+                      ..clear()
+                      ..addAll(v);
                   });
                   notifier.setFoods(v);
                 },
               ),
             ),
-
-            // Step 2: 선호 식재료
             _StepPage(
               title: '선호 식재료를 선택해 주세요',
               child: IngredientSelector(
                 selectedIngredients: _selectedIngredient,
                 onChanged: (v) {
                   setState(() {
-                    _selectedIngredient..clear()..addAll(v);
+                    _selectedIngredient
+                      ..clear()
+                      ..addAll(v);
                   });
                   notifier.setIngredient(v);
                 },
               ),
             ),
-
-            // Step 3: 알레르기 및 제외 재료
             _StepPage(
               title: '알레르기 및 제외 재료를\n입력해 주세요',
               child: AllergyInput(
                 allergies: _allergies,
                 onChanged: (v) {
                   setState(() {
-                    _allergies..clear()..addAll(v);
+                    _allergies
+                      ..clear()
+                      ..addAll(v);
                   });
                   notifier.setAllergies(v);
                 },
               ),
             ),
-
-            // Step 4: 요리 실력 + 다양성
             _StepPage(
               title: '요리 실력과 다양성을\n설정해 주세요',
               child: Column(
@@ -263,12 +276,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     divisions: 4,
                     getLabel: (v) {
                       switch (v) {
-                        case 1: return '라면 정도는 끓일 수 있어요';
-                        case 2: return '간단한 요리는 해요';
-                        case 3: return '레시피를 보고 대부분 따라 할 수 있어요';
-                        case 4: return '웬만한 요리는 다 해요';
-                        case 5: return '요리가 특기예요';
-                        default: return '';
+                        case 1:
+                          return '라면 정도는 끓일 수 있어요';
+                        case 2:
+                          return '간단한 요리는 해요';
+                        case 3:
+                          return '레시피를 보고 대부분 따라 할 수 있어요';
+                        case 4:
+                          return '웬만한 요리는 다 해요';
+                        case 5:
+                          return '요리가 특기예요';
+                        default:
+                          return '';
                       }
                     },
                     onChanged: notifier.setCookingSkill,
@@ -288,12 +307,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     divisions: 4,
                     getLabel: (v) {
                       switch (v) {
-                        case 1: return '매일 같은 메뉴도 괜찮아요';
-                        case 2: return '가끔 바뀌면 좋겠어요';
-                        case 3: return '적당히 다양하게 먹고 싶어요';
-                        case 4: return '자주 다양하게 먹고 싶어요';
-                        case 5: return '매일 다른 메뉴를 먹고 싶어요';
-                        default: return '';
+                        case 1:
+                          return '매일 같은 메뉴도 괜찮아요';
+                        case 2:
+                          return '가끔 바뀌면 좋겠어요';
+                        case 3:
+                          return '적당히 다양하게 먹고 싶어요';
+                        case 4:
+                          return '자주 다양하게 먹고 싶어요';
+                        case 5:
+                          return '매일 다른 메뉴를 먹고 싶어요';
+                        default:
+                          return '';
                       }
                     },
                     onChanged: notifier.setDiversity,

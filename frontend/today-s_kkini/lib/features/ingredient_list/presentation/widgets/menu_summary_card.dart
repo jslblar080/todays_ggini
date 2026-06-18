@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format.dart';
 import '../../../home/domain/menu_detail.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 
 class MenuSummaryCard extends StatelessWidget {
   final MenuDetail menu;
@@ -27,8 +28,8 @@ class MenuSummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 70,
+            height: 70,
             decoration: BoxDecoration(
               color: AppColors.border,
               borderRadius: BorderRadius.circular(6),
@@ -51,11 +52,12 @@ class MenuSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const SizedBox(height: 3),
+                AutoSizeText(
                   menu.menuName,
+                  maxLines: 1,
+                  minFontSize: 12,
                   style: Theme.of(context).textTheme.bodyLarge,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(

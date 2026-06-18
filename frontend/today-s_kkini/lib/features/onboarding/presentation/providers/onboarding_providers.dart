@@ -14,6 +14,20 @@ String diversityToString(int value) {
   return '높음';
 }
 
+// diversity String → int 변환 헬퍼 (마이페이지 프로필 prefill용)
+int diversityToInt(String value) {
+  switch (value) {
+    case '낮음':
+      return 1;
+    case '보통':
+      return 2;
+    case '높음':
+      return 3;
+    default:
+      return 2;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Data layer providers
 // ─────────────────────────────────────────────────────────────
@@ -81,12 +95,15 @@ class OnboardingNotifier extends StateNotifier<OnboardingDraft> {
   final OnboardingRepository _repo;
   final Persona Function() _readPersona;
 
+  void initializeWith(OnboardingDraft draft) => state = draft;
+
   void setFoods(List<String> v) => state = state.copyWith(foods: v);
   void setIngredient(List<String> v) => state = state.copyWith(ingredient: v);
   void setAllergies(List<String> v) => state = state.copyWith(allergies: v);
   void setDiversity(int v) => state = state.copyWith(diversity: v);
   void setCookingSkill(int v) => state = state.copyWith(cookingSkill: v);
-  void setSelectedStyleId(String v) => state = state.copyWith(selectedStyleId: v);
+  void setSelectedStyleId(String v) =>
+      state = state.copyWith(selectedStyleId: v);
 
   Future<void> submit() async {
     final profile = UserProfile(

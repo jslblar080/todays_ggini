@@ -117,7 +117,7 @@ class _ProfileSectionState extends State<ProfileSection> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: AppColors.mypage,
+      color: AppColors.primaryLight,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

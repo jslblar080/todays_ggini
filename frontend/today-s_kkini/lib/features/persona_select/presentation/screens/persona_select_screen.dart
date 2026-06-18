@@ -6,6 +6,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_primary_button.dart';
+import '../../domain/persona_input.dart';
 import '../providers/persona_select_provider.dart';
 import '../widgets/step1_household.dart';
 import '../widgets/step2_basic_info.dart';
@@ -13,9 +14,12 @@ import '../widgets/step3_diet_info.dart';
 import '../widgets/step4_cooking_goal.dart';
 import '../widgets/step5_activity_level.dart';
 import '../widgets/step6_persona_result.dart';
+import '../../../mypage/presentation/providers/mypage_provider.dart';
 
 class PersonaSelectScreen extends ConsumerStatefulWidget {
-  const PersonaSelectScreen({super.key});
+  final Map<String, dynamic>? initialData;
+
+  const PersonaSelectScreen({super.key, this.initialData});
 
   @override
   ConsumerState<PersonaSelectScreen> createState() =>
@@ -26,6 +30,42 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
   final _pageController = PageController();
   int _currentStep = 0;
   static const int _totalSteps = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.initialData;
+    if (data != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final rawMembers = data['familyMembers'] as List<dynamic>? ?? [];
+        final familyMembers = rawMembers.map((m) {
+          if (m is FamilyMember) return m;
+          // MyProfile 쪽 FamilyMemberInfo 등 다른 타입으로 넘어온 경우 대비
+          final dynamic d = m;
+          return FamilyMember(
+            nickname: d.nickname as String,
+            gender: d.gender as String,
+            age: d.age as int,
+            height: (d.height as num).toDouble(),
+            weight: (d.weight as num).toDouble(),
+          );
+        }).toList();
+
+        ref.read(personaSelectProvider.notifier).initializeWith(
+              PersonaInput(
+                householdType: data['householdType'] as String? ?? '',
+                familyCount: data['familyCount'] as int? ?? 1,
+                mealsPerDay: data['mealsPerDay'] as int? ?? 3,
+                monthlyBudget: data['monthlyBudget'] as int? ?? 0,
+                purpose: List<String>.from(data['purpose'] ?? []),
+                activityLevel: data['activityLevel'] as int? ?? 0,
+                familyMembers: familyMembers,
+                personaName: data['personaName'] as String?,
+              ),
+            );
+      });
+    }
+  }
 
   bool _canProceed() {
     final input = ref.read(personaSelectProvider);
@@ -56,7 +96,6 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
 
   Future<void> _next() async {
     if (_currentStep == 4) {
-      // step5(활동량) → step6(페르소나 결과) 전에 persona-setting 먼저 저장
       final input = ref.read(personaSelectProvider);
       final dio = ref.read(dioProvider);
       try {
@@ -86,7 +125,14 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
     final input = ref.read(personaSelectProvider);
     await ref.read(submitPersonaProvider(input).future);
     if (!mounted) return;
-    context.go(AppRoutes.onboarding);
+    if (widget.initialData != null) {
+      // 마이페이지에서 재설정하기로 들어온 경우 → 마이페이지로 복귀
+      await ref.read(myPageProvider.notifier).fetchMyProfile();
+      if (!mounted) return;
+      context.pop();
+    } else {
+      context.go(AppRoutes.onboarding);
+    }
   }
 
   String _buttonLabel() {
@@ -125,8 +171,7 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
                   }),
                 ),
               ),
-            if (_currentStep == 5)
-              const SizedBox(height: 5),
+            if (_currentStep == 5) const SizedBox(height: 5),
             AppPrimaryButton(
               text: _buttonLabel(),
               enabled: _canProceed(),
@@ -151,9 +196,8 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
                   ref.read(personaSelectProvider.notifier).setFamilyCount(1);
                 }
               },
-              onFamilyCountChanged: (v) => ref
-                  .read(personaSelectProvider.notifier)
-                  .setFamilyCount(v),
+              onFamilyCountChanged: (v) =>
+                  ref.read(personaSelectProvider.notifier).setFamilyCount(v),
             ),
             Step2BasicInfo(
               householdType: input.householdType,
@@ -165,18 +209,16 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
             Step3DietInfo(
               mealsPerDay: input.mealsPerDay,
               monthlyBudget: input.monthlyBudget,
-              onMealsChanged: (v) => ref
-                  .read(personaSelectProvider.notifier)
-                  .setMealsPerDay(v),
+              onMealsChanged: (v) =>
+                  ref.read(personaSelectProvider.notifier).setMealsPerDay(v),
               onBudgetChanged: (v) => ref
                   .read(personaSelectProvider.notifier)
                   .setMonthlyBudget(v),
             ),
             Step4CookingGoal(
               selected: input.purpose,
-              onChanged: (v) => ref
-                  .read(personaSelectProvider.notifier)
-                  .setPurpose(v),
+              onChanged: (v) =>
+                  ref.read(personaSelectProvider.notifier).setPurpose(v),
             ),
             Step5ActivityLevel(
               selected: input.activityLevel,

@@ -90,11 +90,14 @@ class IngredientCard extends StatelessWidget {
                   ),
             ),
           ),
-          Text(
-            isAvailable ? '₩${formatPrice(price)}' : '재고 없음',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                ),
+          SizedBox(
+            width: 75,
+            child: Text(
+              isAvailable ? '₩${formatPrice(price)}' : '재고 없음',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                  ),
+            ),
           ),
         ],
       ),

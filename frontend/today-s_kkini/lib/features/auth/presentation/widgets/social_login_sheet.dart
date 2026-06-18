@@ -32,7 +32,7 @@ class SocialLoginSheet extends ConsumerWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(5),
               ),
             ),
 

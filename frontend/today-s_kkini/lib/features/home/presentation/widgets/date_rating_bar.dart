@@ -232,11 +232,14 @@ class _DateRatingBarState extends ConsumerState<DateRatingBar> {
 
     return Column(
       children: [
-        Text(
-          '${weekStart.year}년 ${weekStart.month}월',
-          style: Theme.of(context).textTheme.headlineLarge,
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            '${weekStart.year}년 ${weekStart.month}월',
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         SizedBox(
           height: 90,
           child: PageView.builder(

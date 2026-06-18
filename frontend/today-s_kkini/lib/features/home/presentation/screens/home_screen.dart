@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/router/app_routes.dart';
@@ -156,15 +157,13 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildMenuDetail(BuildContext context, MenuDetail menu) {
     return Column(
       children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            menu.menuName,
-            maxLines: 1,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontFamily: 'MemomentKkukkukk',
-                ),
-          ),
+        AutoSizeText(
+          menu.menuName,
+          maxLines: 1,
+          minFontSize: 14,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontFamily: 'MemomentKkukkukk',
+              ),
         ),
         const SizedBox(height: 12),
 
@@ -216,7 +215,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '레시피 영상 보러 가기',
+                '레시피 보러 가기',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

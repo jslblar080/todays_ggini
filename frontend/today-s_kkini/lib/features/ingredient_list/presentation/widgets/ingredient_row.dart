@@ -36,19 +36,20 @@ class IngredientRow extends StatelessWidget {
           height: 70,
           child: Row(
             children: [
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: onToggle,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 24,
+                  height: 24,
                   decoration: BoxDecoration(
                     color: isChecked ? AppColors.textSecondary : AppColors.gray,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     Icons.check,
-                    size: 20,
+                    size: 18,
                     color: isChecked ? Colors.white : AppColors.grayLight,
                   ),
                 ),

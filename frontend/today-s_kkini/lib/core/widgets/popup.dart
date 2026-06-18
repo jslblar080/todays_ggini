@@ -43,11 +43,14 @@ class AppPopup extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       title: title != null
-          ? Text(
+        ? Center(
+            child: Text(
               title!,
-              style: Theme.of(context).textTheme.headlineLarge,
-            )
-          : null,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          )
+        : null,
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.75,
         child: contentWidget ??

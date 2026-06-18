@@ -92,7 +92,7 @@ class MealDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 0),
                 MealDetailSummary(
                   totalPrice: plan.pricePerDay,
                   totalCalories: plan.caloriesPerDay,

@@ -36,6 +36,10 @@ class RecommendedPersona {
 class PersonaSelectNotifier extends StateNotifier<PersonaInput> {
   PersonaSelectNotifier() : super(const PersonaInput());
 
+  void initializeWith(PersonaInput input) {
+    state = input;
+  }
+  
   void setHouseholdType(String v) =>
       state = state.copyWith(householdType: v);
 
