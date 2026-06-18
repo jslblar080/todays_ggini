@@ -21,6 +21,7 @@ class HomeState {
   final MenuDetail? selectedMenu; // 선택된 slot의 상세 정보
   final bool isLoadingMenu; // 메뉴 상세 로딩 중 (탭 전환 시 표시)
   final Object? error;
+  final DateTime? selectedDate; 
 
   const HomeState({
     this.dailyPlan,
@@ -28,6 +29,7 @@ class HomeState {
     this.selectedMenu,
     this.isLoadingMenu = false,
     this.error,
+    this.selectedDate,
   });
 
   // 기존 값을 베이스로 인자로 받은 것만 바꾼 새 상태
@@ -37,6 +39,7 @@ class HomeState {
     MenuDetail? selectedMenu,
     bool? isLoadingMenu,
     Object? error,
+    DateTime? selectedDate,
   }) {
     return HomeState(
       // 인자로 받은 바뀐 값이면 ?? 왼쪽으로, 인자를 받지 않은 null이면 오른쪽으로
@@ -45,6 +48,7 @@ class HomeState {
       selectedMenu: selectedMenu ?? this.selectedMenu,
       isLoadingMenu: isLoadingMenu ?? this.isLoadingMenu,
       error: error ?? this.error,
+      selectedDate: selectedDate ?? this.selectedDate,
     );
   }
 }
@@ -61,35 +65,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   // 초기 진입: 오늘 날짜의 식단 + 현재 시간대에 맞는 slot의 상세 정보를 가져옴
   Future<void> _loadToday() async {
-    try {
-      final today = DateTime.now();
-      // API 호출 → Domain 객체로 받음
-      final plan = await _repository.fetchDailyMealPlan(today);
-      if (!mounted) return;
-
-      // 현재 시간대에 맞는 slot을 디폴트로 선택
-      // TODO: 슬롯별 시간 범위를 백엔드 응답에 받아오면 그걸 우선 사용
-      final defaultSlot = _pickDefaultSlot(plan.meals.length);
-
-      // 응답받은 Domain 객체만 갈아끼워 저장
-      state = state.copyWith(
-        dailyPlan: plan,
-        selectedSlot: defaultSlot,
-        isLoadingMenu: true,
-      );
-
-      final defaultMeal = plan.meals.firstWhere((m) => m.slot == defaultSlot);
-      final menu = await _repository.fetchMenuDetail(
-        mealDate: today,
-        mealId: defaultMeal.mealId,
-      );
-      if (!mounted) return;
-
-      state = state.copyWith(selectedMenu: menu, isLoadingMenu: false);
-    } catch (e) {
-      if (!mounted) return; // Notifier가 dispose되면 종료
-      state = state.copyWith(error: e, isLoadingMenu: false);
-    }
+    await loadDate(DateTime.now());
   }
 
   // 사용자가 다른 slot 탭을 누름
@@ -104,6 +80,38 @@ class HomeNotifier extends StateNotifier<HomeState> {
       final menu = await _repository.fetchMenuDetail(
         mealDate: state.dailyPlan!.date,
         mealId: meal.mealId,
+      );
+      if (!mounted) return;
+      state = state.copyWith(selectedMenu: menu, isLoadingMenu: false);
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(error: e, isLoadingMenu: false);
+    }
+  }
+
+  Future<void> loadDate(DateTime date) async {
+    state = state.copyWith(
+      dailyPlan: null,
+      selectedMenu: null,
+      isLoadingMenu: true,
+      error: null,
+      selectedDate: date,
+    );
+    try {
+      final plan = await _repository.fetchDailyMealPlan(date);
+      if (!mounted) return;
+
+      final defaultSlot = _pickDefaultSlot(plan.meals.length);
+      state = state.copyWith(
+        dailyPlan: plan,
+        selectedSlot: defaultSlot,
+        isLoadingMenu: true,
+      );
+
+      final defaultMeal = plan.meals.firstWhere((m) => m.slot == defaultSlot);
+      final menu = await _repository.fetchMenuDetail(
+        mealDate: date,
+        mealId: defaultMeal.mealId,
       );
       if (!mounted) return;
       state = state.copyWith(selectedMenu: menu, isLoadingMenu: false);

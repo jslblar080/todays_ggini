@@ -55,6 +55,8 @@ class User(Base):
     # 1:1 관계: 온보딩 세부 취향 설정
     onboarding_setting = relationship("UserOnboardingSetting", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
+    meal_feedbacks = relationship("MealFeedback", back_populates="user", cascade="all, delete-orphan")
+
 # ---------------------------- 가구원 정보 테이블 ---------------------------------
 class UserFamilyMember(Base):
     __tablename__ = "user_family_members"

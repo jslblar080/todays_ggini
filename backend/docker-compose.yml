@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: kkini-postgres
+    environment:
+      POSTGRES_USER: admin            # backend/.env 의 DATABASE_URL 과 일치
+      POSTGRES_PASSWORD: admin1234
+      POSTGRES_DB: todays_kkini_db
+    ports:
+      - "127.0.0.1:5432:5432"         # 로컬에서만 접근 (외부 노출 차단)
+    volumes:
+      - kkini-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d todays_kkini_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: kkini-redis
+    ports:
+      - "127.0.0.1:6379:6379"         # 앱 토큰 저장 + Celery 브로커/백엔드 공용
+    volumes:
+      - kkini-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  kkini-pgdata:
+  kkini-redisdata:

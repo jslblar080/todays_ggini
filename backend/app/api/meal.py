@@ -15,7 +15,7 @@ from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
-from app.models.meal import MealPlan
+from app.models.meal import MealPlan, MealFeedback
 from app.schemas.meal import (
     DailyMealDetailResponse,
     MealConfirmResponse,
@@ -25,6 +25,8 @@ from app.schemas.meal import (
     MenuUpdateRequest,
     AlternativeMenuResponse,
     StyleSelectRequest,
+    MealFeedbackRequest,
+    MealFeedbackResponse
 )
 from app.crud import crud_meal
 from app.utils.image_search import get_food_image_url
@@ -831,6 +833,82 @@ async def get_meal_alternatives(
 
     # 5. 최종 반환 (Pydantic 스키마가 자동으로 JSON 변환 및 검증을 수행합니다)
     return {"current_meal": current_meal, "alternatives": alternatives}
+
+# ------------------------------ 식단 피드백 API ---------------------------------------
+@router.post(
+    "/feedback", 
+    response_model=MealFeedbackResponse, 
+    status_code=status.HTTP_200_OK,
+    summary="오늘의 식단 별점 및 피드백 생성/수정 (Upsert)"
+)
+async def create_or_update_meal_feedback(
+    feedback_in: MealFeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    유저가 특정 날짜의 특정 식단(아침/점심/저녁)에 대해 남긴 별점과 한 줄 평을 저장합니다.
+    
+    - **Upsert 구조**: 동일한 날짜의 동일한 식단 번호로 재요청 시, 기존 피드백을 지우지 않고 갱신(Update)합니다.
+    - **기획 벨리데이션**: 별점이 3점 이하인데 코멘트 내용이 비어있으면 422 규격 오류가 반환됩니다.
+    """
+    try:
+        # 1. 기존에 해당 유저가 [같은 날짜 + 같은 식단 번호]로 남긴 피드백이 있는지 먼저 확인합니다.
+        existing_feedback = db.query(MealFeedback).filter(
+            MealFeedback.user_id == current_user.id,
+            MealFeedback.date == feedback_in.date,
+            MealFeedback.meal_number == feedback_in.meal_number
+        ).first()
+
+        if existing_feedback:
+            # [Case 1] 기존 데이터가 존재하면 -> 새로 들어온 값으로 덮어쓰기 (Update)
+            existing_feedback.meal_name = feedback_in.meal_name
+            existing_feedback.rating = feedback_in.rating
+            existing_feedback.comment = feedback_in.comment
+            
+            db.commit()
+            db.refresh(existing_feedback)
+            
+            # Pydantic Response DTO 규격에 맞춰 메시지와 함께 반환
+            return MealFeedbackResponse(
+                message="식단 평가가 성공적으로 수정되었습니다.",
+                date=existing_feedback.date,
+                meal_number=existing_feedback.meal_number,
+                meal_name=existing_feedback.meal_name,
+                rating=existing_feedback.rating,
+                comment=existing_feedback.comment
+            )
+
+        else:
+            # [Case 2] 기존 데이터가 없으면 -> 완전히 새로운 레코드 생성 (Insert)
+            new_feedback = MealFeedback(
+                user_id=current_user.id,
+                date=feedback_in.date,
+                meal_number=feedback_in.meal_number,
+                meal_name=feedback_in.meal_name, 
+                rating=feedback_in.rating,
+                comment=feedback_in.comment
+            )
+            db.add(new_feedback)
+            db.commit()
+            db.refresh(new_feedback)
+
+            return MealFeedbackResponse(
+                message="식단 평가가 성공적으로 반영되었습니다.",
+                date=new_feedback.date,
+                meal_number=new_feedback.meal_number,
+                meal_name=new_feedback.meal_name,
+                rating=new_feedback.rating,
+                comment=new_feedback.comment
+            )
+        
+    except Exception as error:
+        db.rollback()  # 예기치 못한 DB 오류 발생 시 안전하게 롤백
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"피드백 처리 중 서버 내부 에러 발생: {str(error)}"
+        )
 
 
 # ------------------------------- AI 모델 서버 호출용 API ----------------------------------
