@@ -12,7 +12,7 @@ class Step6PersonaResult extends ConsumerWidget {
   });
 
   final String? selectedPersonaName;
-  final ValueChanged<String> onSelected;
+  final void Function(String name, String personaId) onSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,7 +56,7 @@ class Step6PersonaResult extends ConsumerWidget {
                 return _PersonaCard(
                   persona: persona,
                   isSelected: isSelected,
-                  onSelected: () => onSelected(persona.name),
+                  onSelected: () => onSelected(persona.name, persona.personaId),
                 );
               }).toList(),
             ),

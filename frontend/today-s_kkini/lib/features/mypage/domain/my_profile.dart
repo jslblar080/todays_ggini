@@ -50,6 +50,7 @@ class MyProfile {
   final int mealsPerDay;
   final List<String> purpose;
   final String? personaName;
+  final String? personaId;
   final int activityLevel;
 
   // onboarding_setting
@@ -76,6 +77,7 @@ class MyProfile {
     required this.mealsPerDay,
     required this.purpose,
     this.personaName,
+    this.personaId,
     required this.activityLevel,
     required this.preferredCategories,
     required this.preferredIngredients,
@@ -109,6 +111,7 @@ class MyProfile {
       mealsPerDay: personaSetting['meals_per_day'] as int? ?? 3,
       purpose: List<String>.from(personaSetting['purpose'] ?? []),
       personaName: personaSetting['persona_name'] as String?,
+      personaId: personaSetting['persona_id'] as String?,
       activityLevel: personaSetting['activity_level'] as int? ?? 0,
       preferredCategories:
           List<String>.from(onboardingSetting['preferred_categories'] ?? []),

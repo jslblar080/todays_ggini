@@ -8,6 +8,7 @@ class ProfileSection extends StatefulWidget {
   final String? name;
   final String? imageUrl;
   final String persona;
+  final String? personaId;
   final Future<String> Function(String)? onNameChanged;
   final Future<String> Function(Uint8List, String)? onImageChanged;
 
@@ -16,6 +17,7 @@ class ProfileSection extends StatefulWidget {
     this.name,
     this.imageUrl,
     this.persona = '자취생',
+    this.personaId,
     this.onNameChanged,
     this.onImageChanged,
   });
@@ -29,6 +31,37 @@ class _ProfileSectionState extends State<ProfileSection> {
   String? _imageUrl;
   Uint8List? _imageBytes;
 
+  static const Map<String, String> _personaImages = {
+    // 1인 가구
+    'persona_single_budget_saver': 'assets/images/persona_single_budget_saver.png',
+    'persona_single_diet_light': 'assets/images/persona_single_diet_light.png',
+    'persona_single_high_protein': 'assets/images/persona_single_high_protein.png',
+    'persona_single_easy_cooking': 'assets/images/persona_single_easy_cooking.png',
+    'persona_single_balanced_routine': 'assets/images/persona_single_balanced_routine.png',
+    'persona_single_taste_focused': 'assets/images/persona_single_taste_focused.png',
+    'persona_single_diet_protein': 'assets/images/persona_single_diet_protein.png',
+    'persona_single_budget_easy': 'assets/images/persona_single_budget_easy.png',
+    'persona_single_diet_easy': 'assets/images/persona_single_diet_easy.png',
+    'persona_single_variety_seeker': 'assets/images/persona_single_variety_seeker.png',
+    // 다인 가구
+    'persona_multi_budget_planner': 'assets/images/persona_multi_budget_planner.png',
+    'persona_multi_balanced_family': 'assets/images/persona_multi_balanced_family.png',
+    'persona_multi_easy_shared_meal': 'assets/images/persona_multi_easy_shared_meal.png',
+    'persona_multi_high_protein_family': 'assets/images/persona_multi_high_protein_family.png',
+    'persona_multi_diet_support': 'assets/images/persona_multi_diet_support.png',
+    'persona_multi_taste_balance': 'assets/images/persona_multi_taste_balance.png',
+    'persona_multi_budget_balance': 'assets/images/persona_multi_budget_balance.png',
+    'persona_multi_budget_easy': 'assets/images/persona_multi_budget_easy.png',
+    'persona_multi_health_routine': 'assets/images/persona_multi_health_routine.png',
+    'persona_multi_variety_table': 'assets/images/persona_multi_variety_table.png',
+  };
+
+  String get _personaImagePath {
+    final id = widget.personaId;
+    if (id == null) return 'assets/images/persona_default.png';
+    return _personaImages[id] ?? 'assets/images/persona_default.png';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +74,7 @@ class _ProfileSectionState extends State<ProfileSection> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
       _imageUrl = widget.imageUrl;
-      _imageBytes = null;  // 서버에서 새 URL 받았으면 로컬 바이트 초기화
+      _imageBytes = null;
     }
     if (oldWidget.name != widget.name) {
       _displayName = widget.name ?? '${widget.persona}_1';
@@ -56,13 +89,15 @@ class _ProfileSectionState extends State<ProfileSection> {
       contentWidget: TextField(
         controller: controller,
         maxLength: 15,
-        style: Theme.of(context).textTheme.bodyMedium,
+        style: Theme.of(context).textTheme.bodyLarge,
         decoration: InputDecoration(
           hintText: '새 닉네임을 입력하세요',
-          hintStyle: Theme.of(context).textTheme.bodyMedium,
+          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
           counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+                color: AppColors.textSecondary,
+              ),
           enabledBorder: UnderlineInputBorder(
             borderSide: BorderSide(color: AppColors.border),
           ),
@@ -118,9 +153,8 @@ class _ProfileSectionState extends State<ProfileSection> {
     return Container(
       width: double.infinity,
       color: AppColors.primaryLight,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 45, vertical: 32),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           GestureDetector(
@@ -134,27 +168,27 @@ class _ProfileSectionState extends State<ProfileSection> {
                     child: _imageBytes != null
                         ? Image.memory(
                             _imageBytes!,
-                            width: 80,
-                            height: 80,
+                            width: 100,
+                            height: 100,
                             fit: BoxFit.cover,
                           )
                         : _imageUrl != null
                             ? Image.network(
                                 _imageUrl!,
-                                width: 80,
-                                height: 80,
+                                width: 100,
+                                height: 100,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => Image.asset(
-                                  'assets/images/pic.png',
-                                  width: 80,
-                                  height: 80,
+                                  _personaImagePath,
+                                  width: 100,
+                                  height: 100,
                                   fit: BoxFit.cover,
                                 ),
                               )
                             : Image.asset(
-                                'assets/images/pic.png',
-                                width: 80,
-                                height: 80,
+                                _personaImagePath,
+                                width: 100,
+                                height: 100,
                                 fit: BoxFit.cover,
                               ),
                   ),
@@ -174,26 +208,40 @@ class _ProfileSectionState extends State<ProfileSection> {
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: _showEditNameDialog,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _displayName,
-                      style: Theme.of(context).textTheme.headlineMedium,
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: _showEditNameDialog,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _displayName,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.edit,
+                            size: 18, color: AppColors.textSecondary),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.persona,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),

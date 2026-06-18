@@ -45,6 +45,7 @@ class PersonaInput {
     this.mealsPerDay = 3,
     this.purpose = const [],
     this.personaName,
+    this.personaId,
     this.familyMembers = const [],
     this.familyCount = 1,
     this.activityLevel = 0,
@@ -55,6 +56,7 @@ class PersonaInput {
   final int mealsPerDay;
   final List<String> purpose;
   final String? personaName;
+  final String? personaId;
   final List<FamilyMember> familyMembers;
   final int familyCount;
   final int activityLevel;
@@ -65,9 +67,10 @@ class PersonaInput {
     int? mealsPerDay,
     List<String>? purpose,
     String? personaName,
+    String? personaId,
     List<FamilyMember>? familyMembers,
     int? familyCount,
-    int? activityLevel
+    int? activityLevel,
   }) {
     return PersonaInput(
       householdType: householdType ?? this.householdType,
@@ -75,6 +78,7 @@ class PersonaInput {
       mealsPerDay: mealsPerDay ?? this.mealsPerDay,
       purpose: purpose ?? this.purpose,
       personaName: personaName ?? this.personaName,
+      personaId: personaId ?? this.personaId,
       familyMembers: familyMembers ?? this.familyMembers,
       familyCount: familyCount ?? this.familyCount,
       activityLevel: activityLevel ?? this.activityLevel,
@@ -87,6 +91,7 @@ class PersonaInput {
         'meals_per_day': mealsPerDay,
         'purpose': purpose,
         'persona_name': personaName,
+        'persona_id': personaId,
         'family_members': familyMembers.map((m) => m.toJson()).toList(),
         'activity_level': activityLevel,
         'family_count': familyCount,

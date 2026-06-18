@@ -39,7 +39,7 @@ class PersonaSelectNotifier extends StateNotifier<PersonaInput> {
   void initializeWith(PersonaInput input) {
     state = input;
   }
-  
+
   void setHouseholdType(String v) =>
       state = state.copyWith(householdType: v);
 
@@ -52,8 +52,10 @@ class PersonaSelectNotifier extends StateNotifier<PersonaInput> {
   void setPurpose(List<String> v) =>
       state = state.copyWith(purpose: v);
 
-  void setPersonaName(String v) =>
-      state = state.copyWith(personaName: v);
+  void setPersona(String name, String id) => state = state.copyWith(
+        personaName: name,
+        personaId: id,
+      );
 
   void setFamilyMembers(List<FamilyMember> v) =>
       state = state.copyWith(familyMembers: v);
