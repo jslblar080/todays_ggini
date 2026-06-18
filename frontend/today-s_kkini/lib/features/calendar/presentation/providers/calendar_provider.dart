@@ -5,142 +5,177 @@ import '../../../../core/network/api_client.dart';
 import '../../data/calendar_repository.dart';
 import '../../domain/monthly_meal_plan.dart';
 
-// Repository Provider
 final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
   return CalendarRepository(ref.watch(dioProvider));
 });
 
-// State 클래스
+/// 주의 시작일(월요일)을 반환
+DateTime _weekStart(DateTime date) {
+  return date.subtract(Duration(days: date.weekday - 1));
+}
+
+/// 해당 주가 속하는 "표시용 연/월/주차"를 계산
+({int year, int month, int weekNumber}) _weekLabel(DateTime monday) {
+  final today = DateTime.now();
+  final weekDays = List.generate(7, (i) => monday.add(Duration(days: i)));
+  
+  // 오늘이 이 주에 포함되어 있으면 오늘 기준 월 사용
+  final todayInWeek = weekDays.any((d) =>
+      d.year == today.year && d.month == today.month && d.day == today.day);
+  
+  final referenceDate = todayInWeek ? today : monday;
+  final year = referenceDate.year;
+  final month = referenceDate.month;
+
+  // 해당 월의 첫 번째 같은 요일(월요일) 찾기
+  final firstOfMonth = DateTime(year, month, 1);
+  final firstMonday = firstOfMonth.add(
+    Duration(days: (8 - firstOfMonth.weekday) % 7),
+  );
+
+  // 월요일 기준으로 몇 번째 주인지 계산
+  final weekStart = weekDays.firstWhere((d) => d.month == month, orElse: () => monday);
+  final firstWeekMonday = firstOfMonth.weekday == 1
+      ? firstOfMonth
+      : firstOfMonth.subtract(Duration(days: firstOfMonth.weekday - 1));
+  
+  final weekNumber = ((weekStart.difference(firstWeekMonday).inDays) ~/ 7) + 1;
+
+  return (year: year, month: month, weekNumber: weekNumber);
+}
+
 class CalendarState {
-  final int currentYear;
-  final int currentMonth;
+  final DateTime currentWeekStart; // 현재 보고 있는 주의 월요일
   final Map<String, MonthlyMealPlan> cache; // "2026-05" → MonthlyMealPlan
   final bool isLoading;
   final Object? error;
 
   const CalendarState({
-    required this.currentYear,
-    required this.currentMonth,
+    required this.currentWeekStart,
     this.cache = const {},
     this.isLoading = false,
     this.error,
   });
 
-  // 지금 보고 있는 달의 데이터 (캐시에서 꺼냄). 없으면 null
-  MonthlyMealPlan? get currentPlan {
-    final key = _monthKey(currentYear, currentMonth);
+  /// 현재 주에 필요한 연/월 (월~일 중 목요일 기준)
+  ({int year, int month, int weekNumber}) get weekLabel =>
+      _weekLabel(currentWeekStart);
+
+  /// 현재 주의 7일 리스트
+  List<DateTime> get currentWeekDays =>
+      List.generate(7, (i) => currentWeekStart.add(Duration(days: i)));
+
+  /// 현재 주가 걸쳐있는 월들의 플랜 (월~일이 두 달에 걸칠 수 있음)
+  MonthlyMealPlan? planFor(DateTime date) {
+    final key = _monthKey(date.year, date.month);
     return cache[key];
   }
 
+  /// 현재 주 레이블 기준 월의 플랜 (SummaryCard용)
+  MonthlyMealPlan? get currentPlan {
+    final label = weekLabel;
+    return cache[_monthKey(label.year, label.month)];
+  }
+
   CalendarState copyWith({
-    int? currentYear,
-    int? currentMonth,
+    DateTime? currentWeekStart,
     Map<String, MonthlyMealPlan>? cache,
     bool? isLoading,
     Object? error,
   }) {
     return CalendarState(
-      currentYear: currentYear ?? this.currentYear,
-      currentMonth: currentMonth ?? this.currentMonth,
+      currentWeekStart: currentWeekStart ?? this.currentWeekStart,
       cache: cache ?? this.cache,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
   }
 
-  static String _monthKey(int year, int month) {
-    return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
-  }
+  static String _monthKey(int year, int month) =>
+      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
 }
 
-// Notifier 클래스
 class CalendarNotifier extends StateNotifier<CalendarState> {
   final CalendarRepository _repository;
 
   CalendarNotifier(this._repository)
-    : super(
-        CalendarState(
-          currentYear: DateTime.now().year,
-          currentMonth: DateTime.now().month,
-        ),
-      ) {
-    _loadIfNeeded(state.currentYear, state.currentMonth);
+      : super(CalendarState(
+          currentWeekStart: _weekStart(DateTime.now()),
+        )) {
+    _loadWeekIfNeeded(state.currentWeekStart);
   }
 
-  // 이전 달로 이동
-  void goToPrevMonth() {
-    final (y, m) = _prevMonth(state.currentYear, state.currentMonth);
-    state = state.copyWith(currentYear: y, currentMonth: m);
-    _loadIfNeeded(y, m);
+  void goToPrevWeek() {
+    final prev = state.currentWeekStart.subtract(const Duration(days: 7));
+    state = state.copyWith(currentWeekStart: prev);
+    _loadWeekIfNeeded(prev);
   }
 
-  // 다음 달로 이동
-  void goToNextMonth() {
-    final (y, m) = _nextMonth(state.currentYear, state.currentMonth);
-    state = state.copyWith(currentYear: y, currentMonth: m);
-    _loadIfNeeded(y, m);
+  void goToNextWeek() {
+    final next = state.currentWeekStart.add(const Duration(days: 7));
+    state = state.copyWith(currentWeekStart: next);
+    _loadWeekIfNeeded(next);
   }
 
-  // 캐시에 없으면 API 호출
-  Future<void> _loadIfNeeded(int year, int month) async {
-    final key = CalendarState._monthKey(year, month);
-    if (state.cache.containsKey(key)) return; // 이미 있으면 스킵
+  /// 주의 월~일에 걸쳐있는 달들을 모두 로드
+  Future<void> _loadWeekIfNeeded(DateTime monday) async {
+    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
+    final months = <String>{};
+    for (final d in days) {
+      months.add(CalendarState._monthKey(d.year, d.month));
+    }
 
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final plan = await _repository.fetchMonth(year, month);
-      if (!mounted) return;
-      final newCache = Map<String, MonthlyMealPlan>.from(state.cache);
-      newCache[key] = plan;
-      state = state.copyWith(cache: newCache, isLoading: false);
-    } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(error: e, isLoading: false);
+    for (final key in months) {
+      if (state.cache.containsKey(key)) continue;
+      final parts = key.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+
+      state = state.copyWith(isLoading: true, error: null);
+      try {
+        final plan = await _repository.fetchMonth(year, month);
+        if (!mounted) return;
+        final newCache = Map<String, MonthlyMealPlan>.from(state.cache);
+        newCache[key] = plan;
+        state = state.copyWith(cache: newCache, isLoading: false);
+      } catch (e) {
+        if (!mounted) return;
+        state = state.copyWith(error: e, isLoading: false);
+      }
     }
   }
 
-  // 두 날짜의 식단을 교환한다 (드래그-앤-드롭으로 from을 to에 떨어뜨림).
-  // 성공 시 백엔드 응답으로 받은 두 날짜만 현재 달 캐시에서 갈아끼운다(월 재요청 X).
-  // 같은 쌍으로 다시 호출하면 원래대로 되돌아간다 → 실행취소(Undo)에 그대로 재사용.
-  // 실패 시 예외를 다시 던져 화면에서 안내한다.
   Future<void> swapDates(DateTime from, DateTime to) async {
-    if (_sameYmd(from, to)) return;
     final swapped = await _repository.swapDays(from, to);
     if (!mounted) return;
 
-    final key = CalendarState._monthKey(state.currentYear, state.currentMonth);
-    final plan = state.cache[key];
-    if (plan == null) return;
+    // 영향받는 달 캐시 업데이트
+    final affectedMonths = <String>{
+      CalendarState._monthKey(from.year, from.month),
+      CalendarState._monthKey(to.year, to.month),
+    };
 
-    final updatedDays = [
-      for (final d in plan.days)
-        swapped.firstWhere(
-          (s) => _sameYmd(s.date, d.date),
-          orElse: () => d,
-        ),
-    ];
-    final newCache = Map<String, MonthlyMealPlan>.from(state.cache);
-    newCache[key] = plan.copyWith(days: updatedDays);
+    var newCache = Map<String, MonthlyMealPlan>.from(state.cache);
+    for (final key in affectedMonths) {
+      final plan = newCache[key];
+      if (plan == null) continue;
+      final updatedDays = [
+        for (final d in plan.days)
+          swapped.firstWhere(
+            (s) => _sameYmd(s.date, d.date),
+            orElse: () => d,
+          ),
+      ];
+      newCache[key] = plan.copyWith(days: updatedDays);
+    }
     state = state.copyWith(cache: newCache);
-  }
-
-  (int, int) _prevMonth(int y, int m) {
-    if (m == 1) return (y - 1, 12);
-    return (y, m - 1);
-  }
-
-  (int, int) _nextMonth(int y, int m) {
-    if (m == 12) return (y + 1, 1);
-    return (y, m + 1);
   }
 }
 
-// 연/월/일이 같은 날짜인지 비교 (시각 무시)
 bool _sameYmd(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-// StateNotifierProvider
 final calendarProvider =
     StateNotifierProvider.autoDispose<CalendarNotifier, CalendarState>(
-      (ref) => CalendarNotifier(ref.watch(calendarRepositoryProvider)),
-    );
+  (ref) => CalendarNotifier(ref.watch(calendarRepositoryProvider)),
+);

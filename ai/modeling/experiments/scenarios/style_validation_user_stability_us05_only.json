@@ -1,0 +1,43 @@
+{
+  "experiment_name": "style_validation_user_stability_us05_retry",
+  "description": "US05 easy cooking difficulty inference 재검증",
+  "scenarios": [
+    {
+      "scenario_id": "US05_easy_low_skill",
+      "description": "간편식 + 낮은 조리 실력 사용자",
+      "purpose": "조리 실력이 낮은 사용자에게 간편식 스타일과 difficulty score가 적절히 반영되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "간편식"
+        ],
+        "monthly_budget": 350000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 1,
+        "preferred_categories": [
+          "분식",
+          "한식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "계란 및 유제품류",
+          "채소류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    }
+  ]
+}
