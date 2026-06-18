@@ -101,6 +101,15 @@ class HomeNotifier extends StateNotifier<HomeState> {
       final plan = await _repository.fetchDailyMealPlan(date);
       if (!mounted) return;
 
+      if (plan.meals.isEmpty) {
+        state = state.copyWith(
+          dailyPlan: null,
+          isLoadingMenu: false,
+          error: 'no_meal_plan',
+        );
+        return;
+      }
+
       final defaultSlot = _pickDefaultSlot(plan.meals.length);
       state = state.copyWith(
         dailyPlan: plan,

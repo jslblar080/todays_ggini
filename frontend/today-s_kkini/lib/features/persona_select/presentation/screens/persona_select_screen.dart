@@ -88,7 +88,15 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
       case 4:
         return input.activityLevel > 0;
       case 5:
-        return input.personaName != null && input.personaName!.isNotEmpty;
+        if (input.personaName == null || input.personaName!.isEmpty) {
+          return false;
+        }
+        final recommended = ref.read(recommendedPersonasProvider);
+        return recommended.maybeWhen(
+          data: (personas) =>
+              personas.any((p) => p.name == input.personaName),
+          orElse: () => false,
+        );
       default:
         return false;
     }
@@ -137,13 +145,14 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
 
   String _buttonLabel() {
     if (_currentStep == _totalSteps - 1) return '이 프로필로 시작하기';
-    if (_currentStep == 3) return '나만의 끼니 생성하기';
+    if (_currentStep == 4) return '나만의 끼니 생성하기';
     return '다음';
   }
 
   @override
   Widget build(BuildContext context) {
     final input = ref.watch(personaSelectProvider);
+    ref.watch(recommendedPersonasProvider);
 
     return Scaffold(
       bottomNavigationBar: Padding(

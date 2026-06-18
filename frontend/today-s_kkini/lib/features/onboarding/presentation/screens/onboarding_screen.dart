@@ -43,9 +43,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _conflictingCategory() {
     for (final entry in _categoryIngredients.entries) {
       final isCategorySelected = _selectedIngredient.contains(entry.key);
-      final allergiesInCategory =
+      if (!isCategorySelected) continue;
+
+      final excludedInCategory =
           _allergies.where((a) => entry.value.contains(a)).toSet();
-      if (isCategorySelected && allergiesInCategory.length >= 2) {
+      final remaining = entry.value.length - excludedInCategory.length;
+
+      if (remaining < 2) {
         return entry.key;
       }
     }
@@ -105,7 +109,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (conflict != null) {
         showAppPopupSingle(
           context: context,
-          content: '[$conflict]\n선호 재료와 제외 재료가 많이 겹쳐 식단 생성이 어렵습니다. 설정을 조정해 주세요.',
+          content: '[$conflict]\n선호 재료와 제외 재료가 많이 겹쳐\n 식단 생성이 어렵습니다. 설정을 조정해 주세요.',
         );
         return;
       }
