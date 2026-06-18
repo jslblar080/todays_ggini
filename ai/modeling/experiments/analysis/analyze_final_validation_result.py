@@ -243,6 +243,8 @@ def analyze_result_file(input_path: str) -> dict:
     solver_status_counter = Counter()
     failure_reason_counter = Counter()
     focus_key_counter = Counter()
+    difficulty_feasibility_status_counter = Counter()
+    difficulty_feasibility_reason_counter = Counter()
     fallback_reason_counter = Counter()
     candidate_shortage_reason_counter = Counter()
     recommended_next_step_counter = Counter()
@@ -296,6 +298,14 @@ def analyze_result_file(input_path: str) -> dict:
         style_validation = monthly_plan.get("style_validation") or {}
         secondary_warnings = style_validation.get("secondary_warnings") or []
 
+        difficulty_feasibility = (
+            style_validation
+            .get("diagnostics", {})
+            .get("difficulty_feasibility", {})
+        )
+        difficulty_feasibility_status = difficulty_feasibility.get("status")
+        difficulty_feasibility_reason = difficulty_feasibility.get("reason")
+
         response_shape = collect_response_shape(response)
         optimizer_info = collect_optimizer_info(monthly_plan)
         fallback_info = collect_fallback_info(
@@ -332,6 +342,16 @@ def analyze_result_file(input_path: str) -> dict:
         warning_type_counter.update(warning_types)
         warning_level_counter.update(warning_levels)
         focus_key_counter[focus_key] += 1
+
+        if difficulty_feasibility_status:
+            difficulty_feasibility_status_counter[
+                difficulty_feasibility_status
+            ] += 1
+
+        if difficulty_feasibility_reason:
+            difficulty_feasibility_reason_counter[
+                difficulty_feasibility_reason
+            ] += 1
 
         solver_status = optimizer_info.get("solver_status")
         if solver_status:
@@ -453,6 +473,36 @@ def analyze_result_file(input_path: str) -> dict:
             "secondary_warning_levels": "|".join(warning_levels),
             "recommendation_hint": style_validation.get("recommendation_hint"),
 
+            "difficulty_feasibility_status": difficulty_feasibility_status,
+            "difficulty_feasibility_reason": difficulty_feasibility_reason,
+            "difficulty_candidate_count": difficulty_feasibility.get(
+                "candidate_count"
+            ),
+            "difficulty_candidate_avg_difficulty": difficulty_feasibility.get(
+                "candidate_avg_difficulty"
+            ),
+            "difficulty_candidate_p75_difficulty": difficulty_feasibility.get(
+                "candidate_p75_difficulty"
+            ),
+            "difficulty_candidate_p90_difficulty": difficulty_feasibility.get(
+                "candidate_p90_difficulty"
+            ),
+            "difficulty_candidate_max_difficulty": difficulty_feasibility.get(
+                "candidate_max_difficulty"
+            ),
+            "difficulty_candidate_ge75_count": difficulty_feasibility.get(
+                "candidate_ge75_count"
+            ),
+            "difficulty_candidate_ge65_count": difficulty_feasibility.get(
+                "candidate_ge65_count"
+            ),
+            "difficulty_candidate_ge40_count": difficulty_feasibility.get(
+                "candidate_ge40_count"
+            ),
+            "difficulty_candidate_eq0_count": difficulty_feasibility.get(
+                "candidate_eq0_count"
+            ),
+
             "duplicate_menu_warning_level": duplicate_warning.get("level"),
             "duplicate_menu_warning_rate": duplicate_warning.get("rate"),
             "duplicate_menu_recommended_maximum_rate": duplicate_warning.get(
@@ -505,6 +555,36 @@ def analyze_result_file(input_path: str) -> dict:
         "focus_key_count": dict(focus_key_counter),
         "secondary_warning_type_count": dict(warning_type_counter),
         "secondary_warning_level_count": dict(warning_level_counter),
+        "difficulty_feasibility_status_count": dict(
+            difficulty_feasibility_status_counter
+        ),
+        "difficulty_feasibility_reason_count": dict(
+            difficulty_feasibility_reason_counter
+        ),
+        "difficulty_candidate_shortage_count": (
+            difficulty_feasibility_reason_counter.get(
+                "candidate_difficulty_shortage",
+                0,
+            )
+        ),
+        "difficulty_absolute_pass_unreachable_count": (
+            difficulty_feasibility_status_counter.get(
+                "absolute_pass_unreachable",
+                0,
+            )
+        ),
+        "difficulty_pass_threshold_sparse_count": (
+            difficulty_feasibility_status_counter.get(
+                "pass_threshold_very_sparse",
+                0,
+            )
+        ),
+        "difficulty_candidate_pool_has_pass_options_count": (
+            difficulty_feasibility_status_counter.get(
+                "candidate_pool_has_pass_options",
+                0,
+            )
+        ),
         "solver_status_count": dict(solver_status_counter),
         "solver_success_count": solver_success_count,
         "solver_success_rate": safe_rate(solver_success_count, scenario_count),
