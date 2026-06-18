@@ -222,7 +222,7 @@ class MealFeedbackRequest(BaseModel):
     meal_number: int = Field(..., ge=1, le=3, description="식단 번호 (1: 아침, 2: 점심, 3: 저녁)")
     meal_name: str = Field(..., description="평가 대상 메뉴 이름 (예: 닭가슴살 브로콜리 만두)")
     rating: int = Field(..., ge=1, le=5, description="부여한 별점 점수 (1점 ~ 5점)")
-    comment: Optional[str] = Field(None, description="3점 이하일 때 유저가 작성한 상세 피드백 내용")
+    is_checked: List[str] = Field(default_factory=list, description="선택된 피드백 항목 리스트")
 
 # ------------------ 식단 피드백 응답 스키마 ----------------------
 class MealFeedbackResponse(BaseModel):
@@ -231,7 +231,6 @@ class MealFeedbackResponse(BaseModel):
     meal_number: int = Field(..., description="식단 번호 (1~3)")
     meal_name: str = Field(..., description="메뉴 이름")
     rating: int = Field(..., description="부여된 별점 점수")
-    comment: Optional[str] = Field(None, description="저장된 상세 피드백 내용 (없으면 null)")
+    is_checked: List[str] = Field(..., description="선택된 피드백 항목 리스트")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
