@@ -215,6 +215,8 @@ step_count는 레시피가 세분화되어 있을수록 높아질 수 있다.
 
 ---
 
+---
+
 ## 11. Estimated Usage Points 분리 실험 결과
 
 RAG difficulty formula policy replay 결과, `estimated_usage_points`를 difficulty 합산에서 제외하는 후보는 low skill / 간편식 후보풀의 difficulty score 분포를 개선하는 효과가 있었다.
@@ -225,23 +227,25 @@ US05 기준 replay 결과:
 - ge65 후보 증가
 - difficulty_score 0점 후보 감소
 
-그러나 실제 서비스 코드에 `estimated_usage_points` 제외를 적용한 뒤 full validation을 실행한 결과, `US08_very_low_budget` 시나리오에서 solver regression이 발생했다.
+그러나 실제 서비스 코드에 `estimated_usage_points` 제외를 적용한 뒤 full validation을 실행하는 과정에서 `US08_very_low_budget` 시나리오의 solver INFEASIBLE이 관측되었다.
 
-`US08_very_low_budget` 결과:
+이후 해당 변경을 rollback한 상태에서도 US08 단독 재실행에서 INFEASIBLE이 재현되었기 때문에, 이 현상을 estimated_usage_points 제외의 직접적인 regression으로 단정할 수는 없다.
+
+`US08_very_low_budget` 관측 결과:
 
 - solver_status: INFEASIBLE
 - selected_menu_count: 0
 - meal_coverage_rate: 0.0
 - validation_status: unknown
 
-US08은 difficulty 중심 시나리오가 아니라 very low budget 시나리오이므로, 해당 변경이 optimizer의 예산 제약 또는 후보 선택 구조와 간접적으로 충돌했을 가능성이 있다.
+US08은 difficulty 중심 시나리오가 아니라 very low budget 시나리오이며, 0038 성공 결과에서도 예산 여유가 약 1,153원에 불과했다. 따라서 현재는 very low budget 시나리오의 optimizer feasibility 취약성으로 분리해 분석한다.
 
-따라서 `estimated_usage_points`를 단순히 difficulty 합산에서 제외하는 변경은 현재 기준으로 바로 적용하지 않고 보류한다.
+따라서 `estimated_usage_points`를 단순히 difficulty 합산에서 제외하는 변경은 바로 적용하지 않고, budget feasibility diagnostics를 보강한 뒤 다시 검토한다.
 
 현재 결론:
 
 - estimated_usage_points는 조리 난이도와 의미적으로 분리하는 방향이 타당하다.
-- 하지만 단순 제외 방식은 US08 regression을 유발할 수 있다.
+- 하지만 단순 제외 방식은 US08의 직접 원인으로 단정할 수 없다.
 - 이후에는 budget feasibility, optimizer hard constraint, difficulty score 변화가 후보 선택에 미치는 영향을 함께 검토해야 한다.
 
 후속 작업:
@@ -250,3 +254,5 @@ US08은 difficulty 중심 시나리오가 아니라 very low budget 시나리오
 2. budget hard constraint와 difficulty score 변화의 상호작용 확인
 3. estimated_usage_points를 완전 제외하는 대신 별도 confidence metric으로 분리하는 방식 검토
 4. 산식 변경 전후를 snapshot replay뿐 아니라 full validation regression 기준으로 비교
+5. INFEASIBLE 발생 시에도 input snapshot과 budget feasibility diagnostics를 남기도록 보강
+
