@@ -8,6 +8,7 @@ from services.plan.period_plan_service import (
 
 from services.plan.plan_validation_service import (
     build_style_validation,
+    build_difficulty_feasibility_diagnostics,
     enrich_style_validation,
 )
 
@@ -70,10 +71,19 @@ def build_monthly_plan_by_random_style(
         profile=monthly_profile
     )
 
+    difficulty_feasibility_diagnostics = build_difficulty_feasibility_diagnostics(
+        optimizer_snapshot=(
+            monthly_plan
+            .get("optimizer", {})
+            .get("input_snapshot")
+        )
+    )
+
     style_validation = enrich_style_validation(
         style_validation=base_style_validation,
         selected_style=selected_style_summary,
-        summary=summary
+        summary=summary,
+        difficulty_feasibility_diagnostics=difficulty_feasibility_diagnostics
     )
 
     monthly_plan["style_validation"] = style_validation

@@ -24,6 +24,7 @@ from services.recommendation.recommendation_service import recommend_menus
 from services.plan.period_plan_service import build_period_meal_plan
 from services.plan.plan_validation_service import (
     build_style_validation,
+    build_difficulty_feasibility_diagnostics,
     enrich_style_validation,
 )
 from services.plan.plan_payload_service import build_modeling_to_back_monthly_response
@@ -1365,10 +1366,19 @@ def create_monthly_plan(request_data: dict) -> dict:
         profile=monthly_profile,
     )
 
+    difficulty_feasibility_diagnostics = build_difficulty_feasibility_diagnostics(
+        optimizer_snapshot=(
+            monthly_plan
+            .get("optimizer", {})
+            .get("input_snapshot")
+        )
+    )
+
     style_validation = enrich_style_validation(
         style_validation=base_style_validation,
         selected_style=selected_style_summary,
         summary=summary,
+        difficulty_feasibility_diagnostics=difficulty_feasibility_diagnostics,
     )
 
     monthly_plan["style_validation"] = style_validation
