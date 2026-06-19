@@ -1,0 +1,7 @@
+{
+  "repeat_penalty_weight": [4500, 5000, 5500, 6000],
+  "repeat_penalty_growth": ["quadratic"],
+  "protein_bonus_weight": [150, 180, 220],
+  "protein_bonus_cap_grams": [35],
+  "difficulty_bonus_weight": [0]
+}
