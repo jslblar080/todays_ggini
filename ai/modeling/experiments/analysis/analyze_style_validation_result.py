@@ -6,13 +6,13 @@ from pathlib import Path
 
 
 DEFAULT_INPUT_PATH = (
-    "ai/modeling/experiments/results/style_validation_baseline_result.json"
+    "ai/modeling/experiments/results/style_validation_baseline_latest_result.json"
 )
 DEFAULT_OUTPUT_JSON_PATH = (
-    "ai/modeling/experiments/results/style_validation_baseline_summary.json"
+    "ai/modeling/experiments/results/style_validation_baseline_latest_summary.json"
 )
 DEFAULT_OUTPUT_CSV_PATH = (
-    "ai/modeling/experiments/results/style_validation_baseline_summary.csv"
+    "ai/modeling/experiments/results/style_validation_baseline_latest_summary.csv"
 )
 
 
@@ -68,6 +68,24 @@ def flatten_checked_metrics(checked_metrics: dict) -> dict:
         f"metric_{key}": value
         for key, value in (checked_metrics or {}).items()
     }
+
+
+def calculate_duplicate_rate(summary: dict) -> float:
+    selected_menu_count = summary.get("selected_menu_count") or 0
+    duplicate_menu_count = summary.get("duplicate_menu_count") or 0
+
+    if selected_menu_count <= 0:
+        return 0
+
+    return round(duplicate_menu_count / selected_menu_count, 4)
+
+
+def find_warning_by_type(warnings: list[dict], warning_type: str) -> dict:
+    for warning in warnings or []:
+        if warning.get("type") == warning_type:
+            return warning
+
+    return {}
 
 
 def collect_selected_menu_style_field_stats(monthly_plan: dict) -> dict:
@@ -144,23 +162,37 @@ def analyze_result_file(input_path: str) -> dict:
     focus_key_counter = Counter()
     style_name_counter = Counter()
     warning_type_counter = Counter()
+    warning_level_counter = Counter()
     status_by_focus_key = defaultdict(Counter)
 
     total_selected_menu_count = 0
+    total_unique_menu_count = 0
+    total_duplicate_menu_count = 0
+    duplicate_rate_values = []
+
     total_base_final_score_present_count = 0
     total_style_soft_constraint_present_count = 0
     total_style_soft_constraint_non_null_count = 0
     total_style_soft_constraint_nonzero_count = 0
     total_style_soft_constraint_score_sum = 0
 
+    success_count = 0
+    fail_count = 0
+
     for result in results:
         scenario_id = result.get("scenario_id")
         description = result.get("description")
         runner_success = result.get("success")
-        response = result.get("response") or {}
 
+        if runner_success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+        response = result.get("response") or {}
         selected_style = response.get("selected_style") or {}
         monthly_plan = response.get("monthly_plan") or {}
+        plan_summary = monthly_plan.get("summary") or {}
         style_validation = monthly_plan.get("style_validation") or {}
 
         style_name = selected_style.get("style_name")
@@ -177,9 +209,37 @@ def analyze_result_file(input_path: str) -> dict:
             monthly_plan=monthly_plan
         )
 
-        selected_menu_count = menu_style_stats["selected_menu_count"]
+        warning_types = [
+            warning.get("type")
+            for warning in secondary_warnings
+            if warning.get("type")
+        ]
+        warning_levels = [
+            warning.get("level")
+            for warning in secondary_warnings
+            if warning.get("level")
+        ]
+
+        duplicate_warning = find_warning_by_type(
+            warnings=secondary_warnings,
+            warning_type="duplicate_menu",
+        )
+
+        selected_menu_count = plan_summary.get(
+            "selected_menu_count",
+            menu_style_stats["selected_menu_count"],
+        )
+        unique_menu_count = plan_summary.get("unique_menu_count", 0)
+        duplicate_menu_count = plan_summary.get("duplicate_menu_count", 0)
+        duplicate_rate = calculate_duplicate_rate(plan_summary)
 
         total_selected_menu_count += selected_menu_count
+        total_unique_menu_count += unique_menu_count
+        total_duplicate_menu_count += duplicate_menu_count
+
+        if selected_menu_count > 0:
+            duplicate_rate_values.append(duplicate_rate)
+
         total_base_final_score_present_count += menu_style_stats[
             "base_final_score_present_count"
         ]
@@ -195,20 +255,15 @@ def analyze_result_file(input_path: str) -> dict:
 
         total_style_soft_constraint_score_sum += (
             menu_style_stats["average_style_soft_constraint_score"]
-            * selected_menu_count
+            * menu_style_stats["selected_menu_count"]
         )
-
-        warning_types = [
-            warning.get("type")
-            for warning in secondary_warnings
-            if warning.get("type")
-        ]
 
         status_counter[status] += 1
         focus_key_counter[focus_key] += 1
         style_name_counter[style_name] += 1
         status_by_focus_key[focus_key][status] += 1
         warning_type_counter.update(warning_types)
+        warning_level_counter.update(warning_levels)
 
         row = {
             "scenario_id": scenario_id,
@@ -219,26 +274,72 @@ def analyze_result_file(input_path: str) -> dict:
             "focus_key": focus_key,
             "validation_status": status,
             "validation_message": message,
+            "recommendation_hint": recommendation_hint,
             "secondary_warning_count": len(secondary_warnings),
             "secondary_warning_types": "|".join(warning_types),
-            "recommendation_hint": recommendation_hint,
+            "secondary_warning_levels": "|".join(warning_levels),
+            "selected_menu_count": selected_menu_count,
+            "unique_menu_count": unique_menu_count,
+            "duplicate_menu_count": duplicate_menu_count,
+            "duplicate_rate": duplicate_rate,
+            "duplicate_menu_warning_level": duplicate_warning.get("level"),
+            "duplicate_menu_warning_rate": duplicate_warning.get("rate"),
+            "duplicate_menu_recommended_maximum_rate": duplicate_warning.get(
+                "recommended_maximum_rate"
+            ),
+            "average_calories": plan_summary.get("average_calories"),
+            "average_protein": plan_summary.get("average_protein"),
+            "average_carbohydrate": plan_summary.get("average_carbohydrate"),
+            "average_fat": plan_summary.get("average_fat"),
+            "average_nutrition_score": plan_summary.get("average_nutrition_score"),
+            "average_budget_score": plan_summary.get("average_budget_score"),
+            "average_preference_score": plan_summary.get(
+                "average_preference_score"
+            ),
+            "average_difficulty_score": plan_summary.get(
+                "average_difficulty_score"
+            ),
+            "average_diversity_score": plan_summary.get(
+                "average_diversity_score"
+            ),
             **menu_style_stats,
             **flatten_checked_metrics(checked_metrics),
         }
 
         rows.append(row)
 
+    average_duplicate_rate = (
+        round(sum(duplicate_rate_values) / len(duplicate_rate_values), 4)
+        if duplicate_rate_values
+        else 0
+    )
+
+    average_style_soft_constraint_score = (
+        round(
+            total_style_soft_constraint_score_sum / total_selected_menu_count,
+            4,
+        )
+        if total_selected_menu_count
+        else 0
+    )
+
     summary = {
         "scenario_count": len(rows),
+        "success_count": success_count,
+        "fail_count": fail_count,
         "status_count": dict(status_counter),
         "focus_key_count": dict(focus_key_counter),
         "style_name_count": dict(style_name_counter),
         "secondary_warning_type_count": dict(warning_type_counter),
+        "secondary_warning_level_count": dict(warning_level_counter),
         "status_by_focus_key": {
             focus_key: dict(counter)
             for focus_key, counter in status_by_focus_key.items()
         },
         "selected_menu_count": total_selected_menu_count,
+        "unique_menu_count": total_unique_menu_count,
+        "duplicate_menu_count": total_duplicate_menu_count,
+        "average_duplicate_rate": average_duplicate_rate,
         "base_final_score_present_count": total_base_final_score_present_count,
         "style_soft_constraint_present_count": (
             total_style_soft_constraint_present_count
@@ -267,19 +368,11 @@ def analyze_result_file(input_path: str) -> dict:
             if total_selected_menu_count
             else 0
         ),
-        "average_style_soft_constraint_score": (
-            round(
-                total_style_soft_constraint_score_sum
-                / total_selected_menu_count,
-                4,
-            )
-            if total_selected_menu_count
-            else 0
-        ),
+        "average_style_soft_constraint_score": average_style_soft_constraint_score,
     }
 
     return {
-        "analysis_name": "style_validation_baseline_analysis",
+        "analysis_name": "style_validation_latest_analysis",
         "input_path": input_path,
         "summary": summary,
         "rows": rows,
@@ -287,8 +380,6 @@ def analyze_result_file(input_path: str) -> dict:
 
 
 def parse_args() -> argparse.Namespace:
-    """CLI 인자를 파싱한다."""
-
     parser = argparse.ArgumentParser(
         description="월간 식단 실험 결과 JSON에서 style_validation 결과를 분석한다."
     )
@@ -313,20 +404,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """CLI entrypoint."""
-
     args = parse_args()
 
-    analysis_result = analyze_result_file(args.input)
+    analysis = analyze_result_file(args.input)
 
-    save_json(args.output_json, analysis_result)
-    save_csv(args.output_csv, analysis_result["rows"])
+    save_json(args.output_json, analysis)
+    save_csv(args.output_csv, analysis["rows"])
 
     print("[INFO] style validation analysis finished.")
-    print(f"[INFO] input: {args.input}")
-    print(f"[INFO] output json: {args.output_json}")
-    print(f"[INFO] output csv: {args.output_csv}")
-    print(f"[INFO] summary: {analysis_result['summary']}")
+    print("[INFO] input:", args.input)
+    print("[INFO] output json:", args.output_json)
+    print("[INFO] output csv:", args.output_csv)
+    print("[INFO] summary:", analysis["summary"])
 
 
 if __name__ == "__main__":
