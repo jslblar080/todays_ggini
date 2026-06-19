@@ -30,6 +30,10 @@ from services.plan.plan_payload_service import build_modeling_to_back_monthly_re
 from services.optimizer.optimizer_input_builder import build_optimizer_input
 from services.optimizer.ortools.monthly_plan_optimizer import solve_monthly_plan_with_ortools
 from services.optimizer.ortools.result_mapper import build_ortools_monthly_plan
+from services.optimizer.ortools.infeasible_policy import (
+    build_optimizer_infeasible_policy,
+    build_optimizer_infeasible_user_guidance_from_policy,
+)
 
 
 def get_required_user_id(request_data: dict) -> int | str:
@@ -719,110 +723,30 @@ def build_optimizer_infeasible_user_guidance(
     optimizer_input: dict,
     available_recommendation_count: int,
     required_meal_count: int,
+    fallback_info: dict | None = None,
 ) -> dict:
     """
     OR-Tools가 가능한 월간 식단 조합을 찾지 못했을 때
-    사용자에게 보여줄 실패 안내 문구와 조건 완화 제안을 만든다.
+    공통 infeasible policy 기반으로 사용자 안내 구조를 만든다.
+
+    실패 원인을 휴리스틱으로 단정하지 않고,
+    실제 입력과 candidate diagnostics에 존재하는 활성 조건만 안내한다.
     """
 
-    monthly_budget = optimizer_input.get("monthly_budget")
-    meal_count_per_day = monthly_profile.get("meal_count_per_day")
-    preferred_categories = monthly_profile.get("preferred_categories", []) or []
-    ingredient_preferences = monthly_profile.get("ingredient_preferences", []) or []
-    allergy_ingredients = monthly_profile.get("allergy_ingredients", []) or []
-    diversity_level = monthly_profile.get("diversity_level")
+    infeasible_policy = build_optimizer_infeasible_policy(
+        monthly_profile=monthly_profile,
+        optimizer_result=optimizer_result,
+        optimizer_input=optimizer_input,
+        fallback_info=fallback_info or {},
+        available_recommendation_count=available_recommendation_count,
+        required_meal_count=required_meal_count,
+    )
 
-    budget_per_meal = None
+    guidance = build_optimizer_infeasible_user_guidance_from_policy(
+        infeasible_policy=infeasible_policy,
+    )
 
-    if monthly_budget and required_meal_count:
-        budget_per_meal = round(monthly_budget / required_meal_count, 2)
-
-    recommended_actions = []
-
-    if monthly_budget:
-        recommended_actions.append("월 예산을 높여주세요.")
-
-    if len(preferred_categories) <= 2:
-        recommended_actions.append("선호 카테고리 범위를 넓혀주세요.")
-
-    if len(ingredient_preferences) <= 2:
-        recommended_actions.append("선호 재료군을 추가해주세요.")
-
-    if diversity_level == "높음":
-        recommended_actions.append("다양성 수준을 낮춰 메뉴 반복 허용 범위를 넓혀주세요.")
-
-    if meal_count_per_day and meal_count_per_day >= 3:
-        recommended_actions.append("하루 식사 수를 줄여주세요.")
-
-    if allergy_ingredients:
-        recommended_actions.append("알레르기 조건과 충돌하지 않는 대체 재료를 선택해주세요.")
-
-    if not recommended_actions:
-        recommended_actions = [
-            "예산 또는 선호 조건을 일부 완화해주세요.",
-            "선호 카테고리와 선호 재료군을 더 넓게 선택해주세요.",
-        ]
-
-    primary_actions = []
-
-    if monthly_budget:
-        primary_actions.append({
-            "type": "increase_budget",
-            "label": "예산 조금 높이기",
-        })
-
-    if len(preferred_categories) <= 2 or len(ingredient_preferences) <= 2:
-        primary_actions.append({
-            "type": "expand_preferences",
-            "label": "선호 범위 넓히기",
-        })
-
-    if diversity_level == "높음":
-        primary_actions.append({
-            "type": "lower_diversity",
-            "label": "다양성 낮추기",
-        })
-
-    if meal_count_per_day and meal_count_per_day >= 3:
-        primary_actions.append({
-            "type": "reduce_meal_count",
-            "label": "식사 수 줄이기",
-        })
-
-    if not primary_actions:
-        primary_actions = [
-            {
-                "type": "adjust_conditions",
-                "label": "조건 다시 조정하기",
-            }
-        ]
-
-    primary_actions = primary_actions[:3]
-
-    return {
-        "title": "조건을 모두 만족하는 식단을 찾지 못했어요.",
-        "description": (
-            "현재 선택한 조건이 서로 강하게 겹쳐 식단 구성이 어려워요. "
-            "조건을 조금만 조정하면 다시 생성할 수 있어요."
-        ),
-        "primary_actions": primary_actions,
-        "recommended_actions": recommended_actions,
-        "diagnostic_summary": {
-            "solver_status": optimizer_result.get("solver_status"),
-            "monthly_budget": monthly_budget,
-            "required_meal_count": required_meal_count,
-            "budget_per_meal": budget_per_meal,
-            "available_recommendation_count": available_recommendation_count,
-            "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
-            "optimizer_candidate_limit": optimizer_input.get("optimizer_candidate_limit"),
-            "used_optimizer_candidate_count": optimizer_input.get("used_optimizer_candidate_count"),
-            "diversity_level": diversity_level,
-            "preferred_category_count": len(preferred_categories),
-            "ingredient_preference_count": len(ingredient_preferences),
-            "allergy_ingredient_count": len(allergy_ingredients),
-        },
-    }
-
+    return guidance
 
 def build_optimizer_infeasible_monthly_response(
     user_id: str,
@@ -850,7 +774,9 @@ def build_optimizer_infeasible_monthly_response(
         optimizer_input=optimizer_input,
         available_recommendation_count=available_recommendation_count,
         required_meal_count=required_meal_count,
+        fallback_info=fallback_info,
     )
+
 
     warnings = list(fallback_info.get("warnings", []))
     warnings.append("OR-Tools가 현재 제약 조건을 만족하는 월간 식단 조합을 찾지 못했습니다.")
