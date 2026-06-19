@@ -13,17 +13,17 @@ class IngredientHeaderCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.border, width: 3),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 70,
+            height: 70,
             decoration: BoxDecoration(
               color: AppColors.border,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(10),
             ),
             child:
                 prices.imageUrl == null
@@ -34,7 +34,7 @@ class IngredientHeaderCard extends StatelessWidget {
                       ),
                     )
                     : ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.network(prices.imageUrl!, fit: BoxFit.cover),
                     ),
           ),
@@ -43,6 +43,7 @@ class IngredientHeaderCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(height: 3),
                 Text(
                   prices.ingredientName,
                   style: Theme.of(context).textTheme.bodyLarge,

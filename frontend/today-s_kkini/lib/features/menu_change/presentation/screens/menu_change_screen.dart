@@ -131,24 +131,19 @@ class MenuChangeScreen extends ConsumerWidget {
             .toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel(text: '현재 메뉴'),
-          const SizedBox(height: 8),
           CurrentMealCard(meal: displayCurrentMeal),
-          const SizedBox(height: 20),
-          const _SectionLabel(text: '추천 대안 식단'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+          const Divider(height: 3, color: AppColors.border),
           for (final alt in visibleAlternatives) ...[
             AlternativeMealRow(
               meal: alt,
-              isDisabled: state.isChanging,
-              onChange:
-                  () => _onChange(context, ref, notifier, currentPlan, alt),
+              isDisabled: state.changingMealId == alt.mealId,
+              onChange: () => _onChange(context, ref, notifier, currentPlan, alt),
             ),
-            const SizedBox(height: 8),
           ],
           if (state.isChanging) ...[
             const SizedBox(height: 16),
@@ -196,7 +191,9 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.headlineMedium,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: AppColors.textPrimary,
+      ),
     );
   }
 }

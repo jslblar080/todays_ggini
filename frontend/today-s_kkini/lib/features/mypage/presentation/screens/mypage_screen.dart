@@ -6,13 +6,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/bottom_nav_bar.dart';
 import '../providers/mypage_provider.dart';
 import '../widgets/profile_section.dart';
-import '../widgets/section_title.dart';
-import '../widgets/setting_item.dart';
 import '../../../../core/widgets/popup.dart';
-import '../widgets/mypage_slider.dart';
-import '../widgets/mypage_budget_slider.dart';
 import '../../domain/my_profile.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 
 class MyPageScreen extends ConsumerStatefulWidget {
   const MyPageScreen({super.key});
@@ -22,196 +19,172 @@ class MyPageScreen extends ConsumerStatefulWidget {
 }
 
 class _MyPageScreenState extends ConsumerState<MyPageScreen> {
-
-  final List<String> _goalOptions = [
-    '식비 절약', '영양 균형', '다이어트', '고단백', '간편식', '맛 중심',
-  ];
-  final List<String> _foodOptions = [
-    '한식', '중식', '일식', '양식', '분식', '패스트푸드', '샐러드/건강식', '다 좋아요',
-  ];
-  final List<String> _ingredientOptions = [
-    '육류', '해산물류', '채소류', '식물성 단백질류', '계란 및 유제품류',
-  ];
-  final List<String> _marketOptions = [
-    '쿠팡', '컬리', '네이버'
-  ];
+  bool _personaExpanded = false;
+  bool _onboardingExpanded = false;
+  bool _generalExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        ref.read(myPageProvider.notifier).fetchMyProfile());
-  }
-
-  String _formatList(List<String> list) {
-    if (list.isEmpty) return '없음';
-    if (list.length <= 2) return list.join(', ');
-    return '${list.take(2).join(', ')}, ...';
-  }
-
-  String _personaLabel(int id) {
-    switch (id) {
-      case 1: return '가성비 자취생';
-      case 2: return '우리가족 영양사';
-      case 3: return '내 몸이 곧 재산';
-      case 4: return '퇴근 후 맥주한잔';
-      default: return '알 수 없음';
-    }
+    Future.microtask(
+        () => ref.read(myPageProvider.notifier).fetchMyProfile());
   }
 
   String _diversityLabel(String level) {
     switch (level) {
-      case '낮음': return '한 가지 음식만 먹어도 괜찮아요';
-      case '보통': return '적당히 다양하게 먹고 싶어요';
-      case '높음': return '매일 다른 음식을 먹고 싶어요';
-      default: return level;
+      case '낮음':
+        return '한 가지 음식만 먹어도 괜찮아요';
+      case '보통':
+        return '적당히 다양하게 먹고 싶어요';
+      case '높음':
+        return '매일 다른 음식을 먹고 싶어요';
+      default:
+        return level;
     }
   }
 
-  int _diversityToInt(String level) {
+  String _cookingSkillLabel(int level) {
     switch (level) {
-      case '낮음': return 1;
-      case '보통': return 2;
-      case '높음': return 3;
-      default: return 2;
+      case 1:
+        return '라면 정도는 끓일 수 있어요';
+      case 2:
+        return '간단한 요리는 해요';
+      case 3:
+        return '레시피를 보고 대부분 따라 할 수 있어요';
+      case 4:
+        return '웬만한 요리는 다 해요';
+      case 5:
+        return '요리가 특기예요';
+      default:
+        return '';
     }
   }
 
-  Widget _buildChipRow(BuildContext context, List<String> items, List<String> selected) {
-    return Row(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final option = entry.value;
-        final isSelected = selected.contains(option);
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: index < items.length - 1 ? 8 : 0),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : AppColors.buttonGray,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    option,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isSelected ? Colors.white : AppColors.textPrimary,
+  String _diversityDescription(int level) {
+    switch (level) {
+      case 1:
+        return '매일 같은 메뉴도 괜찮아요';
+      case 2:
+        return '가끔 바뀌면 좋겠어요';
+      case 3:
+        return '적당히 다양하게 먹고 싶어요';
+      case 4:
+        return '자주 다양하게 먹고 싶어요';
+      case 5:
+        return '매일 다른 메뉴를 먹고 싶어요';
+      default:
+        return '';
+    }
+  }
+
+  String _formatList(List<String> list) {
+    if (list.isEmpty) return '없음';
+    return list.join(', ');
+  }
+
+  void _showPersonaStatusPopup(MyProfile profile) {
+    showAppPopupWidget(
+      context: context,
+      title: '[페르소나 설정]',
+      contentWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _StatusRow(
+            label: '가구원',
+            value: '${profile.householdType} · ${profile.familyCount}인',
+            trailing: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                context.push(AppRoutes.familyMembers, extra: profile);
+              },
+              child: Text(
+                '가구원 정보 확인하기',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      decoration: TextDecoration.underline,
                     ),
-                  ),
-                ),
               ),
             ),
           ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildChips(BuildContext context, List<String> options, List<String> selected) {
-    if (options.length <= 4) {
-      return _buildChipRow(context, options, selected);
-    } else if (options.length <= 6) {
-      final half = (options.length / 2).ceil();
-      return Column(
-        children: [
-          _buildChipRow(context, options.sublist(0, half), selected),
-          const SizedBox(height: 8),
-          _buildChipRow(context, options.sublist(half), selected),
+          _StatusRow(label: '식사 수', value: '${profile.mealsPerDay}끼'),
+          _StatusRow(
+            label: '한달 예산',
+            value: '${(profile.monthlyBudget / 10000).round()}만원',
+          ),
+          _StatusRow(label: '요리 목적', value: _formatList(profile.purpose)),
         ],
-      );
-    } else {
-      return Column(
-        children: [
-          _buildChipRow(context, options.sublist(0, 5), selected),
-          const SizedBox(height: 8),
-          _buildChipRow(context, options.sublist(5), selected),
-        ],
-      );
-    }
-  }
-
-  void _goToOnboardingWithProfile() {
-    Navigator.pop(context);
-    final profile = ref.read(myPageProvider).profile;
-    if (profile != null) {
-      context.go(AppRoutes.onboarding, extra: {
-        'goals': profile.purpose,
-        'foods': profile.preferredCategories,
-        'ingredients': profile.preferredIngredients,
-        'allergies': profile.excludedIngredients,
-        'diversity': _diversityToInt(profile.diversityLevel),
-        'cookingSkill': profile.cookingSkill,
-        'mealCount': profile.mealsPerDay,
-        'monthlyBudget': profile.monthlyBudget,
-      });
-    } else {
-      context.go(AppRoutes.onboarding);
-    }
-  }
-
-  void _showChipDialog(String title, List<String> options, List<String> selected) {
-    showAppPopupWidget(
-      context: context,
-      title: '[$title]',
-      contentWidget: _buildChips(context, options, selected),
-      leftButtonText: '재설정하기',
-      rightButtonText: '확인',
-      leftButtonColor: AppColors.primary,
-      rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () => _goToOnboardingWithProfile(),
-      onRightTap: () => Navigator.pop(context),
-    );
-  }
-
-  void _showSliderDialog(String title, int value, int min, int max, String Function(int) getLabel) {
-    showAppPopupWidget(
-      context: context,
-      title: '[$title]',
-      contentWidget: MyPageSlider(
-        value: value,
-        min: min,
-        max: max,
-        label: getLabel(value),
       ),
-      leftButtonText: '재설정하기',
-      rightButtonText: '확인',
+      leftButtonText: '확인',
+      rightButtonText: '재설정하기',
+      leftButtonColor: AppColors.textPrimary,
+      rightButtonColor: AppColors.textPrimary,
+      onLeftTap: () => Navigator.pop(context),
+      onRightTap: () => _goToPersonaSelectWithProfile(profile),
+    );
+  }
+
+  void _showOnboardingStatusPopup(MyProfile profile) {
+    final cookingSkill = profile.cookingSkill;
+    final diversityInt = diversityToInt(profile.diversityLevel);
+
+    showAppPopupWidget(
+      context: context,
+      title: '[온보딩 설정]',
+      contentWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _StatusRow(
+              label: '취향', value: _formatList(profile.preferredCategories)),
+          _StatusRow(
+              label: '선호 식재료',
+              value: _formatList(profile.preferredIngredients)),
+          _StatusRow(
+              label: '제외 식재료',
+              value: _formatList(profile.excludedIngredients)),
+          _StatusRow(
+            label: '요리 실력',
+            value: '$cookingSkill단계 - ${_cookingSkillLabel(cookingSkill)}',
+          ),
+          _StatusRow(
+            label: '다양성',
+            value: '$diversityInt단계 - ${_diversityDescription(diversityInt)}',
+          ),
+        ],
+      ),
+      leftButtonText: '확인',
+      rightButtonText: '재설정하기',
       leftButtonColor: AppColors.textSecondary,
       rightButtonColor: AppColors.primary,
-      onLeftTap: () => _goToOnboardingWithProfile(),
-      onRightTap: () => Navigator.pop(context),
+      onLeftTap: () => Navigator.pop(context),
+      onRightTap: () => _goToOnboardingWithProfile(profile),
     );
   }
 
-  void _showBudgetDialog(int budget) {
-    showAppPopupWidget(
-      context: context,
-      title: '[한달 식비 예산]',
-      contentWidget: MyPageBudgetSlider(value: budget),
-      leftButtonText: '재설정하기',
-      rightButtonText: '확인',
-      leftButtonColor: AppColors.primary,
-      rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () => _goToOnboardingWithProfile(),
-      onRightTap: () => Navigator.pop(context),
-    );
+  void _goToPersonaSelectWithProfile(MyProfile profile) {
+    if (Navigator.canPop(context)) Navigator.pop(context);
+    context.push(AppRoutes.personaSelect, extra: {
+      'householdType': profile.householdType,
+      'familyCount': profile.familyCount,
+      'mealsPerDay': profile.mealsPerDay,
+      'monthlyBudget': profile.monthlyBudget,
+      'purpose': profile.purpose,
+      'activityLevel': profile.activityLevel,
+      'familyMembers': profile.familyMembers,
+      'personaName': profile.personaName,
+      'personaId': profile.personaId,
+    });
   }
 
-  void _showAllergyDialog(List<String> allergies) {
-    showAppPopupWidget(
-      context: context,
-      title: '[제외 재료]',
-      contentWidget: _buildChipRow(context, allergies, allergies),
-      leftButtonText: '재설정하기',
-      rightButtonText: '확인',
-      leftButtonColor: AppColors.primary,
-      rightButtonColor: AppColors.textSecondary,
-      onLeftTap: () => _goToOnboardingWithProfile(),
-      onRightTap: () => Navigator.pop(context),
-    );
+  void _goToOnboardingWithProfile(MyProfile profile) {
+    if (Navigator.canPop(context)) Navigator.pop(context);
+    context.push(AppRoutes.onboarding, extra: {
+      'foods': profile.preferredCategories,
+      'ingredients': profile.preferredIngredients,
+      'allergies': profile.excludedIngredients,
+      'diversity': diversityToInt(profile.diversityLevel),
+      'cookingSkill': profile.cookingSkill,
+    });
   }
 
   void _showLogoutDialog(BuildContext context) {
@@ -256,94 +229,12 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     );
   }
 
-  void _showMarketDialog(List<String> currentMarkets) {
-    final selected = List<String>.from(currentMarkets);
-
-    showAppPopupWidget(
-      context: context,
-      title: '[이용 마켓]',
-      contentWidget: StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: _marketOptions.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final option = entry.value;
-                  final isSelected = selected.contains(option);
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          if (isSelected) {
-                            selected.remove(option);
-                          } else {
-                            selected.add(option);
-                          }
-                        });
-                      },
-                      child: Container(
-                        margin: EdgeInsets.only(right: index < _marketOptions.length - 1 ? 8 : 0),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.buttonGray,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            option,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: isSelected ? Colors.white : AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              if (selected.isEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '최소 1개 이상의 마켓을 선택해야 합니다',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.error,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-      leftButtonText: '취소',
-      rightButtonText: '저장',
-      leftButtonColor: AppColors.textSecondary,
-      rightButtonColor: AppColors.primary,
-      onLeftTap: () => Navigator.pop(context),
-      onRightTap: () async {
-        if (selected.isEmpty) return;  // ← 빈 상태면 저장 안 함
-        try {
-          final repo = ref.read(myPageRepositoryProvider);
-          await repo.updateMarkets(selected);
-          await ref.read(myPageProvider.notifier).fetchMyProfile(); 
-          ref.read(myPageProvider.notifier).fetchMyProfile();
-        } catch (e) {
-          // 에러 처리
-        }
-        if (context.mounted) Navigator.pop(context);
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(myPageProvider);
 
     if (state.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (state.error != null) {
@@ -355,7 +246,8 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
               const Text('프로필을 불러오지 못했어요.'),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => ref.read(myPageProvider.notifier).fetchMyProfile(),
+                onPressed: () =>
+                    ref.read(myPageProvider.notifier).fetchMyProfile(),
                 child: const Text('다시 시도'),
               ),
             ],
@@ -366,9 +258,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
 
     final profile = state.profile;
     if (profile == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -378,9 +268,10 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
           child: Column(
             children: [
               ProfileSection(
-                name: profile.nickname,
+                name: profile.nickname ?? '',
                 imageUrl: profile.imageUrl,
-                persona: _personaLabel(profile.personaId),
+                persona: profile.personaName ?? '',
+                personaId: profile.personaId,
                 onNameChanged: (newName) async {
                   final repo = ref.read(myPageRepositoryProvider);
                   final saved = await repo.updateNickname(newName);
@@ -395,127 +286,404 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              const SectionTitle(title: '내 설정'),
-              SettingItem(
-                emoji: '😊',
-                title: '페르소나',
-                value: _personaLabel(profile.personaId),
-                onTap: () {},
-              ),
-              SettingItem(
-                emoji: '✅',
-                title: '목적',
-                value: _formatList(profile.purpose),
-                onTap: () => _showChipDialog('목적', _goalOptions, profile.purpose),
-              ),
-              SettingItem(
-                emoji: '🥨',
-                title: '취향',
-                value: _formatList(profile.preferredCategories),
-                onTap: () => _showChipDialog('취향', _foodOptions, profile.preferredCategories),
-              ),
-              SettingItem(
-                emoji: '🥦',
-                title: '선호 식재료',
-                value: _formatList(profile.preferredIngredients),
-                onTap: () => _showChipDialog('선호 식재료', _ingredientOptions, profile.preferredIngredients),
-              ),
-              SettingItem(
-                emoji: '🫙',
-                title: '제외 재료',
-                value: _formatList(profile.excludedIngredients),
-                onTap: () => _showAllergyDialog(profile.excludedIngredients),
-              ),
-              SettingItem(
-                emoji: '🍱',
-                title: '다양성',
-                value: profile.diversityLevel,
-                onTap: () => _showSliderDialog(
-                  '다양성',
-                  _diversityToInt(profile.diversityLevel),
-                  1, 3,
-                  (v) => _diversityLabel(profile.diversityLevel),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    _AccordionSection(
+                      title: '페르소나 설정',
+                      expanded: _personaExpanded,
+                      onToggle: () => setState(
+                          () => _personaExpanded = !_personaExpanded),
+                      content: _PersonaIconsBox(
+                        onIconTap: () => _showPersonaStatusPopup(profile),
+                        onResetTap: () =>
+                            _goToPersonaSelectWithProfile(profile),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _AccordionSection(
+                      title: '온보딩 설정',
+                      expanded: _onboardingExpanded,
+                      onToggle: () => setState(
+                          () => _onboardingExpanded = !_onboardingExpanded),
+                      content: _OnboardingIconsBox(
+                        onIconTap: () => _showOnboardingStatusPopup(profile),
+                        onResetTap: () =>
+                            _goToOnboardingWithProfile(profile),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _AccordionSection(
+                      title: '일반 설정',
+                      expanded: _generalExpanded,
+                      onToggle: () => setState(
+                          () => _generalExpanded = !_generalExpanded),
+                      content: _GeneralSettingsBox(
+                        onLogout: () => _showLogoutDialog(context),
+                        onDeleteAccount: () =>
+                            _showDeleteAccountDialog(context),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
-              SettingItem(
-                emoji: '🍳',
-                title: '요리 실력',
-                value: '${profile.cookingSkill}단계',
-                onTap: () => _showSliderDialog('요리 실력', profile.cookingSkill, 1, 5, (v) {
-                  switch (v) {
-                    case 1: return '라면도 태워요';
-                    case 2: return '간단한 요리는 해요';
-                    case 3: return '레시피를 보고 대부분 따라 할 수 있어요';
-                    case 4: return '웬만한 요리는 다 해요';
-                    case 5: return '요리가 특기예요';
-                    default: return '';
-                  }
-                }),
-              ),
-              SettingItem(
-                emoji: '🍚',
-                title: '식사 수',
-                value: '${profile.mealsPerDay}끼',
-                onTap: () => _showSliderDialog('식사 수', profile.mealsPerDay, 1, 5, (v) {
-                  switch (v) {
-                    case 1: return '하루에 한 끼 먹어요';
-                    case 2: return '하루에 두 끼 먹어요';
-                    case 3: return '하루에 세 끼 먹어요';
-                    case 4: return '하루에 네 끼 먹어요';
-                    case 5: return '하루에 다섯 끼 먹어요';
-                    default: return '';
-                  }
-                }),
-              ),
-              SettingItem(
-                emoji: '💰',
-                title: '한달 식비 예산',
-                value: '${(profile.monthlyBudget / 10000).round()}만원',
-                onTap: () => _showBudgetDialog(profile.monthlyBudget),
-              ),
-              SettingItem(
-                emoji: '🛒',
-                title: '이용 마켓',
-                value: _formatList(profile.markets),
-                onTap: () => _showMarketDialog(profile.markets),
-              ),
-              const SizedBox(height: 12),
-              Divider(color: AppColors.border, thickness: 2),
-              const SizedBox(height: 12),
-              const SectionTitle(title: '앱 설정'),
-              SettingItem(
-                emoji: '🔔',
-                title: '알림 설정',
-                value: '',
-                onTap: () {},
-                showToggle: true,
-                showArrow: false,
-              ),
-              const SizedBox(height: 12),
-              Divider(color: AppColors.border, thickness: 2),
-              const SizedBox(height: 12),
-              const SectionTitle(title: '계정 설정'),
-              SettingItem(
-                emoji: '🚪',
-                title: '로그아웃',
-                value: '',
-                onTap: () => _showLogoutDialog(context),
-                showArrow: false,
-              ),
-              SettingItem(
-                emoji: '⚠️',
-                title: '회원탈퇴',
-                value: '',
-                titleColor: AppColors.error,
-                onTap: () => _showDeleteAccountDialog(context),
-                showArrow: false,
-              ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),
+    );
+  }
+}
+
+class _AccordionSection extends StatelessWidget {
+  final String title;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget content;
+
+  const _AccordionSection({
+    required this.title,
+    required this.expanded,
+    required this.onToggle,
+    required this.content,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border, width: 3),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7), // 바깥 radius(10) - border width(3)
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onToggle,
+              child: Container(
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    Icon(
+                      expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: AppColors.textPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (expanded)
+              Container(
+                width: double.infinity,
+                color: AppColors.border,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: content,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonaIconsBox extends StatelessWidget {
+  final VoidCallback onIconTap;
+  final VoidCallback onResetTap;
+
+  const _PersonaIconsBox({
+    required this.onIconTap,
+    required this.onResetTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      ('assets/images/mypage_household.png', '가구원'),
+      ('assets/images/mypage_meals.png', '식사 수'),
+      ('assets/images/mypage_budget.png', '한달 예산'),
+      ('assets/images/mypage_purpose.png', '요리 목적'),
+    ];
+
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onIconTap,
+          child: Row(
+            children: items
+                .map(
+                  (item) => Expanded(
+                    child: Column(
+                      children: [
+                        Image.asset(item.$1, width: 36, height: 36),
+                        const SizedBox(height: 6),
+                        Text(
+                          item.$2,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                          )
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ResetButton(onTap: onResetTap),
+      ],
+    );
+  }
+}
+
+class _OnboardingIconsBox extends StatelessWidget {
+  final VoidCallback onIconTap;
+  final VoidCallback onResetTap;
+
+  const _OnboardingIconsBox({
+    required this.onIconTap,
+    required this.onResetTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const firstRow = [
+      ('assets/images/mypage_taste.png', '취향'),
+      ('assets/images/mypage_preferred.png', '선호 식재료'),
+      ('assets/images/mypage_excluded.png', '제외 식재료'),
+      ('assets/images/mypage_cooking.png', '요리 실력'),
+    ];
+    const secondRow = [
+      ('assets/images/mypage_variety.png', '다양성'),
+    ];
+
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onIconTap,
+          child: Column(
+            children: [
+              Row(
+                children: firstRow
+                    .map(
+                      (item) => Expanded(
+                        child: Column(
+                          children: [
+                            Image.asset(item.$1, width: 36, height: 36),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.$2,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textPrimary,
+                              )
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  ...secondRow.map(
+                    (item) => Expanded(
+                      child: Column(
+                        children: [
+                          Image.asset(item.$1, width: 36, height: 36),
+                          const SizedBox(height: 6),
+                          Text(
+                            item.$2,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...List.generate(
+                    4 - secondRow.length,
+                    (_) => const Expanded(child: SizedBox()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ResetButton(onTap: onResetTap),
+      ],
+    );
+  }
+}
+
+class _ResetButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ResetButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.grayLight,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            '재설정하기',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GeneralSettingsBox extends StatefulWidget {
+  final VoidCallback onLogout;
+  final VoidCallback onDeleteAccount;
+
+  const _GeneralSettingsBox({
+    required this.onLogout,
+    required this.onDeleteAccount,
+  });
+
+  @override
+  State<_GeneralSettingsBox> createState() => _GeneralSettingsBoxState();
+}
+
+class _GeneralSettingsBoxState extends State<_GeneralSettingsBox> {
+  bool _notificationOn = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              Switch(
+                value: _notificationOn,
+                onChanged: (v) => setState(() => _notificationOn = v),
+                activeThumbColor: AppColors.primary,
+              ),
+              const SizedBox(height: 4),
+              Text('알림', style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: widget.onLogout,
+            child: Column(
+              children: [
+                Image.asset('assets/images/mypage_logout.png',
+                    width: 36, height: 36),
+                const SizedBox(height: 6),
+                Text(
+                  '로그아웃',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: widget.onDeleteAccount,
+            child: Column(
+              children: [
+                Image.asset('assets/images/mypage_delete.png',
+                    width: 36, height: 36),
+                const SizedBox(height: 6),
+                Text(
+                  '회원탈퇴',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.error,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Widget? trailing;
+
+  const _StatusRow({
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(height: 4),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

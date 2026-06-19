@@ -17,8 +17,8 @@ class MealDetailSummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border, width: 3.0),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border, width: 3),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -47,7 +47,7 @@ class MealDetailSummary extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 4),
         Text(

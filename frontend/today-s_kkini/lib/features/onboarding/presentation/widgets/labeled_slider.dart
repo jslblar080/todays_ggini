@@ -29,9 +29,7 @@ class LabeledSlider extends StatelessWidget {
           children: [
             Text(
               '${min.toInt()}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             Expanded(
               child: ThumbSlider(
@@ -45,19 +43,16 @@ class LabeledSlider extends StatelessWidget {
             ),
             Text(
               '${max.toInt()}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
         if (label.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            '$label',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ],

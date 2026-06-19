@@ -43,29 +43,28 @@ class AppPopup extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       title: title != null
-          ? Text(
+        ? Center(
+            child: Text(
               title!,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            )
-          : null,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          )
+        : null,
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.75,
         child: contentWidget ??
             Text(
               content ?? '',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
       ),
       actionsPadding: EdgeInsets.zero,
       actions: [
         Column(
           children: [
-            Divider(height: 1, color: AppColors.border),
+            Divider(height: 1, color: AppColors.border, thickness: 2),
             if (isSingle)
               Row(
                 children: [
@@ -99,14 +98,14 @@ class AppPopup extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Container(width: 1, height: 48, color: AppColors.border),
+                  Container(width: 2, height: 48, color: AppColors.border),
                   Expanded(
                     child: TextButton(
                       onPressed: onRightTap,
                       child: Text(
                         rightButtonText ?? '',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: rightButtonColor ?? AppColors.border,
+                          color: rightButtonColor ?? AppColors.textPrimary,
                         ),
                       ),
                     ),

@@ -13,8 +13,8 @@ class CurrentMealCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 3),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -32,11 +32,6 @@ class CurrentMealCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   '${formatPrice(meal.calories)} kcal · ₩${formatPrice(meal.price)}',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${meal.date.month}월 ${meal.date.day}일 - 식단 ${meal.slot}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -59,22 +54,15 @@ class _Thumbnail extends StatelessWidget {
       width: 72,
       height: 72,
       decoration: BoxDecoration(
-        color: AppColors.border,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.grayLight,
+        borderRadius: BorderRadius.circular(10),
       ),
-      child:
-          imageUrl == null
-              ? const Center(
-                child: Icon(
-                  Icons.restaurant,
-                  color: AppColors.textSecondary,
-                  size: 28,
-                ),
-              )
-              : ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(imageUrl!, fit: BoxFit.cover),
-              ),
+      child: imageUrl == null
+          ? null
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(imageUrl!, fit: BoxFit.cover),
+            ),
     );
   }
 }
