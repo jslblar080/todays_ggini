@@ -5,11 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format.dart';
+import '../../../../core/widgets/app_primary_button.dart';
 import '../../domain/shopping_list.dart';
 import '../providers/shopping_trash_provider.dart';
 
-// 휴지통(삭제 내역) 화면.
-// 삭제된 장보기 항목을 보여주고, 항목별 "복원" / 상단 "전체 복원" 을 제공한다.
 class ShoppingTrashScreen extends ConsumerWidget {
   const ShoppingTrashScreen({super.key});
 
@@ -30,23 +29,9 @@ class ShoppingTrashScreen extends ConsumerWidget {
               if (!state.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => notifier.restoreAll(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        '전체 복원',
-                        style: Theme.of(context).textTheme.labelLarge
-                            ?.copyWith(color: Colors.white),
-                      ),
-                    ),
+                  child: AppPrimaryButton(
+                    text: '전체 복원하기',
+                    onPressed: () => notifier.restoreAll(),
                   ),
                 ),
             ],
@@ -73,7 +58,7 @@ class ShoppingTrashScreen extends ConsumerWidget {
             },
           ),
           const Spacer(),
-          Text('삭제 내역', style: Theme.of(context).textTheme.headlineLarge),
+          Text('삭제 목록', style: Theme.of(context).textTheme.headlineLarge),
           const Spacer(),
           const SizedBox(width: 48),
         ],
@@ -93,22 +78,13 @@ class ShoppingTrashScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.cloud_off_outlined,
-                size: 40,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.cloud_off_outlined, size: 40, color: AppColors.textSecondary),
               const SizedBox(height: 12),
-              Text(
-                '삭제 내역을 불러오지 못했어요',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              Text('삭제 내역을 불러오지 못했어요', style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 4),
               Text(
                 '잠시 후 다시 시도해 주세요',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
               OutlinedButton(
@@ -116,9 +92,7 @@ class ShoppingTrashScreen extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
                 child: const Text('다시 시도'),
               ),
@@ -135,17 +109,17 @@ class ShoppingTrashScreen extends ConsumerWidget {
     final items = state.flatItems;
     if (items.isEmpty) {
       return Center(
-        child: Text(
-          '삭제한 항목이 없어요',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        child: Text('삭제한 항목이 없어요', style: Theme.of(context).textTheme.bodyMedium),
       );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.only(top: 4),
-      itemCount: items.length,
+      itemCount: items.length + 1,
       itemBuilder: (_, i) {
+        if (i == items.length) {
+          return const Divider(height: 3, color: AppColors.border); 
+        }
         final entry = items[i];
         return _TrashItemRow(
           market: entry.market,
@@ -172,7 +146,7 @@ class _TrashItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Divider(height: 1, color: AppColors.border),
+        const Divider(height: 3, color: AppColors.border),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
@@ -181,33 +155,34 @@ class _TrashItemRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.ingredientName,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+                    Text(item.ingredientName, style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 2),
                     Text(
-                      '${item.standardUnit} - ${shoppingMarketLabel(market)}'
-                      ' · ₩${formatPrice(item.lowestPrice)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      '${item.standardUnit} - ${shoppingMarketLabel(market)} · ₩${formatPrice(item.lowestPrice)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: onRestore,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              GestureDetector(
+                onTap: onRestore,
+                child: Container(
+                  width: 60,
+                  height: 34,
+                  decoration: const BoxDecoration(
+                    color: AppColors.grayLight,
+                    borderRadius: BorderRadius.zero,
                   ),
-                  visualDensity: VisualDensity.compact,
+                  child: Center(
+                    child: Text(
+                      '복원',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                    ),
+                  ),
                 ),
-                child: const Text('복원'),
               ),
             ],
           ),

@@ -1,0 +1,43 @@
+{
+  "experiment_name": "style_validation_user_stability_us06_retry",
+  "description": "US06 budget low RAG timeout 재검증",
+  "scenarios": [
+    {
+      "scenario_id": "US06_budget_low",
+      "description": "식비 절약 + 낮은 예산 사용자",
+      "purpose": "낮은 예산 조건에서 가성비 스타일과 budget score가 안정적으로 반영되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "식비 절약"
+        ],
+        "monthly_budget": 250000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "한식",
+          "분식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    }
+  ]
+}

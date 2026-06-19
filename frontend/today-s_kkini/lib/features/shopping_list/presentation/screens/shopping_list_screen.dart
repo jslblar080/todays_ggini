@@ -26,12 +26,11 @@ class ShoppingListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(child: _buildBody(context, state, notifier, userMarkets)),
+      body: SafeArea(child: _buildBody(context, ref, state, notifier, userMarkets)),
       bottomNavigationBar: const BottomNavBar(currentIndex: 2),
     );
   }
 
-  // 마켓 키를 한글로 변환
   String _marketToKorean(String market) {
     switch (market) {
       case 'coupang': return '쿠팡';
@@ -43,6 +42,7 @@ class ShoppingListScreen extends ConsumerWidget {
 
   Widget _buildBody(
     BuildContext context,
+    WidgetRef ref,
     ShoppingListState state,
     ShoppingListNotifier notifier,
     List<String> userMarkets,
@@ -74,14 +74,12 @@ class ShoppingListScreen extends ConsumerWidget {
         _buildHeader(context),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: Column(
               children: [
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 ShoppingListSummary(data: data, userMarkets: userMarkets),
                 const SizedBox(height: 16),
-                if (flatRows.isNotEmpty)
-                  _buildSelectAll(context, flatRows, notifier),
                 Expanded(
                   child: flatRows.isEmpty
                       ? const _EmptyState()
@@ -90,7 +88,7 @@ class ShoppingListScreen extends ConsumerWidget {
                           itemCount: flatRows.length + 1,
                           itemBuilder: (_, i) {
                             if (i == flatRows.length) {
-                              return Divider(height: 1, color: AppColors.border);
+                              return const Divider(height: 3, color: AppColors.border);
                             }
                             final (market, item) = flatRows[i];
                             return ShoppingItemRow(
@@ -108,7 +106,13 @@ class ShoppingListScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: ShoppingBottomActions(
-            hasCheckedItems: data.checkedItemsCount > 0,
+            checkedCount: data.checkedItemsCount,
+            totalCount: flatRows.length,
+            onToggleAll: () {
+              final allIds = [for (final (_, item) in flatRows) item.itemId];
+              final allChecked = data.checkedItemsCount == flatRows.length;
+              notifier.setChecked(allIds, !allChecked);
+            },
             onDeleteChecked: () => _confirmDelete(context, notifier),
             onCheckoutByMarket: () => showCheckoutMarketSheet(context, data),
           ),
@@ -117,11 +121,9 @@ class ShoppingListScreen extends ConsumerWidget {
     );
   }
 
-  // 헤더 — '장보기 목록' 타이틀 중앙 정렬, 우측에 휴지통(삭제 내역) 진입점.
-  // 좌측 SizedBox(48)로 우측 아이콘과 균형을 맞춰 타이틀이 정확히 가운데 오도록 함.
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           const SizedBox(width: 48),
@@ -129,58 +131,12 @@ class ShoppingListScreen extends ConsumerWidget {
           Text('장보기 목록', style: Theme.of(context).textTheme.headlineLarge),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 24),
+            icon: const Icon(Icons.delete_outline, size: 32),
             color: AppColors.textPrimary,
             tooltip: '삭제 내역',
             onPressed: () => context.push(AppRoutes.shoppingTrash),
           ),
         ],
-      ),
-    );
-  }
-
-  // 전체 선택 / 해제 — 모두 체크되면 체크, 일부만 체크면 중간(indeterminate) 표시.
-  // 탭하면 화면에 보이는 모든 항목을 한 번에 선택/해제한다.
-  Widget _buildSelectAll(
-    BuildContext context,
-    List<(String, ShoppingItem)> flatRows,
-    ShoppingListNotifier notifier,
-  ) {
-    final visibleIds = [for (final (_, item) in flatRows) item.itemId];
-    final checkedCount = flatRows.where((r) => r.$2.isChecked).length;
-    final allChecked = checkedCount == flatRows.length;
-    final someChecked = checkedCount > 0 && !allChecked;
-
-    return InkWell(
-      onTap: () => notifier.setChecked(visibleIds, !allChecked),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: Checkbox(
-                value: allChecked ? true : (someChecked ? null : false),
-                tristate: true,
-                onChanged: (_) => notifier.setChecked(visibleIds, !allChecked),
-                activeColor: AppColors.textPrimary,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                side: const BorderSide(color: AppColors.textPrimary),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text('전체 선택', style: Theme.of(context).textTheme.bodyMedium),
-            const Spacer(),
-            Text(
-              '$checkedCount / ${flatRows.length}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

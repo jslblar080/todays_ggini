@@ -1,0 +1,42 @@
+{
+  "experiment_name": "style_validation_user_stability_us02_retry",
+  "description": "US02 diet health vegetable selected_count 0 재검증",
+  "scenarios": [
+    {
+      "scenario_id": "US02_diet_health_vegetable",
+      "description": "다이어트 + 샐러드/건강식 + 채소류 선호 사용자",
+      "purpose": "샐러드/건강식 선택이 RAG 다이어트 category와 매칭되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 400000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    }
+  ]
+}

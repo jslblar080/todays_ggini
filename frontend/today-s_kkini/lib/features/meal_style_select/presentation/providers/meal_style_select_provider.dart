@@ -52,9 +52,9 @@ class MealStyleSelectNotifier extends StateNotifier<MealStyleSelectState> {
 
   final MealStyleSelectRepository _repository;
 
-  // 3일치 샘플 식단 후보 불러오기
   Future<void> fetchCandidates() async {
     state = state.copyWith(isLoading: true, clearError: true);
+    
     try {
       final candidates = await _repository.fetchStyleCandidates();
       if (!mounted) return;

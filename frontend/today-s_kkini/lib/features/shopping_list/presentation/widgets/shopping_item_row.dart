@@ -19,25 +19,30 @@ class ShoppingItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Divider(height: 1, color: AppColors.border),
+        const Divider(height: 1, color: AppColors.border),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(
-                width: 32,
-                height: 32,
-                child: Checkbox(
-                  value: item.isChecked,
-                  onChanged: (_) => onToggle(),
-                  activeColor: AppColors.textPrimary,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  side: const BorderSide(color: AppColors.textPrimary),
+              GestureDetector(
+                onTap: onToggle,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: item.isChecked ? AppColors.textSecondary : AppColors.gray,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: 18,
+                    color: item.isChecked ? Colors.white : AppColors.grayLight,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,8 +55,8 @@ class ShoppingItemRow extends StatelessWidget {
                     Text(
                       '${item.standardUnit} - ${shoppingMarketLabel(market)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
+                            color: AppColors.textPrimary,
+                          ),
                     ),
                   ],
                 ),

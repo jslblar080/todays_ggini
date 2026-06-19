@@ -45,7 +45,6 @@ class IngredientListScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
 
@@ -146,6 +145,7 @@ class IngredientListScreen extends ConsumerWidget {
                     },
                   ),
                 ),
+                const Divider(height: 3, color: AppColors.border),
                 const SizedBox(height: 16),
               ],
             ),

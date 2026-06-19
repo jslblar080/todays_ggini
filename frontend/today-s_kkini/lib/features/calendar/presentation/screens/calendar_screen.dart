@@ -6,8 +6,8 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/bottom_nav_bar.dart';
 import '../providers/calendar_provider.dart';
-import '../widgets/month_grid.dart';
-import '../widgets/month_header.dart';
+import '../widgets/week_grid.dart';
+import '../widgets/week_header.dart';
 import '../widgets/summary_card.dart';
 
 class CalendarScreen extends ConsumerWidget {
@@ -39,19 +39,16 @@ class CalendarScreen extends ConsumerWidget {
           child: Text(
             '캘린더를 불러오지 못했습니다.\n${state.error}',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.error,
-          ),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.error),
           ),
         ),
       );
     }
 
-    if (state.currentPlan == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final plan = state.currentPlan!;
+    final label = state.weekLabel;
 
     return SingleChildScrollView(
       child: Padding(
@@ -59,68 +56,43 @@ class CalendarScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MonthHeader(
-              year: state.currentYear,
-              month: state.currentMonth,
-              onPrevMonth: notifier.goToPrevMonth,
-              onNextMonth: notifier.goToNextMonth,
+            WeekHeader(
+              year: label.year,
+              month: label.month,
+              weekNumber: label.weekNumber,
+              onPrevWeek: notifier.goToPrevWeek,
+              onNextWeek: notifier.goToNextWeek,
             ),
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               decoration: BoxDecoration(
                 border: Border.all(color: AppColors.border, width: 3.0),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: SummaryCard(
-                month: state.currentMonth,
-                totalPrice: plan.totalPricePerMonth,
-                averageCalories: plan.averageCaloriesPerMonth,
-              ),
+              child: state.currentPlan == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : SummaryCard(
+                      month: label.month,
+                      totalPrice: state.currentPlan!.totalPricePerMonth,
+                      averageCalories:
+                          state.currentPlan!.averageCaloriesPerMonth,
+                    ),
             ),
             const SizedBox(height: 8),
-            MonthGrid(
-              year: state.currentYear,
-              month: state.currentMonth,
-              plan: plan,
-              onDayTap: (date) {
-                context.push(AppRoutes.mealDetailPath(date));
+            WeekGrid(
+              weekDays: state.currentWeekDays,
+              planFor: state.planFor,
+              onDayTap: (date) => context.push(AppRoutes.mealDetailPath(date)),
+              onSwap: (from, to) async {
+                await notifier.swapDates(from, to);
               },
-              onSwap: (from, to) => _handleSwap(context, notifier, from, to),
             ),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
-  }
-
-  // 드롭 시: 즉시 교환 → "교환했어요 [실행취소]" SnackBar.
-  // 실행취소는 같은 두 날짜를 다시 교환하면 원래대로 돌아간다.
-  Future<void> _handleSwap(
-    BuildContext context,
-    CalendarNotifier notifier,
-    DateTime from,
-    DateTime to,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await notifier.swapDates(from, to);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: const Text('식단을 교환했어요.'),
-            action: SnackBarAction(
-              label: '실행취소',
-              onPressed: () => notifier.swapDates(to, from),
-            ),
-          ),
-        );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('교환에 실패했어요: $e')),
-      );
-    }
   }
 }

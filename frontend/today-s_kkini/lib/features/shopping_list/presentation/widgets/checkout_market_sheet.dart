@@ -33,7 +33,7 @@ class CheckoutMarketSheet extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,
@@ -43,32 +43,27 @@ class CheckoutMarketSheet extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Center(
             child: Container(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(5),
               ),
             ),
           ),
           const SizedBox(height: 20),
           Text(
             '어디서 한 번에 살까요?',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 4),
           Text(
             '각 마켓 최저가 기준',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           if (activeGroups.isEmpty)
@@ -99,18 +94,18 @@ class _MarketCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border, width: 3),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           Container(
             width: 8,
-            height: 40,
+            height: 50,
             decoration: BoxDecoration(
               color: info.color,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(5),
             ),
           ),
           const SizedBox(width: 12),
@@ -120,17 +115,12 @@ class _MarketCard extends StatelessWidget {
               children: [
                 Text(
                   info.label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${_formatPrice(group.subtotal)}원  ·  $checkedCount개 항목',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -148,9 +138,8 @@ class _MarketCard extends StatelessWidget {
               children: [
                 Text(
                   '${info.label} 열기',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: info.color,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(width: 2),

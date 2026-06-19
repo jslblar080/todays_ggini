@@ -10,12 +10,12 @@ import hashlib
 import json
 
 from app.api.deps import get_db, get_current_user
-from app.core.redis import get_redis
+from app.core.redis import get_redis, ShortTermDistributedLock
 from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.crud.crud_user import update_user_selected_style
-from app.models.meal import MealPlan
+from app.models.meal import MealPlan, MealFeedback
 from app.schemas.meal import (
     DailyMealDetailResponse,
     MealConfirmResponse,
@@ -25,6 +25,8 @@ from app.schemas.meal import (
     MenuUpdateRequest,
     AlternativeMenuResponse,
     StyleSelectRequest,
+    MealFeedbackRequest,
+    MealFeedbackResponse
 )
 from app.crud import crud_meal
 from app.utils.image_search import get_food_image_url
@@ -183,32 +185,37 @@ async def generate_meal_plans_trigger(
     [화면 6] 프로필 기반 식단 생성 트리거
     FastAPI BackgroundTasks로 백그라운드 작업을 호출하고 작업 ID를 반환합니다.
     """
+    # [분산 락 적용] 유저 ID 기반으로 입구 잠그기
+    lock_key = f"user_{current_user.id}"
 
-    # 1. 고유한 작업 ID 생성
-    job_id = f"job_{uuid.uuid4().hex[:8]}"
+    # async with 문으로 감싸주면 진입할 때 락 획득 시도, 끝나면 자동으로 해제!
+    async with ShortTermDistributedLock(redis, lock_key, expire_seconds=3):
 
-    # 백그라운드 태스크가 돌기 전에 상태를 먼저 PENDING으로 등록
-    # 프론트가 0.1초 만에 너무 빨리 상태 조회를(Polling) 요청해서 404가 뜨는 Race Condition 방지용
-    await redis.setex(
-        name=f"job_status:{job_id}",
-        time=86400,
-        value=json.dumps({"status": "PENDING", "progress": "작업 대기 중"}, ensure_ascii=False)
-    )
+        # 1. 고유한 작업 ID 생성
+        job_id = f"job_{uuid.uuid4().hex[:8]}"
 
-    # 2. BackgroundTasks 대신 Celery 비동기 큐에 작업 위임 (.delay 사용)
-    # 인자는 반드시 기본 원시 타입(str, int)들만 순서대로 넘겨야 합니다.
-    background_monthly_plan_task.delay(
-        job_id=job_id,
-        user_id=current_user.id,
-        selected_style_id=request.selected_style_id
-    )
+        # 백그라운드 태스크가 돌기 전에 상태를 먼저 PENDING으로 등록
+        # 프론트가 0.1초 만에 너무 빨리 상태 조회를(Polling) 요청해서 404가 뜨는 Race Condition 방지용
+        await redis.setex(
+            name=f"job_status:{job_id}",
+            time=86400,
+            value=json.dumps({"status": "PENDING", "progress": "작업 대기 중"}, ensure_ascii=False)
+        )
 
-    # 3. 고유 Job ID를 프론트에 즉시 반환
-    return {
-        "job_id": job_id,
-        "estimated_seconds": 10,
-        "stages": ["프로필 분석", "식단 후보 생성", "최적 조합 선정", "DB 저장"],
-    }
+        # 2. BackgroundTasks 대신 Celery 비동기 큐에 작업 위임 (.delay 사용)
+        # 인자는 반드시 기본 원시 타입(str, int)들만 순서대로 넘겨야 합니다.
+        background_monthly_plan_task.delay(
+            job_id=job_id,
+            user_id=current_user.id,
+            selected_style_id=request.selected_style_id
+        )
+
+        # 3. 고유 Job ID를 프론트에 즉시 반환
+        return {
+            "job_id": job_id,
+            "estimated_seconds": 10,
+            "stages": ["프로필 분석", "식단 후보 생성", "최적 조합 선정", "DB 저장"],
+        }
 
 # ------------------------ 작업 상태 폴링 API --------------------------
 @router.get("/generate/status/{job_id}")
@@ -525,6 +532,7 @@ async def swap_meal_plans(
     date: date,
     request: MealSwapRequest,
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -537,74 +545,80 @@ async def swap_meal_plans(
 
     if date1 == date2:
         raise HTTPException(status_code=400, detail="동일한 날짜는 스왑할 수 없습니다.")
+    
+    # [분산 락 적용] 유저 ID 기반으로 입구 잠그기
+    lock_key = f"user_{current_user.id}"
+    
+    # async with 문으로 감싸주면 진입할 때 락 획득 시도, 끝나면 자동으로 해제!
+    async with ShortTermDistributedLock(redis, lock_key, expire_seconds=3):
 
-    # 1. 두 날짜 데이터 레코드 자체를 가져옴
-    plan1 = (
-        db.query(MealPlan)
-        .filter(MealPlan.user_id == current_user.id, MealPlan.meal_date == date1)
-        .first()
-    )
-    plan2 = (
-        db.query(MealPlan)
-        .filter(MealPlan.user_id == current_user.id, MealPlan.meal_date == date2)
-        .first()
-    )
+        # 1. 두 날짜 데이터 레코드 자체를 가져옴
+        plan1 = (
+            db.query(MealPlan)
+            .filter(MealPlan.user_id == current_user.id, MealPlan.meal_date == date1)
+            .first()
+        )
+        plan2 = (
+            db.query(MealPlan)
+            .filter(MealPlan.user_id == current_user.id, MealPlan.meal_date == date2)
+            .first()
+        )
 
-    if not plan1 and not plan2:
-        raise HTTPException(status_code=404, detail="스왑할 데이터가 없습니다.")
+        if not plan1 and not plan2:
+            raise HTTPException(status_code=404, detail="스왑할 데이터가 없습니다.")
 
-    # 2. 날짜(Date) 라벨만 교환 (temp 변수 활용)
-    try:
-        # DB Unique 제약 조건 충돌을 막기 위해 plan1을 아주 먼 임시 날짜로 잠깐 대피
-        temp_date = dt_date(9999, 12, 31)
+        # 2. 날짜(Date) 라벨만 교환 (temp 변수 활용)
+        try:
+            # DB Unique 제약 조건 충돌을 막기 위해 plan1을 아주 먼 임시 날짜로 잠깐 대피
+            temp_date = dt_date(9999, 12, 31)
 
-        if plan1:
-            plan1.meal_date = temp_date
-        db.flush()  # DB에 임시 반영 (commit 전 상태)
+            if plan1:
+                plan1.meal_date = temp_date
+            db.flush()  # DB에 임시 반영 (commit 전 상태)
 
-        if plan2:
-            plan2.meal_date = date1
-        db.flush()
+            if plan2:
+                plan2.meal_date = date1
+            db.flush()
 
-        if plan1:
-            plan1.meal_date = date2
+            if plan1:
+                plan1.meal_date = date2
 
-        db.commit()  # 최종 확정!
+            db.commit()  # 최종 확정!
 
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"스왑 실패: {str(e)}")
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"스왑 실패: {str(e)}")
 
-    # 3. 명세서에 맞춘 응답 구성
-    def format_day(d, p):
-        formatted_meals = []
-        if p and p.content:
-            for m in p.content:
-                selected = m.get("selected_menu") or {}
-                m_id = selected.get("menu_id")
+        # 3. 명세서에 맞춘 응답 구성
+        def format_day(d, p):
+            formatted_meals = []
+            if p and p.content:
+                for m in p.content:
+                    selected = m.get("selected_menu") or {}
+                    m_id = selected.get("menu_id")
 
-                formatted_meals.append(
-                    {
-                        "slot": m.get("meal_order") or 1,
-                        "meal_id": str(m_id) if m_id is not None else "",
-                        "menu_name": selected.get("name") or "메뉴 정보 없음",
-                    }
-                )
+                    formatted_meals.append(
+                        {
+                            "slot": m.get("meal_order") or 1,
+                            "meal_id": str(m_id) if m_id is not None else "",
+                            "menu_name": selected.get("name") or "메뉴 정보 없음",
+                        }
+                    )
 
+            return {
+                "date": d,
+                "calories_per_day": int(p.total_calories or 0) if p else None,
+                "price_per_day": int(p.estimated_cost or 0) if p else None,
+                "meals": formatted_meals,
+            }
+
+        # 주의: plan1은 이제 date2를, plan2는 date1을 가리키고 있습니다.
         return {
-            "date": d,
-            "calories_per_day": int(p.total_calories or 0) if p else None,
-            "price_per_day": int(p.estimated_cost or 0) if p else None,
-            "meals": formatted_meals,
+            "swapped": [
+                format_day(date1, plan2),  # 날짜1에는 원래 날짜2의 데이터(plan2)를 매핑
+                format_day(date2, plan1),  # 날짜2에는 원래 날짜1의 데이터(plan1)를 매핑
+            ]
         }
-
-    # 주의: plan1은 이제 date2를, plan2는 date1을 가리키고 있습니다.
-    return {
-        "swapped": [
-            format_day(date1, plan2),  # 날짜1에는 원래 날짜2의 데이터(plan2)를 매핑
-            format_day(date2, plan1),  # 날짜2에는 원래 날짜1의 데이터(plan1)를 매핑
-        ]
-    }
 
 
 # ------------------------ 특정 날짜의 특정 메뉴 변경 API ----------------------------
@@ -831,6 +845,86 @@ async def get_meal_alternatives(
 
     # 5. 최종 반환 (Pydantic 스키마가 자동으로 JSON 변환 및 검증을 수행합니다)
     return {"current_meal": current_meal, "alternatives": alternatives}
+
+# ------------------------------ 식단 피드백 API ---------------------------------------
+@router.post(
+    "/feedback", 
+    response_model=MealFeedbackResponse, 
+    status_code=status.HTTP_200_OK
+)
+async def create_or_update_meal_feedback(
+    feedback_in: MealFeedbackRequest,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    유저가 특정 날짜의 특정 식단에 대해 남긴 별점과 피드백을 저장합니다.
+    동일한 날짜의 동일한 식단 번호로 재요청 시, 기존 피드백을 지우지 않고 갱신(Update)합니다.
+    """
+    # 유저ID + 날짜 + 식단번호를 조합해 타이트한 락 키 생성
+    # 예: lock:meal_gen:feedback_user_123_2026-06-17_2
+    lock_key = f"feedback_user_{current_user.id}_{feedback_in.date}_{feedback_in.meal_number}"
+
+    # async with 문으로 로직 전체 감싸기 (피드백 저장은 ms 단위로 끝나므로 2초면 충분합니다)
+    async with ShortTermDistributedLock(redis, lock_key, expire_seconds=2):
+        try:
+            # 1. 기존에 해당 유저가 [같은 날짜 + 같은 식단 번호]로 남긴 피드백이 있는지 먼저 확인합니다.
+            existing_feedback = db.query(MealFeedback).filter(
+                MealFeedback.user_id == current_user.id,
+                MealFeedback.date == feedback_in.date,
+                MealFeedback.meal_number == feedback_in.meal_number
+            ).first()
+
+            if existing_feedback:
+                # [Case 1] 기존 데이터가 존재하면 -> 새로 들어온 값으로 덮어쓰기 (Update)
+                existing_feedback.meal_name = feedback_in.meal_name
+                existing_feedback.rating = feedback_in.rating
+                existing_feedback.is_checked = feedback_in.is_checked
+                
+                db.commit()
+                db.refresh(existing_feedback)
+                
+                # Pydantic Response DTO 규격에 맞춰 메시지와 함께 반환
+                return MealFeedbackResponse(
+                    message="식단 평가가 성공적으로 수정되었습니다.",
+                    date=existing_feedback.date,
+                    meal_number=existing_feedback.meal_number,
+                    meal_name=existing_feedback.meal_name,
+                    rating=existing_feedback.rating,
+                    is_checked=existing_feedback.is_checked
+                )
+
+            else:
+                # [Case 2] 기존 데이터가 없으면 -> 완전히 새로운 레코드 생성 (Insert)
+                new_feedback = MealFeedback(
+                    user_id=current_user.id,
+                    date=feedback_in.date,
+                    meal_number=feedback_in.meal_number,
+                    meal_name=feedback_in.meal_name, 
+                    rating=feedback_in.rating,
+                    is_checked=feedback_in.is_checked
+                )
+                db.add(new_feedback)
+                db.commit()
+                db.refresh(new_feedback)
+
+                return MealFeedbackResponse(
+                    message="식단 평가가 성공적으로 반영되었습니다.",
+                    date=new_feedback.date,
+                    meal_number=new_feedback.meal_number,
+                    meal_name=new_feedback.meal_name,
+                    rating=new_feedback.rating,
+                    is_checked=new_feedback.is_checked
+                )
+            
+        except Exception as error:
+            db.rollback()  # 예기치 못한 DB 오류 발생 시 안전하게 롤백
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"피드백 처리 중 서버 내부 에러 발생: {str(error)}"
+            )
 
 
 # ------------------------------- AI 모델 서버 호출용 API ----------------------------------
