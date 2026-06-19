@@ -1,0 +1,150 @@
+{
+  "experiment_name": "style_validation_us02_infeasible_variants",
+  "description": "US02 optimizer infeasible 원인 분리 실험",
+  "scenarios": [
+    {
+      "scenario_id": "US02A_diet_health_budget_500k",
+      "description": "다이어트 + 샐러드/건강식 + 예산 50만원",
+      "purpose": "샐러드/건강식 선택이 RAG 다이어트 category와 매칭되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 500000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    },
+    {
+      "scenario_id": "US02B_diet_health_meal_2",
+      "description": "다이어트 + 샐러드/건강식 + 하루 2끼",
+      "purpose": "샐러드/건강식 선택이 RAG 다이어트 category와 매칭되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 400000,
+        "meal_count_per_day": 2,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    },
+    {
+      "scenario_id": "US02C_diet_health_repeat_3",
+      "description": "다이어트 + 샐러드/건강식 + max repeat 3",
+      "purpose": "샐러드/건강식 선택이 RAG 다이어트 category와 매칭되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 3,
+        "solver_time_limit_seconds": 3,
+        "optimizer_candidate_multiplier": 1.2,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 400000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    },
+    {
+      "scenario_id": "US02D_diet_health_more_candidates",
+      "description": "다이어트 + 샐러드/건강식 + optimizer 후보 확대",
+      "purpose": "샐러드/건강식 선택이 RAG 다이어트 category와 매칭되는지 확인한다.",
+      "use_ortools": true,
+      "optimizer_config": {
+        "score_weight": 100,
+        "cost_penalty_weight": 3,
+        "cost_penalty_divisor": 100,
+        "repeat_penalty_weight": 800,
+        "max_repeat_per_menu": 2,
+        "solver_time_limit_seconds": 5,
+        "optimizer_candidate_multiplier": 2.0,
+        "enable_nutrition_outlier_penalty": false,
+        "nutrition_outlier_penalty_weight": 1
+      },
+      "profile": {
+        "goals": [
+          "다이어트"
+        ],
+        "monthly_budget": 400000,
+        "meal_count_per_day": 3,
+        "cooking_skill": 3,
+        "preferred_categories": [
+          "샐러드/건강식"
+        ],
+        "diversity_level": "보통",
+        "ingredient_preferences": [
+          "채소류",
+          "식물성 단백질류"
+        ],
+        "allergy_ingredients": [],
+        "sample_period_days": 3,
+        "period_days": 30
+      }
+    }
+  ]
+}

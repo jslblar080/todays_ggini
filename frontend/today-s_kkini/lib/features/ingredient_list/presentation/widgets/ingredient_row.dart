@@ -29,86 +29,86 @@ class IngredientRow extends StatelessWidget {
     final shownMarket = ingredient.effectiveMarketWithin(selectedMarket, userMarkets);
     final isUserPick = selectedMarket != null && shownMarket == selectedMarket;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onToggle,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: isChecked ? AppColors.primary : Colors.transparent,
-                border: Border.all(
-                  color: isChecked ? AppColors.primary : AppColors.border,
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child:
-                  isChecked
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : null,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ingredient.ingredientName,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${ingredient.standardUnit} 이상',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      children: [
+        const Divider(height: 3, color: AppColors.border),
+        SizedBox(
+          height: 70,
+          child: Row(
             children: [
-              Text(
-                shownPrice != null ? '₩${formatPrice(shownPrice)}' : '재고없음',
-                style: Theme.of(context).textTheme.bodyMedium,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onToggle,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: isChecked ? AppColors.textSecondary : AppColors.gray,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: 18,
+                    color: isChecked ? Colors.white : AppColors.grayLight,
+                  ),
+                ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                shownMarket == null
-                    ? '-'
-                    : isUserPick
-                    ? _marketLabel(shownMarket)
-                    : '${_marketLabel(shownMarket)} 최저가',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      ingredient.ingredientName,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${ingredient.standardUnit} 이상',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    shownPrice != null ? '₩${formatPrice(shownPrice)}' : '재고없음',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    shownMarket == null
+                        ? '-'
+                        : isUserPick
+                            ? _marketLabel(shownMarket)
+                            : '${_marketLabel(shownMarket)} 최저가',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 32),
+                color: AppColors.textPrimary,
+                onPressed: onTapDetail,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             ],
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, size: 32),
-            color: AppColors.textPrimary,
-            onPressed: onTapDetail,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

@@ -6,13 +6,11 @@ import '../../../../core/theme/app_colors.dart';
 class MealDetailHeader extends StatefulWidget {
   final DateTime date;
   final VoidCallback onPrevDay;
-  final VoidCallback onNextDay;
 
   const MealDetailHeader({
     super.key,
     required this.date,
     required this.onPrevDay,
-    required this.onNextDay,
   });
 
   @override
@@ -40,26 +38,21 @@ class _MealDetailHeaderState extends State<MealDetailHeader> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             color: AppColors.textPrimary,
             iconSize: 32,
-            onPressed: widget.onPrevDay,
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          const Spacer(),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.headlineLarge,
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            color: AppColors.textPrimary,
-            iconSize: 32,
-            onPressed: widget.onNextDay,
-          ),
+          const SizedBox(width: 48), // 왼쪽 버튼 너비만큼 여백으로 제목 가운데 정렬
         ],
       ),
     );

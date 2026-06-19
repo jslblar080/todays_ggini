@@ -15,37 +15,53 @@ class MealSlotTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(slotCount, (i) {
-        final slot = i + 1;
-        final isSelected = slot == selectedSlot;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.grayLight,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: List.generate(slotCount, (i) {
+          final slot = i + 1;
+          final isSelected = slot == selectedSlot;
 
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onSlotSelected(slot),
-            child: Container(
-              margin: EdgeInsets.only(right: i < slotCount - 1 ? 8 : 0),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.mypage : AppColors.buttonGray,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : Colors.transparent,
-                  width: 2,
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSlotSelected(slot),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
                 ),
-              ),
-              child: Center(
-                child: Text(
-                  '식단 $slot',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                child: Center(
+                  child: Text(
+                    '식단 $slot',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isSelected
+                              ? AppColors.textPrimary
+                              : AppColors.textSecondary,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 }

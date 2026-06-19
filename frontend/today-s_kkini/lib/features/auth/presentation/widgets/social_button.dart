@@ -40,8 +40,8 @@ class SocialButton extends StatelessWidget {
           child: imagePath != null
               ? Image.asset(
                   imagePath!,
-                  width: 64,
-                  height: 64,
+                  width: 60,
+                  height: 60,
                   fit: BoxFit.cover,
                 )
               : Container(

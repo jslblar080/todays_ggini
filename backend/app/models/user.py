@@ -55,6 +55,8 @@ class User(Base):
     # 1:1 관계: 온보딩 세부 취향 설정
     onboarding_setting = relationship("UserOnboardingSetting", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
+    meal_feedbacks = relationship("MealFeedback", back_populates="user", cascade="all, delete-orphan")
+
 # ---------------------------- 가구원 정보 테이블 ---------------------------------
 class UserFamilyMember(Base):
     __tablename__ = "user_family_members"
@@ -91,6 +93,9 @@ class UserPersonaSetting(Base):
 
     # 모델링 파트의 응답을 토대로 유저가 최종 고른 페르소나 ID 결과물
     persona_name = Column(String, nullable=True)
+
+    # 페르소나 고유 ID 식별자 컬럼
+    persona_id = Column(String, nullable=True)
 
     # 페르소나 추천 요청을 통해 계산된 권장 칼로리
     recommended_daily_calories = Column(Integer, nullable=True, default=1800)

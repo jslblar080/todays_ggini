@@ -30,7 +30,6 @@ class IngredientDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
 
@@ -122,14 +121,18 @@ class IngredientDetailScreen extends ConsumerWidget {
                   flex: 2,
                   child: Text(
                     '마켓',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
                   ),
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    '가격',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Text('가격', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary)),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 80),
@@ -137,7 +140,7 @@ class IngredientDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Divider(color: AppColors.border, height: 1),
+          const Divider(color: AppColors.border, height: 3),
           const SizedBox(height: 4),
           ...filteredPrices.map(
             (entry) => PriceComparisonRow(
