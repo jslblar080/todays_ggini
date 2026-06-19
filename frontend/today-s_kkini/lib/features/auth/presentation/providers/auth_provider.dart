@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/auth_interceptor.dart';
 import '../../../../core/env/env.dart';
 import '../../data/auth_remote_data_source.dart';
 import '../../data/auth_repository.dart';
@@ -214,6 +215,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// 토큰 만료/refresh 실패 등으로 세션이 끊겼을 때 호출.
+  /// 백엔드 호출 없이(이미 토큰이 죽었으므로) 로컬 토큰만 비우고 상태를 초기화한다.
+  /// authState 가 비워지면 라우터가 자동으로 /auth 로 보낸다.
+  Future<void> forceLogout() async {
+    await _deleteTokens();
+    if (!mounted) return;
+    state = const AuthState();
+  }
+
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -244,10 +254,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 // Provider
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final notifier = AuthNotifier(
     ref.watch(authRepositoryProvider),
     ref.watch(googleSignInProvider),
     ref.watch(secureStorageProvider),
-  ),
-);
+  );
+
+  // 401 → refresh 실패 시 세션을 비우도록 인터셉터에 콜백 연결.
+  // (dioProvider 가 authProvider 를 직접 참조하면 순환 참조가 되므로 여기서 주입)
+  final dio = ref.read(dioProvider);
+  for (final interceptor in dio.interceptors) {
+    if (interceptor is AuthInterceptor) {
+      interceptor.onAuthFailure = notifier.forceLogout;
+    }
+  }
+
+  return notifier;
+});
