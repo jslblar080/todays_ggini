@@ -61,6 +61,7 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
                 activityLevel: data['activityLevel'] as int? ?? 0,
                 familyMembers: familyMembers,
                 personaName: data['personaName'] as String?,
+                personaId: data['personaId'] as String?,
               ),
             );
       });
@@ -237,9 +238,9 @@ class _PersonaSelectScreenState extends ConsumerState<PersonaSelectScreen> {
             ),
             Step6PersonaResult(
               selectedPersonaName: input.personaName,
-              onSelected: (name) => ref
+              onSelected: (name, personaId) => ref
                   .read(personaSelectProvider.notifier)
-                  .setPersonaName(name),
+                  .setPersona(name, personaId),
             ),
           ],
         ),

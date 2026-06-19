@@ -172,6 +172,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       'activityLevel': profile.activityLevel,
       'familyMembers': profile.familyMembers,
       'personaName': profile.personaName,
+      'personaId': profile.personaId,
     });
   }
 
@@ -270,6 +271,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
                 name: profile.nickname ?? '',
                 imageUrl: profile.imageUrl,
                 persona: profile.personaName ?? '',
+                personaId: profile.personaId,
                 onNameChanged: (newName) async {
                   final repo = ref.read(myPageRepositoryProvider);
                   final saved = await repo.updateNickname(newName);

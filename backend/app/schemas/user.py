@@ -71,6 +71,7 @@ class UserPersonaSettingInfo(BaseModel):
     meals_per_day: int = Field(3, ge=1, le=5, description="하루 식사 수")
     purpose: List[str] = Field(default_factory=list, description="이용 목적 리스트")
     persona_name: Optional[str] = Field(None, description="최종 선택한 페르소나 이름")
+    persona_id: Optional[str] = Field(None, description="모델링 파트의 페르소나 고유 식별 ID")
     activity_level: int = Field(..., ge=1, le=4, description="평소 활동량 단계")
 
     model_config = ConfigDict(from_attributes=True)
@@ -115,6 +116,7 @@ class UserPersonaSettingUpdate(BaseModel):
     meals_per_day: int = Field(None, ge=1, le=5, description="하루 식사 수")
     purpose: List[MealPurpose] = Field(None, description="이용 목적 리스트")
     persona_name: Optional[str] = Field(None, description="최종 선택/변경한 페르소나 이름")
+    persona_id: Optional[str] = Field(None, description="최종 선택/변경한 페르소나 고유 ID")
     activity_level: int = Field(None, ge=1, le=4, description="활동량 지표 (1: 최소 ~ 4: 최대)")
     # 💡 다인 가구 스펙 변경 시 동적으로 들어올 가구원 리스트
     family_members: List[FamilyMemberInfo] = Field(None, description="가구원 신체 스펙 리스트")
