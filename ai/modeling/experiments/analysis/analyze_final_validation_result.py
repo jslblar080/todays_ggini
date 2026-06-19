@@ -116,6 +116,33 @@ def collect_response_shape(response: dict) -> dict:
     }
 
 
+def collect_rag_mapping_info(result: dict) -> dict:
+    """
+    실험 result artifact에 저장된 RAG mapping diagnostics를 수집한다.
+    """
+
+    diagnostics = result.get("diagnostics") or {}
+    rag_mapping = diagnostics.get("rag_mapping") or {}
+    quality_issue_type_count = rag_mapping.get("quality_issue_type_count") or {}
+    ingredient_group_mapping_status_count = (
+        rag_mapping.get("ingredient_group_mapping_status_count") or {}
+    )
+
+    return {
+        "rag_mapping_event_count": rag_mapping.get("event_count", 0),
+        "rag_raw_menus": rag_mapping.get("raw_menus", 0),
+        "rag_mapped_menus": rag_mapping.get("mapped_menus", 0),
+        "rag_excluded_menus": rag_mapping.get("excluded_menus", 0),
+        "rag_quality_issue_menus": rag_mapping.get("quality_issue_menus", 0),
+        "rag_quality_issue_type_count": quality_issue_type_count,
+        "rag_ingredient_group_mapping_status_count": (
+            ingredient_group_mapping_status_count
+        ),
+        "rag_mapping_success_rate": rag_mapping.get("mapping_success_rate", 0),
+        "rag_quality_issue_rate": rag_mapping.get("quality_issue_rate", 0),
+    }
+
+
 def collect_optimizer_info(monthly_plan: dict) -> dict:
     optimizer = monthly_plan.get("optimizer") or {}
     config = optimizer.get("config") or {}
@@ -219,6 +246,8 @@ def analyze_result_file(input_path: str) -> dict:
     fallback_reason_counter = Counter()
     candidate_shortage_reason_counter = Counter()
     recommended_next_step_counter = Counter()
+    rag_quality_issue_type_counter = Counter()
+    rag_ingredient_group_mapping_status_counter = Counter()
 
     fallback_count = 0
     candidate_pool_enough_count = 0
@@ -236,6 +265,12 @@ def analyze_result_file(input_path: str) -> dict:
     total_unique_menu_count = 0
     total_duplicate_menu_count = 0
     total_available_recommendation_count = 0
+
+    total_rag_mapping_event_count = 0
+    total_rag_raw_menus = 0
+    total_rag_mapped_menus = 0
+    total_rag_excluded_menus = 0
+    total_rag_quality_issue_menus = 0
 
     for result in results:
         scenario_id = result.get("scenario_id")
@@ -267,6 +302,7 @@ def analyze_result_file(input_path: str) -> dict:
             monthly_plan=monthly_plan,
             response=response,
         )
+        rag_mapping_info = collect_rag_mapping_info(result)
 
         selected_menu_count = summary.get("selected_menu_count", 0) or 0
         unique_menu_count = summary.get("unique_menu_count", 0) or 0
@@ -357,6 +393,26 @@ def analyze_result_file(input_path: str) -> dict:
         total_duplicate_menu_count += duplicate_menu_count
         total_available_recommendation_count += available_recommendation_count
 
+        total_rag_mapping_event_count += (
+            rag_mapping_info.get("rag_mapping_event_count", 0) or 0
+        )
+        total_rag_raw_menus += rag_mapping_info.get("rag_raw_menus", 0) or 0
+        total_rag_mapped_menus += rag_mapping_info.get("rag_mapped_menus", 0) or 0
+        total_rag_excluded_menus += (
+            rag_mapping_info.get("rag_excluded_menus", 0) or 0
+        )
+        total_rag_quality_issue_menus += (
+            rag_mapping_info.get("rag_quality_issue_menus", 0) or 0
+        )
+
+        rag_quality_issue_type_counter.update(
+            rag_mapping_info.get("rag_quality_issue_type_count") or {}
+        )
+
+        rag_ingredient_group_mapping_status_counter.update(
+            rag_mapping_info.get("rag_ingredient_group_mapping_status_count") or {}
+        )
+
         row = {
             "scenario_id": scenario_id,
             "description": description,
@@ -405,6 +461,15 @@ def analyze_result_file(input_path: str) -> dict:
 
             **optimizer_info,
             **fallback_info,
+            **{
+                key: value
+                for key, value in rag_mapping_info.items()
+                if key != "rag_quality_issue_type_count"
+            },
+            "rag_quality_issue_type_count_json": json.dumps(
+                rag_mapping_info.get("rag_quality_issue_type_count") or {},
+                ensure_ascii=False,
+            ),
         }
 
         checked_metrics = style_validation.get("checked_metrics") or {}
@@ -511,6 +576,24 @@ def analyze_result_file(input_path: str) -> dict:
         "duplicate_rate": safe_rate(
             total_duplicate_menu_count,
             total_selected_menu_count,
+        ),
+
+        "rag_mapping_event_count": total_rag_mapping_event_count,
+        "rag_raw_menus": total_rag_raw_menus,
+        "rag_mapped_menus": total_rag_mapped_menus,
+        "rag_excluded_menus": total_rag_excluded_menus,
+        "rag_quality_issue_menus": total_rag_quality_issue_menus,
+        "rag_quality_issue_type_count": dict(rag_quality_issue_type_counter),
+        "rag_ingredient_group_mapping_status_count": dict(
+            rag_ingredient_group_mapping_status_counter
+        ),
+        "rag_mapping_success_rate": safe_rate(
+            total_rag_mapped_menus,
+            total_rag_raw_menus,
+        ),
+        "rag_quality_issue_rate": safe_rate(
+            total_rag_quality_issue_menus,
+            total_rag_mapped_menus,
         ),
     }
 
