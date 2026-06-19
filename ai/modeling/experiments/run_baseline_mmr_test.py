@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from services.modeling_service import create_monthly_plan
+from services.optimizer.ortools.infeasible_policy import (
+    clear_optimizer_infeasible_policy_diagnostics,
+    get_optimizer_infeasible_policy_diagnostics,
+)
 from services.rag.rag_response_mapper import (
     clear_rag_mapping_diagnostics,
     get_rag_mapping_diagnostics,
@@ -103,7 +107,7 @@ def run_one_scenario(scenario: dict) -> dict:
     """
     단일 시나리오에 대해 기존 MMR + Re-ranking 월간 식단 생성 로직을 실행한다.
     """
-
+    clear_optimizer_infeasible_policy_diagnostics()
     clear_rag_mapping_diagnostics()
 
     scenario_id = scenario["scenario_id"]
@@ -135,6 +139,9 @@ def run_one_scenario(scenario: dict) -> dict:
             "selected_style": request_data.get("selected_style"),
             "response": response,
             "diagnostics": {
+                "optimizer_infeasible_policy": (
+                    get_optimizer_infeasible_policy_diagnostics()
+                ),
                 "rag_mapping": get_rag_mapping_diagnostics(),
             },
         }
@@ -163,6 +170,9 @@ def run_one_scenario(scenario: dict) -> dict:
             "selected_style": None,
             "response": None,
             "diagnostics": {
+                "optimizer_infeasible_policy": (
+                    get_optimizer_infeasible_policy_diagnostics()
+                ),
                 "rag_mapping": get_rag_mapping_diagnostics(),
             },
         }

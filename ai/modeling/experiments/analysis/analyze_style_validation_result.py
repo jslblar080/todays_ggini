@@ -17,12 +17,17 @@ DEFAULT_OUTPUT_CSV_PATH = (
 
 
 def load_json(path: str) -> dict:
+    """JSON 파일을 읽는다."""
+
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def save_json(path: str, data: dict) -> None:
+    """JSON 분석 결과를 저장한다."""
+
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
     output_path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -30,6 +35,12 @@ def save_json(path: str, data: dict) -> None:
 
 
 def save_csv(path: str, rows: list[dict]) -> None:
+    """row 단위 분석 결과를 CSV로 저장한다.
+
+    시나리오별 checked_metrics 구조가 다를 수 있으므로,
+    모든 row의 key를 합쳐 CSV 컬럼을 만든다.
+    """
+
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -51,6 +62,8 @@ def save_csv(path: str, rows: list[dict]) -> None:
 
 
 def flatten_checked_metrics(checked_metrics: dict) -> dict:
+    """checked_metrics를 CSV row에 넣기 좋은 형태로 평탄화한다."""
+
     return {
         f"metric_{key}": value
         for key, value in (checked_metrics or {}).items()
@@ -75,7 +88,71 @@ def find_warning_by_type(warnings: list[dict], warning_type: str) -> dict:
     return {}
 
 
+def collect_selected_menu_style_field_stats(monthly_plan: dict) -> dict:
+    """selected_menu의 style score 필드 전달 상태를 집계한다."""
+
+    selected_menu_count = 0
+    base_final_score_present_count = 0
+    style_soft_constraint_present_count = 0
+    style_soft_constraint_non_null_count = 0
+    style_soft_constraint_nonzero_count = 0
+
+    style_soft_constraint_values = []
+
+    for day in monthly_plan.get("days", []):
+        for meal in day.get("meals", []):
+            selected_menu = meal.get("selected_menu") or {}
+
+            if not selected_menu:
+                continue
+
+            selected_menu_count += 1
+
+            if "base_final_score" in selected_menu:
+                base_final_score_present_count += 1
+
+            if "style_soft_constraint_score" in selected_menu:
+                style_soft_constraint_present_count += 1
+
+                value = selected_menu.get("style_soft_constraint_score")
+
+                if value is not None:
+                    style_soft_constraint_non_null_count += 1
+                    style_soft_constraint_values.append(float(value))
+
+                if value not in [None, 0, 0.0]:
+                    style_soft_constraint_nonzero_count += 1
+
+    average_style_soft_constraint_score = (
+        round(
+            sum(style_soft_constraint_values) / len(style_soft_constraint_values),
+            4,
+        )
+        if style_soft_constraint_values
+        else 0
+    )
+
+    return {
+        "selected_menu_count": selected_menu_count,
+        "base_final_score_present_count": base_final_score_present_count,
+        "style_soft_constraint_present_count": (
+            style_soft_constraint_present_count
+        ),
+        "style_soft_constraint_non_null_count": (
+            style_soft_constraint_non_null_count
+        ),
+        "style_soft_constraint_nonzero_count": (
+            style_soft_constraint_nonzero_count
+        ),
+        "average_style_soft_constraint_score": (
+            average_style_soft_constraint_score
+        ),
+    }
+
+
 def analyze_result_file(input_path: str) -> dict:
+    """실험 결과 JSON에서 style_validation 결과를 분석한다."""
+
     data = load_json(input_path)
     results = data.get("results", [])
 
@@ -92,6 +169,12 @@ def analyze_result_file(input_path: str) -> dict:
     total_unique_menu_count = 0
     total_duplicate_menu_count = 0
     duplicate_rate_values = []
+
+    total_base_final_score_present_count = 0
+    total_style_soft_constraint_present_count = 0
+    total_style_soft_constraint_non_null_count = 0
+    total_style_soft_constraint_nonzero_count = 0
+    total_style_soft_constraint_score_sum = 0
 
     success_count = 0
     fail_count = 0
@@ -122,6 +205,10 @@ def analyze_result_file(input_path: str) -> dict:
         secondary_warnings = style_validation.get("secondary_warnings") or []
         recommendation_hint = style_validation.get("recommendation_hint")
 
+        menu_style_stats = collect_selected_menu_style_field_stats(
+            monthly_plan=monthly_plan
+        )
+
         warning_types = [
             warning.get("type")
             for warning in secondary_warnings
@@ -138,7 +225,10 @@ def analyze_result_file(input_path: str) -> dict:
             warning_type="duplicate_menu",
         )
 
-        selected_menu_count = plan_summary.get("selected_menu_count", 0)
+        selected_menu_count = plan_summary.get(
+            "selected_menu_count",
+            menu_style_stats["selected_menu_count"],
+        )
         unique_menu_count = plan_summary.get("unique_menu_count", 0)
         duplicate_menu_count = plan_summary.get("duplicate_menu_count", 0)
         duplicate_rate = calculate_duplicate_rate(plan_summary)
@@ -149,6 +239,24 @@ def analyze_result_file(input_path: str) -> dict:
 
         if selected_menu_count > 0:
             duplicate_rate_values.append(duplicate_rate)
+
+        total_base_final_score_present_count += menu_style_stats[
+            "base_final_score_present_count"
+        ]
+        total_style_soft_constraint_present_count += menu_style_stats[
+            "style_soft_constraint_present_count"
+        ]
+        total_style_soft_constraint_non_null_count += menu_style_stats[
+            "style_soft_constraint_non_null_count"
+        ]
+        total_style_soft_constraint_nonzero_count += menu_style_stats[
+            "style_soft_constraint_nonzero_count"
+        ]
+
+        total_style_soft_constraint_score_sum += (
+            menu_style_stats["average_style_soft_constraint_score"]
+            * menu_style_stats["selected_menu_count"]
+        )
 
         status_counter[status] += 1
         focus_key_counter[focus_key] += 1
@@ -194,6 +302,7 @@ def analyze_result_file(input_path: str) -> dict:
             "average_diversity_score": plan_summary.get(
                 "average_diversity_score"
             ),
+            **menu_style_stats,
             **flatten_checked_metrics(checked_metrics),
         }
 
@@ -202,6 +311,15 @@ def analyze_result_file(input_path: str) -> dict:
     average_duplicate_rate = (
         round(sum(duplicate_rate_values) / len(duplicate_rate_values), 4)
         if duplicate_rate_values
+        else 0
+    )
+
+    average_style_soft_constraint_score = (
+        round(
+            total_style_soft_constraint_score_sum / total_selected_menu_count,
+            4,
+        )
+        if total_selected_menu_count
         else 0
     )
 
@@ -222,6 +340,35 @@ def analyze_result_file(input_path: str) -> dict:
         "unique_menu_count": total_unique_menu_count,
         "duplicate_menu_count": total_duplicate_menu_count,
         "average_duplicate_rate": average_duplicate_rate,
+        "base_final_score_present_count": total_base_final_score_present_count,
+        "style_soft_constraint_present_count": (
+            total_style_soft_constraint_present_count
+        ),
+        "style_soft_constraint_non_null_count": (
+            total_style_soft_constraint_non_null_count
+        ),
+        "style_soft_constraint_nonzero_count": (
+            total_style_soft_constraint_nonzero_count
+        ),
+        "style_soft_constraint_non_null_rate": (
+            round(
+                total_style_soft_constraint_non_null_count
+                / total_selected_menu_count,
+                4,
+            )
+            if total_selected_menu_count
+            else 0
+        ),
+        "style_soft_constraint_nonzero_rate": (
+            round(
+                total_style_soft_constraint_nonzero_count
+                / total_selected_menu_count,
+                4,
+            )
+            if total_selected_menu_count
+            else 0
+        ),
+        "average_style_soft_constraint_score": average_style_soft_constraint_score,
     }
 
     return {
@@ -259,16 +406,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    analysis_result = analyze_result_file(args.input)
+    analysis = analyze_result_file(args.input)
 
-    save_json(args.output_json, analysis_result)
-    save_csv(args.output_csv, analysis_result["rows"])
+    save_json(args.output_json, analysis)
+    save_csv(args.output_csv, analysis["rows"])
 
     print("[INFO] style validation analysis finished.")
-    print(f"[INFO] input: {args.input}")
-    print(f"[INFO] output json: {args.output_json}")
-    print(f"[INFO] output csv: {args.output_csv}")
-    print(f"[INFO] summary: {analysis_result['summary']}")
+    print("[INFO] input:", args.input)
+    print("[INFO] output json:", args.output_json)
+    print("[INFO] output csv:", args.output_csv)
+    print("[INFO] summary:", analysis["summary"])
 
 
 if __name__ == "__main__":

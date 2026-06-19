@@ -4,14 +4,15 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/auth_interceptor.dart';
 import '../../../../core/env/env.dart';
 import '../../data/auth_remote_data_source.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/user.dart';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Repository Provider
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
@@ -66,20 +67,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final FlutterSecureStorage _storage;
 
   AuthNotifier(this._repository, this._googleSignIn, this._storage)
-    : super(const AuthState());
+      : super(const AuthState());
 
   // 토큰 저장 헬퍼
   Future<void> _saveTokens(User user) async {
     if (user.accessToken != null) {
       await _storage.write(key: 'accessToken', value: user.accessToken);
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('accessToken', user.accessToken!);
+      }
     }
     if (user.refreshToken != null) {
       await _storage.write(key: 'refreshToken', value: user.refreshToken);
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('refreshToken', user.refreshToken!);
+      }
+    }
+  }
+
+  // 토큰 삭제 헬퍼
+  Future<void> _deleteTokens() async {
+    await _storage.delete(key: 'accessToken');
+    await _storage.delete(key: 'refreshToken');
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('accessToken');
+      await prefs.remove('refreshToken');
     }
   }
 
   /// 백엔드에서 최신 user 상태를 가져와 authState 갱신.
-  /// 온보딩 저장 등 user 가 바뀐 직후 호출.
   Future<void> refreshUser() async {
     final accessToken = await _storage.read(key: 'accessToken');
     if (accessToken == null || accessToken.isEmpty) return;
@@ -162,18 +181,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loginAsGuest() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      // 1. 백엔드에 게스트 세션 만들고 JWT 받기
       final accessToken = await _repository.initGuestSession();
-
-      // 2. JWT 를 storage 에 먼저 저장 (다음 호출에서 AuthInterceptor 가 자동으로 헤더 부착)
       await _storage.write(key: 'accessToken', value: accessToken);
-
-      // 3. 저장된 JWT 로 /me 호출해서 user 정보 가져오기
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('accessToken', accessToken);
+      }
       final user = await _repository.getCurrentUser(
         accessToken: accessToken,
         refreshToken: null,
       );
-
       if (!mounted) return;
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
@@ -181,7 +198,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(error: e, isLoading: false);
     }
   }
-  
+
   void markOnboarded() {
     if (state.user != null) {
       state = state.copyWith(
@@ -198,14 +215,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// 토큰 만료/refresh 실패 등으로 세션이 끊겼을 때 호출.
+  /// 백엔드 호출 없이(이미 토큰이 죽었으므로) 로컬 토큰만 비우고 상태를 초기화한다.
+  /// authState 가 비워지면 라우터가 자동으로 /auth 로 보낸다.
+  Future<void> forceLogout() async {
+    await _deleteTokens();
+    if (!mounted) return;
+    state = const AuthState();
+  }
+
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _googleSignIn.signOut();
       await _repository.logout();
-      // 토큰 삭제
-      await _storage.delete(key: 'accessToken');
-      await _storage.delete(key: 'refreshToken');
+      await _deleteTokens();
       if (!mounted) return;
       state = const AuthState();
     } catch (e) {
@@ -219,8 +243,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _repository.unregister();
-      await _storage.delete(key: 'accessToken');
-      await _storage.delete(key: 'refreshToken');
+      await _deleteTokens();
       if (!mounted) return;
       state = const AuthState();
     } catch (e) {
@@ -231,10 +254,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 // Provider
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final notifier = AuthNotifier(
     ref.watch(authRepositoryProvider),
     ref.watch(googleSignInProvider),
     ref.watch(secureStorageProvider),
-  ),
-);
+  );
+
+  // 401 → refresh 실패 시 세션을 비우도록 인터셉터에 콜백 연결.
+  // (dioProvider 가 authProvider 를 직접 참조하면 순환 참조가 되므로 여기서 주입)
+  final dio = ref.read(dioProvider);
+  for (final interceptor in dio.interceptors) {
+    if (interceptor is AuthInterceptor) {
+      interceptor.onAuthFailure = notifier.forceLogout;
+    }
+  }
+
+  return notifier;
+});

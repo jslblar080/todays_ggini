@@ -116,6 +116,51 @@ def collect_response_shape(response: dict) -> dict:
     }
 
 
+def collect_optimizer_infeasible_policy_info(result: dict) -> dict:
+    """
+    experiment result artifact에 저장된 optimizer infeasible policy diagnostics를 수집한다.
+    """
+
+    diagnostics = result.get("diagnostics") or {}
+    policy_diagnostics = diagnostics.get("optimizer_infeasible_policy") or {}
+
+    events = policy_diagnostics.get("events") or []
+
+    active_constraint_types = []
+    relaxation_action_types = []
+
+    for event in events:
+        active_constraint_types.extend([
+            context.get("type")
+            for context in event.get("active_constraint_contexts", [])
+            if context.get("type")
+        ])
+
+        relaxation_action_types.extend([
+            action.get("type")
+            for action in event.get("relaxation_actions", [])
+            if action.get("type")
+        ])
+
+    return {
+        "optimizer_infeasible_policy_event_count": (
+            policy_diagnostics.get("event_count", len(events)) or 0
+        ),
+        "optimizer_infeasible_active_constraint_types": "|".join(
+            active_constraint_types
+        ),
+        "optimizer_infeasible_relaxation_action_types": "|".join(
+            relaxation_action_types
+        ),
+        "optimizer_infeasible_active_constraint_count": len(
+            active_constraint_types
+        ),
+        "optimizer_infeasible_relaxation_action_count": len(
+            relaxation_action_types
+        ),
+    }
+
+
 def collect_rag_mapping_info(result: dict) -> dict:
     """
     실험 result artifact에 저장된 RAG mapping diagnostics를 수집한다.
@@ -246,10 +291,15 @@ def analyze_result_file(input_path: str) -> dict:
     fallback_reason_counter = Counter()
     candidate_shortage_reason_counter = Counter()
     recommended_next_step_counter = Counter()
+    optimizer_infeasible_constraint_type_counter = Counter()
+    optimizer_infeasible_action_type_counter = Counter()
     rag_quality_issue_type_counter = Counter()
     rag_ingredient_group_mapping_status_counter = Counter()
 
     fallback_count = 0
+    optimizer_infeasible_policy_event_count = 0
+    optimizer_infeasible_active_constraint_count = 0
+    optimizer_infeasible_relaxation_action_count = 0
     candidate_pool_enough_count = 0
     candidate_pool_shortage_count = 0
     solver_success_count = 0
@@ -301,6 +351,9 @@ def analyze_result_file(input_path: str) -> dict:
         fallback_info = collect_fallback_info(
             monthly_plan=monthly_plan,
             response=response,
+        )
+        optimizer_infeasible_policy_info = (
+            collect_optimizer_infeasible_policy_info(result)
         )
         rag_mapping_info = collect_rag_mapping_info(result)
 
@@ -387,6 +440,46 @@ def analyze_result_file(input_path: str) -> dict:
         if recommended_next_step:
             recommended_next_step_counter[recommended_next_step] += 1
 
+        optimizer_infeasible_policy_event_count += (
+            optimizer_infeasible_policy_info.get(
+                "optimizer_infeasible_policy_event_count",
+                0,
+            )
+            or 0
+        )
+        optimizer_infeasible_active_constraint_count += (
+            optimizer_infeasible_policy_info.get(
+                "optimizer_infeasible_active_constraint_count",
+                0,
+            )
+            or 0
+        )
+        optimizer_infeasible_relaxation_action_count += (
+            optimizer_infeasible_policy_info.get(
+                "optimizer_infeasible_relaxation_action_count",
+                0,
+            )
+            or 0
+        )
+
+        optimizer_infeasible_constraint_type_counter.update([
+            constraint_type
+            for constraint_type in optimizer_infeasible_policy_info.get(
+                "optimizer_infeasible_active_constraint_types",
+                "",
+            ).split("|")
+            if constraint_type
+        ])
+
+        optimizer_infeasible_action_type_counter.update([
+            action_type
+            for action_type in optimizer_infeasible_policy_info.get(
+                "optimizer_infeasible_relaxation_action_types",
+                "",
+            ).split("|")
+            if action_type
+        ])
+
         total_selected_menu_count += selected_menu_count
         total_required_meal_count += required_meal_count
         total_unique_menu_count += unique_menu_count
@@ -461,6 +554,7 @@ def analyze_result_file(input_path: str) -> dict:
 
             **optimizer_info,
             **fallback_info,
+            **optimizer_infeasible_policy_info,
             **{
                 key: value
                 for key, value in rag_mapping_info.items()
@@ -519,6 +613,26 @@ def analyze_result_file(input_path: str) -> dict:
         ),
 
         "failure_reason_count": dict(failure_reason_counter),
+
+        "optimizer_infeasible_policy_event_count": (
+            optimizer_infeasible_policy_event_count
+        ),
+        "optimizer_infeasible_policy_event_rate": safe_rate(
+            optimizer_infeasible_policy_event_count,
+            scenario_count,
+        ),
+        "optimizer_infeasible_active_constraint_count": (
+            optimizer_infeasible_active_constraint_count
+        ),
+        "optimizer_infeasible_relaxation_action_count": (
+            optimizer_infeasible_relaxation_action_count
+        ),
+        "optimizer_infeasible_constraint_type_count": dict(
+            optimizer_infeasible_constraint_type_counter
+        ),
+        "optimizer_infeasible_action_type_count": dict(
+            optimizer_infeasible_action_type_counter
+        ),
 
         "fallback_count": fallback_count,
         "fallback_rate": safe_rate(fallback_count, scenario_count),

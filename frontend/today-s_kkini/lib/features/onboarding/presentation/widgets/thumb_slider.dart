@@ -115,7 +115,7 @@ class _ThumbSliderState extends State<ThumbSlider> {
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         activeTrackColor: AppColors.primary,
-        inactiveTrackColor: AppColors.buttonGray,
+        inactiveTrackColor: AppColors.border,
         trackHeight: 6,
         thumbShape: ImageThumbShape(
           image: _thumbImage,
