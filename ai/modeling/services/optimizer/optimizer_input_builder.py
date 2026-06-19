@@ -231,30 +231,26 @@ def build_optimizer_config(profile: dict) -> dict:
 
     goals = profile.get("goals", []) or []
 
-    if "고단백" in goals:
+    has_high_protein_goal = "고단백" in goals
+
+    if has_high_protein_goal:
         config["enable_protein_bonus"] = True
         config["protein_bonus_weight"] = 180
         config["protein_bonus_cap_grams"] = 35
-        config["repeat_penalty_weight"] = max(
-            int(config.get("repeat_penalty_weight", 0) or 0),
-            4500,
-        )
+        config["repeat_penalty_weight"] = 5000
 
     cooking_skill = safe_float(profile.get("cooking_skill"), 3)
 
-    if "간편식" in goals:
+    # 고단백 목표와 난이도 보너스를 동시에 강하게 주면
+    # 복합 제약 시나리오에서 단백질/예산/반복 제어 objective가 충돌할 수 있다.
+    # 따라서 고단백이 아닌 경우에만 difficulty bonus를 자동 적용한다.
+    if not has_high_protein_goal and "간편식" in goals:
         config["enable_difficulty_bonus"] = True
         config["difficulty_bonus_weight"] = 120
 
-    elif cooking_skill <= 2:
+    elif not has_high_protein_goal and cooking_skill <= 2:
         config["enable_difficulty_bonus"] = True
         config["difficulty_bonus_weight"] = 50
-
-    if "고단백" in goals and config.get("enable_difficulty_bonus"):
-        config["protein_bonus_weight"] = max(
-            int(config.get("protein_bonus_weight", 0) or 0),
-            220,
-        )
 
     override_keys = [
         "score_weight",
