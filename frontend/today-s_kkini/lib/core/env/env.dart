@@ -23,7 +23,7 @@ class Env {
   /// 카카오 네이티브 앱 키 (Ios/Android).
   static const String kakaoNativeKey = String.fromEnvironment(
     'KAKAO_NATIVE_KEY',
-    defaultValue: '9eb912137d7833c4bda844bebcce1a3c',
+    defaultValue: '',
   );
 
   /// 카카오 JavaScript 키 (Web).
@@ -35,7 +35,7 @@ class Env {
   /// 네이버 Client ID.
   static const String naverClientId = String.fromEnvironment(
     'NAVER_CLIENT_ID',
-    defaultValue: 'LaLqTUwNHmjlcUpO4Mlv',
+    defaultValue: '',
   );
 
   /// 네이버 Client Secret.
@@ -61,6 +61,6 @@ class Env {
   /// 보통 Android에서는 코드가 아니라 OS 가 자동으로 매칭하므로 비워둬도 됨.
   static const String googleAndroidClientId = String.fromEnvironment(
     'GOOGLE_ANDROID_CLIENT_ID',
-    defaultValue: '987643896621-4mr99pgantk7l6tq6quupq2bvkfiunp4.apps.googleusercontent.com',
+    defaultValue: '',
   );
 }
