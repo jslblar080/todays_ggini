@@ -1,0 +1,36 @@
+{
+  "user_id": 1,
+  "request_type": "monthly_plan",
+  "monthly_plan": {
+    "days": [
+      {
+        "day": 1,
+        "meals": [
+          {
+            "meal_type": "breakfast",
+            "menu_id": "menu_001",
+            "menu_name": "닭가슴살 샐러드",
+            "price": 6500
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "period_days": 30,
+    "selected_meal_count": 90,
+    "estimated_total_cost": 240000
+  },
+  "style_validation": {
+    "status": "pass",
+    "messages": []
+  },
+  "warnings": [],
+  "fallback": {
+    "used": false,
+    "reasons": []
+  },
+  "profiling": {
+    "total_ms": 0
+  }
+}

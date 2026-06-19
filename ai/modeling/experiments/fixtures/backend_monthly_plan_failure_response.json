@@ -1,0 +1,7 @@
+{
+  "user_id": 1,
+  "request_type": "monthly_plan",
+  "success": false,
+  "failure_reason": "candidate_insufficient",
+  "message": "optimizer가 필요한 식사 수를 채울 후보 수가 부족합니다."
+}

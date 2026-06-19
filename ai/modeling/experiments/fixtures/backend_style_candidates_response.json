@@ -1,0 +1,13 @@
+{
+  "user_id": 1,
+  "request_type": "meal_style_candidates",
+  "style_candidates": [
+    {
+      "style_id": "nutrition_balance",
+      "style_name": "영양 균형형",
+      "source_goal": "영양 균형",
+      "focus_key": "nutrition"
+    }
+  ],
+  "warnings": []
+}
