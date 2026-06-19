@@ -85,7 +85,8 @@ class HomeScreen extends ConsumerWidget {
             text: '재료 선택 및 메뉴 변경',
             enabled: state.selectedMenu != null,
             onPressed: () {
-              context.push(AppRoutes.mealDetailPath(DateTime.now()));
+              final date = state.selectedDate ?? DateTime.now();
+              context.push(AppRoutes.mealDetailPath(date));
             },
           ),
         ),

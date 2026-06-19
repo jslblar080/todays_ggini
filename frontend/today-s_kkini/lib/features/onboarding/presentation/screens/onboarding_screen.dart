@@ -358,7 +358,7 @@ class _StepPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontFamily: 'MemomentKkukkukk',
-                  fontSize: 30,
+                  fontSize: 34,
                 ),
           ),
           const SizedBox(height: 24),

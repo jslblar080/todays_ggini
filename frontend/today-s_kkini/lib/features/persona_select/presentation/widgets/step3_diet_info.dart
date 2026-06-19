@@ -29,7 +29,7 @@ class Step3DietInfo extends StatelessWidget {
               '식단 정보를 입력해 주세요',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontFamily: 'MemomentKkukkukk',
-                    fontSize: 30,
+                    fontSize: 34,
                   ),
             ),
           ),

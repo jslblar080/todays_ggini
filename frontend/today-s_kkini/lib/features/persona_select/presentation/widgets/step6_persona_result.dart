@@ -34,7 +34,7 @@ class Step6PersonaResult extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontFamily: 'MemomentKkukkukk',
-                    fontSize: 30,
+                    fontSize: 34,
                   ),
             ),
             const SizedBox(height: 8),
@@ -46,9 +46,9 @@ class Step6PersonaResult extends ConsumerWidget {
 
             GridView.count(
               crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.75,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+              childAspectRatio: 0.65,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: personas.map((persona) {

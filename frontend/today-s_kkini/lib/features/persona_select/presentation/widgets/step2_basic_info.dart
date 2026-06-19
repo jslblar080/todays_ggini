@@ -86,7 +86,7 @@ class _Step2BasicInfoState extends State<Step2BasicInfo> {
             isMulti ? '대표자 정보를 입력해 주세요' : '기본 정보를 입력해 주세요',
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontFamily: 'MemomentKkukkukk',
-                  fontSize: 30,
+                  fontSize: 34,
                 ),
           ),
           if (isMulti) ...[

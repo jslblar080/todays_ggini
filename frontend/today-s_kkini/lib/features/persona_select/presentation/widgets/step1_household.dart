@@ -57,7 +57,7 @@ class _Step1HouseholdState extends State<Step1Household> {
               '어떤 가구 형태인가요?',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontFamily: 'MemomentKkukkukk',
-                    fontSize: 30,
+                    fontSize: 34,
                   ),
             ),
             const SizedBox(height: 24),
