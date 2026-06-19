@@ -256,3 +256,122 @@ US08은 difficulty 중심 시나리오가 아니라 very low budget 시나리오
 4. 산식 변경 전후를 snapshot replay뿐 아니라 full validation regression 기준으로 비교
 5. INFEASIBLE 발생 시에도 input snapshot과 budget feasibility diagnostics를 남기도록 보강
 
+
+---
+
+## 12. Budget-aware Candidate Selection 및 조리시간 기본값 완화 검증
+
+### 배경
+
+US05_easy_cooking_low_skill 시나리오에서 간편식/낮은 조리 실력 사용자에게 조리 난이도 점수가 과도하게 낮게 산정되는 문제가 확인되었다.
+
+US05 후보 분석 결과, 모든 후보 메뉴에서 `cooking_time = 20`으로 들어오고 있었으며, 기존 산식에서는 20분 이하 조리시간에도 `cooking_time_points = 1`이 부여되고 있었다.
+
+이는 RAG 후보에서 조리 시간이 명확하지 않을 때 20분이 기본값처럼 들어오는 경우까지 난이도 penalty로 반영할 수 있어, low skill / 간편식 사용자에게 불리하게 작동할 가능성이 있었다.
+
+### 1차 실험: cooking_time 20분 penalty 완화
+
+변경 내용:
+
+- 기존: `cooking_time <= 20`이면 `cooking_time_points = 1`
+- 변경: `cooking_time <= 20`이면 `cooking_time_points = 0`
+
+US05 단독 검증 결과:
+
+- average_difficulty_score: 14.33 → 26.5
+- difficulty_candidate_ge65_count: 1 → 8
+- difficulty_candidate_ge40_count: 15 → 36
+- difficulty_candidate_eq0_count: 29 → 18
+
+해석:
+
+- 조리시간 20분 기본값이 난이도 점수를 과하게 낮추고 있었다는 근거가 확인되었다.
+- 다만 US05는 여전히 `difficulty_candidate_ge75_count = 0`으로, validation pass까지는 도달하지 못했다.
+
+### 관측된 회귀: US08 very low budget
+
+조리시간 penalty 완화만 적용했을 때, US08_very_low_budget 시나리오에서 budget infeasible이 발생했다.
+
+관측 결과:
+
+- budget_min_possible_cost_with_repeat_limit: 180,928
+- monthly_budget: 180,000
+- budget_margin_min_possible: -928
+- solver_status: SKIPPED_BUDGET_INFEASIBLE
+- meal_coverage_rate: 0.0
+
+원인 해석:
+
+- difficulty 산식 변경이 일부 메뉴의 final_score 순위를 바꾸었다.
+- 현재 optimizer 후보 선택은 final_score 상위 N개를 우선 사용하므로, very low budget 시나리오에 필요한 저가 후보 일부가 후보풀에서 탈락했다.
+- 그 결과 optimizer 후보 안에서는 가장 저렴한 조합을 구성해도 예산을 초과했다.
+
+### 구조 개선: Budget-aware Optimizer Candidate Selection
+
+이를 해결하기 위해 optimizer 후보 선택 단계에서 final_score 상위 후보를 유지하되, 월 예산이 있는 경우 estimated_cost 기준 저가 후보를 추가 보존하도록 개선했다.
+
+개선 방향:
+
+- final_score 상위 후보 유지
+- monthly_budget이 있는 경우 estimated_cost 낮은 후보 일부 추가
+- menu_id 또는 name 기준 중복 제거
+- low_cost_candidate_limit = max(required_meal_count * 0.5, 30)
+
+US08 기준:
+
+- optimizer_candidate_limit: 108
+- low_cost_candidate_limit: 45
+- used_optimizer_candidate_count: 113
+- additional_low_cost_candidate_count: 5
+
+### 0050 전체 validation 결과
+
+budget-aware 후보 보존과 조리시간 20분 penalty 완화를 함께 적용한 뒤 전체 15개 시나리오를 재검증했다.
+
+전체 summary:
+
+- scenario_count: 15
+- success_count: 15
+- fail_count: 0
+- solver_status_count: {'FEASIBLE': 7, 'OPTIMAL': 8}
+- required_meal_count: 1320
+- selected_menu_count: 1320
+- meal_coverage_rate: 1.0
+- budget_feasibility_status_count: {'budget_pool_has_feasible_options': 15}
+- budget_absolute_unreachable_count: 0
+
+US05 결과:
+
+- validation_status: fail
+- average_difficulty_score: 26.5
+- difficulty_candidate_ge65_count: 8
+- difficulty_candidate_ge40_count: 36
+- difficulty_candidate_eq0_count: 18
+- difficulty_feasibility_status: absolute_pass_unreachable
+
+US08 결과:
+
+- validation_status: warning
+- solver_status: FEASIBLE
+- budget_feasibility_status: budget_pool_has_feasible_options
+- budget_min_possible_cost_with_repeat_limit: 164,104
+- budget_margin_min_possible: 15,896
+- budget_candidate_count: 113
+- meal_coverage_rate: 1.0
+
+### 결론
+
+이번 변경은 전체 validation 기준으로 통과했다.
+
+확인된 개선점:
+
+1. 조리시간 20분 기본값에 대한 난이도 penalty 왜곡을 완화했다.
+2. difficulty 산식 변경으로 인해 very low budget 시나리오의 저가 후보가 탈락하는 문제를 budget-aware candidate selection으로 방어했다.
+3. US08의 budget infeasible regression을 해결했다.
+4. 전체 15개 시나리오에서 meal coverage 1.0을 유지했다.
+
+남은 이슈:
+
+- US05_easy_cooking_low_skill은 여전히 validation fail이다.
+- 현재 fail 원인은 예산/solver/후보 수 문제가 아니라 candidate difficulty score 분포 문제다.
+- 이후 estimated_usage_points, action_points, validation threshold 중 어느 부분을 조정할지 추가 분석이 필요하다.
