@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart'; // kIsWeb 사용시 필요
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/popup.dart';
 import '../providers/auth_provider.dart';
 import 'social_button.dart';
+import '../../../../../core/widgets/app_primary_button.dart';
 
 class SocialLoginSheet extends ConsumerWidget {
   const SocialLoginSheet({super.key});
@@ -31,7 +32,7 @@ class SocialLoginSheet extends ConsumerWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(5),
               ),
             ),
 
@@ -46,11 +47,9 @@ class SocialLoginSheet extends ConsumerWidget {
                   imagePath: 'assets/images/kakao.png',
                   color: const Color(0xFFFFE812),
                   onTap: () async {
-                    await notifier.loginWithKakao(); // 로그인 먼저
-                    if (!context.mounted) return; // sheet 위젯의 context가 살아있는지 체크
-                    Navigator.pop(context); // sheet 닫기
-                    // context.go는 안 불러도 됨 — app_router.dart에서
-                    // refreshListenable: authNotifier 적용했으면 router가 자동 redirect
+                    await notifier.loginWithKakao();
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
                   },
                 ),
                 SocialButton(
@@ -75,15 +74,6 @@ class SocialLoginSheet extends ConsumerWidget {
                     Navigator.pop(context);
                   },
                 ),
-                SocialButton(
-                  label: '애플',
-                  color: Colors.white,
-                  border: true,
-                  onTap: () async {
-                    Navigator.pop(context);
-                    context.go(AppRoutes.personaSelect);
-                  },
-                ),
               ],
             ),
 
@@ -92,7 +82,7 @@ class SocialLoginSheet extends ConsumerWidget {
             // 구분선
             Row(
               children: [
-                const Expanded(child: Divider()),
+                const Expanded(child: Divider(thickness: 2)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
@@ -100,35 +90,29 @@ class SocialLoginSheet extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
-                const Expanded(child: Divider()),
+                const Expanded(child: Divider(thickness: 2)),
               ],
             ),
 
             const SizedBox(height: 16),
 
             // 로그인 없이 시작하기 버튼
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  showAppPopup(
-                    context: context,
-                    content: '로그인 없이 시작할 시,\n어플리케이션을 삭제하면\n저장된 정보가 모두 삭제됩니다.',
-                    leftButtonText: '로그인하기',
-                    rightButtonText: '확인',
-                    onLeftTap: () => Navigator.pop(context),
-                    onRightTap: () async {
-                      await notifier.loginAsGuest();
-                      if (!context.mounted) return;
-                      context.go(AppRoutes.personaSelect);
-                    },
-                  );
-                },
-                child: Text(
-                  '로그인 없이 시작하기',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-              ),
+            AppPrimaryButton(
+              text: '로그인 없이 시작하기',
+              onPressed: () {
+                showAppPopup(
+                  context: context,
+                  content: '로그인 없이 시작할 시,\n어플리케이션을 삭제하면\n저장된 정보가 모두 삭제됩니다.',
+                  leftButtonText: '로그인하기',
+                  rightButtonText: '확인',
+                  onLeftTap: () => Navigator.pop(context),
+                  onRightTap: () async {
+                    await notifier.loginAsGuest();
+                    if (!context.mounted) return;
+                    context.go(AppRoutes.personaSelect);
+                  },
+                );
+              },
             ),
           ],
         ),

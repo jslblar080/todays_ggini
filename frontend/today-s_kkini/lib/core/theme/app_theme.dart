@@ -9,7 +9,7 @@ class AppTheme {
       seedColor: AppColors.primary,
       primary: AppColors.primary,
       onPrimary: Colors.white,
-      surface: AppColors.stylegray,
+      surface: AppColors.gray,
       onSurface: AppColors.textPrimary,
       error: AppColors.error,
       brightness: Brightness.light,
@@ -17,7 +17,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: 'NanumSquareNeo',
+      fontFamily: 'Pretendard',
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
       textTheme: const TextTheme(
@@ -42,19 +42,8 @@ class AppTheme {
           color: AppColors.textSecondary,
         ),
         labelLarge: TextStyle(
-          fontSize: 19,        // 버튼 글씨
+          fontSize: 18,        // 버튼 글씨
           color: Colors.white,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(56),
-          textStyle: const TextStyle(fontSize: 22, fontFamily: 'NanumSquareNeo',),  // 버튼 글씨
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
         ),
       ),
       sliderTheme: SliderThemeData(

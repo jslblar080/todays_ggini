@@ -18,6 +18,8 @@ import '../../features/shopping_list/presentation/screens/shopping_list_screen.d
 import '../../features/shopping_list/presentation/screens/shopping_trash_screen.dart';
 import '../../features/ingredient_detail/presentation/screens/ingredient_detail_screen.dart';
 import '../../features/menu_change/presentation/screens/menu_change_screen.dart';
+import '../../features/mypage/domain/my_profile.dart';
+import '../../features/mypage/presentation/screens/family_members_screen.dart';
 
 import 'app_routes.dart';
 
@@ -80,7 +82,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(
         path: AppRoutes.personaSelect,
-        builder: (_, __) => const PersonaSelectScreen(),
+        builder: (_, state) {
+          final initialData = state.extra as Map<String, dynamic>?;
+          return PersonaSelectScreen(initialData: initialData);
+        },
       ),
       GoRoute(path: AppRoutes.auth, builder: (_, __) => const AuthScreen()),
       GoRoute(
@@ -156,6 +161,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   : DateTime.now();
           final slot = slotStr != null ? int.tryParse(slotStr) ?? 1 : 1;
           return MenuChangeScreen(mealId: mealId, date: date, slot: slot);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.familyMembers,
+        builder: (_, state) {
+          final profile = state.extra as MyProfile;
+          return FamilyMembersScreen(profile: profile);
         },
       ),
     ],

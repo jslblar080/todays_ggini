@@ -30,11 +30,7 @@ class _AllergyInputState extends State<AllergyInput> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '[알레르기 및 제외 재료]',
-          style: Theme.of(context).textTheme.bodyLarge
-        ),
-        const SizedBox(height: 12),
+        // 입력창 + 추가 버튼
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -42,25 +38,26 @@ class _AllergyInputState extends State<AllergyInput> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: _controller,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    decoration: InputDecoration(
-                      hintText: '제외할 재료를 입력해 주세요.',
-                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.grayLight,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _error != null ? AppColors.error : Colors.transparent,
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: _error != null ? AppColors.error : AppColors.border,
-                        ),
+                    ),
+                    child: TextField(
+                      controller: _controller,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: '알레르기 및 제외 재료',
+                        hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                   ),
                   if (_error != null)
@@ -69,8 +66,8 @@ class _AllergyInputState extends State<AllergyInput> {
                       child: Text(
                         _error!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.error,
-                        ),
+                              color: AppColors.error,
+                            ),
                       ),
                     ),
                 ],
@@ -98,54 +95,62 @@ class _AllergyInputState extends State<AllergyInput> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   minimumSize: Size.zero,
                 ),
                 child: Text(
                   '추가',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white
-                  )
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                      ),
                 ),
               ),
             ),
           ],
         ),
+
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: widget.allergies.map((allergy) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.buttonGray,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
+
+        // 추가된 항목 리스트
+        ...widget.allergies.map((allergy) {
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.gray, width: 3),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
                     allergy,
-                    style: Theme.of(context).textTheme.bodyMedium
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () {
-                      final newList = List<String>.from(widget.allergies)
-                        ..remove(allergy);
-                      widget.onChanged(newList);
-                    },
-                    child: const Icon(Icons.close, size: 16, color: AppColors.border),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    final newList = List<String>.from(widget.allergies)
+                      ..remove(allergy);
+                    widget.onChanged(newList);
+                  },
+                  child: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: AppColors.textSecondary,
                   ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
