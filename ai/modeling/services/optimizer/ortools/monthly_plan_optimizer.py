@@ -65,6 +65,12 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
     protein_bonus_cap_grams = float(
         optimizer_input.get("protein_bonus_cap_grams", 35) or 35
     )
+    enable_difficulty_bonus = bool(
+        optimizer_input.get("enable_difficulty_bonus", False)
+    )
+    difficulty_bonus_weight = int(
+        optimizer_input.get("difficulty_bonus_weight", 0) or 0
+    )
     monthly_budget = int(optimizer_input.get("monthly_budget") or 0)
     required_meal_count = optimizer_input.get("required_meal_count")
     original_recommendation_count = optimizer_input.get("original_recommendation_count")
@@ -164,11 +170,20 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 capped_protein = min(protein, protein_bonus_cap_grams)
                 protein_bonus = int(round(capped_protein * protein_bonus_weight))
 
+            difficulty_bonus = 0
+
+            if enable_difficulty_bonus and difficulty_bonus_weight > 0:
+                difficulty_score = float(menu.get("difficulty_score", 0) or 0)
+                difficulty_bonus = int(round(
+                    difficulty_score * difficulty_bonus_weight
+                ))
+
             objective_terms.append(
                 decision_vars[(slot_index, menu_index)]
                 * (
                     score
                     + protein_bonus
+                    + difficulty_bonus
                     - (cost_penalty * cost_penalty_weight)
                     - nutrition_outlier_penalty
                 )
@@ -245,6 +260,8 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
                 "enable_protein_bonus": enable_protein_bonus,
                 "protein_bonus_weight": protein_bonus_weight,
                 "protein_bonus_cap_grams": protein_bonus_cap_grams,
+                "enable_difficulty_bonus": enable_difficulty_bonus,
+                "difficulty_bonus_weight": difficulty_bonus_weight,
                 "max_repeat_per_menu": max_repeat_per_menu,
                 "solver_time_limit_seconds": time_limit,
                 "monthly_budget": monthly_budget,
@@ -290,6 +307,8 @@ def solve_monthly_plan_with_ortools(optimizer_input: dict) -> dict:
             "enable_protein_bonus": enable_protein_bonus,
             "protein_bonus_weight": protein_bonus_weight,
             "protein_bonus_cap_grams": protein_bonus_cap_grams,
+            "enable_difficulty_bonus": enable_difficulty_bonus,
+            "difficulty_bonus_weight": difficulty_bonus_weight,
             "max_repeat_per_menu": max_repeat_per_menu,
             "solver_time_limit_seconds": time_limit,
             "monthly_budget": monthly_budget,

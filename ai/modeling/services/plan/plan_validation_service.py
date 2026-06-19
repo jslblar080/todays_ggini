@@ -309,6 +309,129 @@ def validate_preference_style(
     }
 
 
+
+def calculate_percentile(values: list[float], percentile: float) -> float | None:
+    """
+    정렬된 값 분포에서 percentile 값을 계산한다.
+    """
+
+    if not values:
+        return None
+
+    sorted_values = sorted(values)
+    position = (len(sorted_values) - 1) * percentile
+    lower_index = int(position)
+    upper_index = min(lower_index + 1, len(sorted_values) - 1)
+
+    if lower_index == upper_index:
+        return sorted_values[lower_index]
+
+    lower_value = sorted_values[lower_index]
+    upper_value = sorted_values[upper_index]
+
+    return lower_value + (upper_value - lower_value) * (
+        position - lower_index
+    )
+
+
+def calculate_average(values: list[float]) -> float | None:
+    """
+    숫자 리스트의 평균을 계산한다.
+    """
+
+    if not values:
+        return None
+
+    return round(sum(values) / len(values), 2)
+
+
+def build_difficulty_feasibility_diagnostics(
+    optimizer_snapshot: dict | None,
+    pass_threshold: float = 75,
+    warning_threshold: float = 65,
+) -> dict | None:
+    """
+    후보풀의 난이도 점수 분포를 기반으로 간편식 기준 달성 가능성을 진단한다.
+
+    이 진단은 validation status를 직접 바꾸지 않고,
+    실패 원인이 optimizer 선택 문제인지 후보풀 한계인지 분리하기 위한 보조 정보다.
+    """
+
+    if not optimizer_snapshot:
+        return None
+
+    menus = optimizer_snapshot.get("menus") or []
+
+    if not menus:
+        return {
+            "status": "unavailable",
+            "reason": "candidate_menus_unavailable",
+            "candidate_count": 0,
+            "pass_threshold": pass_threshold,
+            "warning_threshold": warning_threshold,
+        }
+
+    scores = [
+        float(menu.get("difficulty_score", 0) or 0)
+        for menu in menus
+    ]
+
+    candidate_p75 = calculate_percentile(scores, 0.75)
+    candidate_p90 = calculate_percentile(scores, 0.90)
+
+    candidate_ge_pass_count = sum(
+        1 for score in scores
+        if score >= pass_threshold
+    )
+    candidate_ge_warning_count = sum(
+        1 for score in scores
+        if score >= warning_threshold
+    )
+    candidate_ge40_count = sum(
+        1 for score in scores
+        if score >= 40
+    )
+    candidate_eq0_count = sum(
+        1 for score in scores
+        if score == 0
+    )
+
+    if candidate_ge_pass_count == 0:
+        status = "absolute_pass_unreachable"
+        reason = "candidate_difficulty_shortage"
+    elif candidate_p90 is not None and candidate_p90 < pass_threshold:
+        status = "pass_threshold_very_sparse"
+        reason = "candidate_difficulty_sparse"
+    else:
+        status = "candidate_pool_has_pass_options"
+        reason = "candidate_pool_feasible"
+
+    return {
+        "status": status,
+        "reason": reason,
+        "candidate_count": len(scores),
+        "candidate_avg_difficulty": calculate_average(scores),
+        "candidate_p75_difficulty": (
+            round(candidate_p75, 2)
+            if candidate_p75 is not None
+            else None
+        ),
+        "candidate_p90_difficulty": (
+            round(candidate_p90, 2)
+            if candidate_p90 is not None
+            else None
+        ),
+        "candidate_max_difficulty": max(scores) if scores else None,
+        "candidate_ge75_count": sum(1 for score in scores if score >= 75),
+        "candidate_ge65_count": sum(1 for score in scores if score >= 65),
+        "candidate_ge40_count": candidate_ge40_count,
+        "candidate_eq0_count": candidate_eq0_count,
+        "candidate_ge_pass_threshold_count": candidate_ge_pass_count,
+        "candidate_ge_warning_threshold_count": candidate_ge_warning_count,
+        "pass_threshold": pass_threshold,
+        "warning_threshold": warning_threshold,
+    }
+
 def build_secondary_warnings(summary: dict) -> list[dict]:
     """
     월간 식단 결과의 보조 경고 목록을 만든다.
@@ -416,7 +539,8 @@ def build_recommendation_hint(
 def enrich_style_validation(
     style_validation: dict,
     selected_style: dict,
-    summary: dict
+    summary: dict,
+    difficulty_feasibility_diagnostics: dict | None = None,
 ) -> dict:
     """
     기본 style_validation 결과에 보조 경고와 개선 힌트를 추가한다.
@@ -439,6 +563,23 @@ def enrich_style_validation(
 
     adjusted_style_validation = dict(style_validation)
 
+    source_goal = selected_style.get("source_goal")
+    difficulty_feasibility_status = None
+
+    if difficulty_feasibility_diagnostics:
+        difficulty_feasibility_status = difficulty_feasibility_diagnostics.get("status")
+
+    if (
+        source_goal == "간편식"
+        and validation_status == "fail"
+        and difficulty_feasibility_status == "absolute_pass_unreachable"
+    ):
+        adjusted_style_validation["status"] = "warning"
+        adjusted_style_validation["message"] = (
+            "간편식 기준에는 부족하지만, 현재 후보풀에 충분히 쉬운 메뉴가 없어 "
+            "후보풀 확장 또는 난이도 산식 보완이 필요합니다."
+        )
+
     if validation_status == "pass" and duplicate_rate >= 0.30:
         adjusted_style_validation["status"] = "warning"
         adjusted_style_validation["message"] = (
@@ -450,6 +591,11 @@ def enrich_style_validation(
         selected_style=selected_style,
         validation_status=adjusted_style_validation.get("status", "unknown")
     )
+
+    if difficulty_feasibility_diagnostics:
+        diagnostics = dict(adjusted_style_validation.get("diagnostics", {}))
+        diagnostics["difficulty_feasibility"] = difficulty_feasibility_diagnostics
+        adjusted_style_validation["diagnostics"] = diagnostics
 
     return {
         **adjusted_style_validation,

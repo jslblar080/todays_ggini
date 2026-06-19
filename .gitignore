@@ -14,3 +14,14 @@ KT_cloud/local.db
 *.db
 .env
 backend/.env
+
+# Optimizer tuning experiment outputs
+ai/modeling/experiments/results/grid_search_optimizer_tuning/
+ai/modeling/experiments/results/*_snapshot_result.json
+ai/modeling/experiments/results/*_snapshot_summary.json
+ai/modeling/experiments/results/*_snapshot_summary.csv
+
+# Optimizer experiment artifacts
+ai/modeling/experiments/results/optimizer_policy_replay/
+ai/modeling/experiments/results/optimizer_snapshot_replay/
+ai/modeling/experiments/snapshots/

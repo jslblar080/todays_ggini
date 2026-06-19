@@ -24,6 +24,7 @@ from services.recommendation.recommendation_service import recommend_menus
 from services.plan.period_plan_service import build_period_meal_plan
 from services.plan.plan_validation_service import (
     build_style_validation,
+    build_difficulty_feasibility_diagnostics,
     enrich_style_validation,
 )
 from services.plan.plan_payload_service import build_modeling_to_back_monthly_response
@@ -130,6 +131,175 @@ def calculate_monthly_rag_candidate_multiplier(profile: dict) -> float:
     # 일반 사용자는 속도를 우선해 요청 후보 수를 줄인다.
     return 2.4
 
+
+
+
+
+
+def build_budget_feasibility_diagnostics(optimizer_input: dict) -> dict:
+    """
+    optimizer input 기준으로 예산 hard constraint의 타이트함을 진단한다.
+
+    OR-Tools가 INFEASIBLE을 반환했을 때도 원인을 분석할 수 있도록,
+    후보 메뉴 비용 분포와 반복 제한을 고려한 최소 가능 비용을 계산한다.
+    """
+
+    if not isinstance(optimizer_input, dict):
+        return {
+            "status": "unavailable",
+            "reason": "optimizer_input_unavailable",
+        }
+
+    menus = optimizer_input.get("menus") or []
+    required_meal_count = int(
+        optimizer_input.get("required_meal_count") or 0
+    )
+    monthly_budget = int(optimizer_input.get("monthly_budget") or 0)
+    max_repeat_per_menu = int(
+        optimizer_input.get("max_repeat_per_menu") or 1
+    )
+
+    costs = [
+        int(menu.get("estimated_cost", 0) or 0)
+        for menu in menus
+    ]
+
+    if not menus:
+        return {
+            "status": "unavailable",
+            "reason": "candidate_menus_unavailable",
+            "monthly_budget": monthly_budget,
+            "required_meal_count": required_meal_count,
+            "candidate_count": 0,
+            "max_repeat_per_menu": max_repeat_per_menu,
+        }
+
+    expanded_costs = []
+
+    for cost in costs:
+        expanded_costs.extend([cost] * max_repeat_per_menu)
+
+    expanded_costs = sorted(expanded_costs)
+
+    min_possible_cost = (
+        sum(expanded_costs[:required_meal_count])
+        if required_meal_count > 0
+        and len(expanded_costs) >= required_meal_count
+        else None
+    )
+
+    budget_margin_min_possible = (
+        monthly_budget - min_possible_cost
+        if monthly_budget > 0
+        and min_possible_cost is not None
+        else None
+    )
+
+    if min_possible_cost is None:
+        status = "insufficient_repeat_capacity"
+        reason = "candidate_repeat_capacity_shortage"
+    elif monthly_budget <= 0:
+        status = "budget_unconstrained"
+        reason = "monthly_budget_unavailable"
+    elif min_possible_cost > monthly_budget:
+        status = "absolute_budget_unreachable"
+        reason = "minimum_possible_cost_exceeds_budget"
+    elif budget_margin_min_possible <= monthly_budget * 0.03:
+        status = "budget_threshold_very_tight"
+        reason = "minimum_possible_cost_near_budget"
+    else:
+        status = "budget_pool_has_feasible_options"
+        reason = "candidate_pool_budget_feasible"
+
+    sorted_costs = sorted(costs)
+
+    return {
+        "status": status,
+        "reason": reason,
+        "monthly_budget": monthly_budget,
+        "required_meal_count": required_meal_count,
+        "candidate_count": len(menus),
+        "max_repeat_per_menu": max_repeat_per_menu,
+        "repeat_capacity": len(expanded_costs),
+        "min_possible_cost_with_repeat_limit": min_possible_cost,
+        "budget_margin_min_possible": budget_margin_min_possible,
+        "min_cost": sorted_costs[0],
+        "p50_cost": sorted_costs[len(sorted_costs) // 2],
+        "max_cost": sorted_costs[-1],
+        "count_cost_le_1000": sum(1 for cost in costs if cost <= 1000),
+        "count_cost_le_1500": sum(1 for cost in costs if cost <= 1500),
+        "count_cost_le_2000": sum(1 for cost in costs if cost <= 2000),
+        "count_cost_le_2500": sum(1 for cost in costs if cost <= 2500),
+        "count_cost_le_3000": sum(1 for cost in costs if cost <= 3000),
+    }
+
+
+def build_optimizer_input_snapshot(optimizer_input: dict) -> dict:
+    """
+    optimizer 자동 튜닝 실험을 재현할 수 있도록
+    OR-Tools 입력값 중 필요한 항목만 snapshot으로 저장한다.
+
+    RAG API를 매 실험마다 다시 호출하지 않고,
+    동일 후보 pool 기준으로 grid search / Optuna 실험을 수행하기 위한 artifact다.
+    """
+
+    if not isinstance(optimizer_input, dict):
+        return {}
+
+    return {
+        "profile": optimizer_input.get("profile"),
+        "period_days": optimizer_input.get("period_days"),
+        "meal_count_per_day": optimizer_input.get("meal_count_per_day"),
+        "slots": optimizer_input.get("slots"),
+        "menus": optimizer_input.get("menus"),
+        "monthly_budget": optimizer_input.get("monthly_budget"),
+        "required_meal_count": optimizer_input.get("required_meal_count"),
+        "original_recommendation_count": optimizer_input.get(
+            "original_recommendation_count"
+        ),
+        "used_optimizer_candidate_count": optimizer_input.get(
+            "used_optimizer_candidate_count"
+        ),
+        "optimizer_candidate_multiplier": optimizer_input.get(
+            "optimizer_candidate_multiplier"
+        ),
+        "optimizer_candidate_limit": optimizer_input.get(
+            "optimizer_candidate_limit"
+        ),
+        "low_cost_candidate_limit": optimizer_input.get(
+            "low_cost_candidate_limit"
+        ),
+        "additional_low_cost_candidate_count": optimizer_input.get(
+            "additional_low_cost_candidate_count"
+        ),
+        "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
+        "solver_time_limit_seconds": optimizer_input.get(
+            "solver_time_limit_seconds"
+        ),
+        "score_weight": optimizer_input.get("score_weight"),
+        "cost_penalty_weight": optimizer_input.get("cost_penalty_weight"),
+        "cost_penalty_divisor": optimizer_input.get("cost_penalty_divisor"),
+        "repeat_penalty_weight": optimizer_input.get("repeat_penalty_weight"),
+        "repeat_penalty_growth": optimizer_input.get("repeat_penalty_growth"),
+        "enable_nutrition_outlier_penalty": optimizer_input.get(
+            "enable_nutrition_outlier_penalty"
+        ),
+        "nutrition_outlier_penalty_weight": optimizer_input.get(
+            "nutrition_outlier_penalty_weight"
+        ),
+        "enable_protein_bonus": optimizer_input.get("enable_protein_bonus"),
+        "protein_bonus_weight": optimizer_input.get("protein_bonus_weight"),
+        "protein_bonus_cap_grams": optimizer_input.get(
+            "protein_bonus_cap_grams"
+        ),
+        "enable_difficulty_bonus": optimizer_input.get(
+            "enable_difficulty_bonus"
+        ),
+        "difficulty_bonus_weight": optimizer_input.get(
+            "difficulty_bonus_weight"
+        ),
+        "optimizer_config": optimizer_input.get("optimizer_config"),
+    }
 
 def calculate_monthly_candidate_count(profile: dict) -> int:
     """
@@ -717,6 +887,115 @@ def build_candidate_insufficient_monthly_response(
 
 
 
+
+
+def build_budget_infeasible_monthly_response(
+    user_id: str,
+    selected_style: dict,
+    base_profile: dict,
+    monthly_profile: dict,
+    period_days: int,
+    meal_count_per_day: int,
+    available_recommendation_count: int,
+    optimizer_input: dict,
+    optimizer_input_snapshot: dict,
+    budget_feasibility: dict,
+    fallback_info: dict,
+) -> dict:
+    """
+    후보는 충분하지만, 예산 hard constraint상 요청한 식사 수를
+    모두 채울 수 없을 때 Back에 반환할 실패 응답을 만든다.
+    """
+
+    required_meal_count = period_days * meal_count_per_day
+
+    warnings = list(fallback_info.get("warnings", []))
+    warnings.append(
+        "현재 월 예산으로는 요청한 식사 수를 모두 채우는 식단 조합을 만들 수 없습니다."
+    )
+
+    return {
+        "id": user_id,
+        "request_type": "monthly_plan",
+        "success": False,
+        "failure_reason": "budget_infeasible",
+        "message": (
+            "현재 월 예산으로는 요청한 식사 수를 모두 채우는 식단 조합을 "
+            "만들 수 없습니다. 예산을 늘리거나 식사 수를 줄인 뒤 다시 시도해 주세요."
+        ),
+        "relaxation_suggestions": [
+            "월 예산을 늘려주세요.",
+            "하루 식사 수를 줄여주세요.",
+            "식단 생성 기간을 줄여주세요.",
+            "선호 조건을 완화해 더 저렴한 후보가 포함되도록 해주세요.",
+        ],
+        "selected_style": selected_style,
+        "meta": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "fallback": fallback_info,
+        },
+        "modeling_profile": base_profile,
+        "monthly_profile": monthly_profile,
+        "monthly_plan": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "failure_guidance": {
+                "reason": "budget_infeasible",
+                "message": (
+                    "반복 제한을 고려해 가장 저렴한 후보를 선택해도 "
+                    "월 예산을 초과합니다."
+                ),
+                "recommended_actions": [
+                    "월 예산을 늘려주세요.",
+                    "하루 식사 수를 줄여주세요.",
+                    "식단 생성 기간을 줄여주세요.",
+                    "선호 조건을 완화해 더 저렴한 후보가 포함되도록 해주세요.",
+                ],
+            },
+            "optimizer": {
+                "enabled": True,
+                "solver": "OR-Tools CP-SAT",
+                "solver_status": "SKIPPED_BUDGET_INFEASIBLE",
+                "objective_value": None,
+                "message": "예산상 가능한 월간 식단 조합이 없어 OR-Tools 실행을 건너뛰었습니다.",
+                "config": {
+                    **optimizer_input.get("optimizer_config", {}),
+                    "monthly_budget": optimizer_input.get("monthly_budget"),
+                    "max_repeat_per_menu": optimizer_input.get("max_repeat_per_menu"),
+                    "solver_time_limit_seconds": optimizer_input.get("solver_time_limit_seconds"),
+                    "score_weight": optimizer_input.get("score_weight"),
+                    "cost_penalty_weight": optimizer_input.get("cost_penalty_weight"),
+                    "cost_penalty_divisor": optimizer_input.get("cost_penalty_divisor"),
+                    "repeat_penalty_weight": optimizer_input.get("repeat_penalty_weight"),
+                    "required_meal_count": optimizer_input.get("required_meal_count"),
+                    "original_recommendation_count": optimizer_input.get("original_recommendation_count"),
+                    "used_optimizer_candidate_count": optimizer_input.get("used_optimizer_candidate_count"),
+                    "optimizer_candidate_multiplier": optimizer_input.get("optimizer_candidate_multiplier"),
+                    "optimizer_candidate_limit": optimizer_input.get("optimizer_candidate_limit"),
+                },
+                "input_snapshot": optimizer_input_snapshot,
+                "budget_feasibility": budget_feasibility,
+            },
+            "summary": {
+                "selected_menu_count": 0,
+                "unique_menu_count": 0,
+                "duplicate_menu_count": 0,
+                "total_estimated_cost": 0,
+                "average_daily_cost": 0,
+            },
+            "days": [],
+        },
+    }
+
+
+
 def build_optimizer_infeasible_user_guidance(
     monthly_profile: dict,
     optimizer_result: dict,
@@ -961,6 +1240,13 @@ def create_monthly_plan(request_data: dict) -> dict:
             meal_count_per_day=meal_count_per_day,
         )
 
+        optimizer_input_snapshot = build_optimizer_input_snapshot(
+            optimizer_input
+        )
+        budget_feasibility = build_budget_feasibility_diagnostics(
+            optimizer_input
+        )
+
         profiling["optimizer_input_build_time_ms"] = round(
             (time.perf_counter() - optimizer_input_started_at) * 1000,
             2,
@@ -983,6 +1269,21 @@ def create_monthly_plan(request_data: dict) -> dict:
                 meal_count_per_day=meal_count_per_day,
                 available_recommendation_count=available_recommendation_count,
                 max_repeat_per_menu=max_repeat_per_menu,
+                fallback_info=fallback_info,
+            )
+
+        if budget_feasibility.get("status") == "absolute_budget_unreachable":
+            return build_budget_infeasible_monthly_response(
+                user_id=user_id,
+                selected_style=selected_style_summary,
+                base_profile=base_profile,
+                monthly_profile=monthly_profile,
+                period_days=period_days,
+                meal_count_per_day=meal_count_per_day,
+                available_recommendation_count=available_recommendation_count,
+                optimizer_input=optimizer_input,
+                optimizer_input_snapshot=optimizer_input_snapshot,
+                budget_feasibility=budget_feasibility,
                 fallback_info=fallback_info,
             )
 
@@ -1114,6 +1415,10 @@ def create_monthly_plan(request_data: dict) -> dict:
                     meal_count_per_day=meal_count_per_day,
                 )
 
+                optimizer_input_snapshot = build_optimizer_input_snapshot(
+                    optimizer_input
+                )
+
                 profiling["optimizer_retry_input_build_time_ms"] = round(
                     (time.perf_counter() - retry_optimizer_input_started_at) * 1000,
                     2,
@@ -1195,6 +1500,13 @@ def create_monthly_plan(request_data: dict) -> dict:
             profile=optimizer_profile,
         )
 
+        monthly_plan.setdefault("optimizer", {})[
+            "input_snapshot"
+        ] = optimizer_input_snapshot
+        monthly_plan.setdefault("optimizer", {})[
+            "budget_feasibility"
+        ] = budget_feasibility
+
         profiling["plan_mapping_time_ms"] = round(
             (time.perf_counter() - plan_mapping_started_at) * 1000,
             2,
@@ -1216,10 +1528,19 @@ def create_monthly_plan(request_data: dict) -> dict:
         profile=monthly_profile,
     )
 
+    difficulty_feasibility_diagnostics = build_difficulty_feasibility_diagnostics(
+        optimizer_snapshot=(
+            monthly_plan
+            .get("optimizer", {})
+            .get("input_snapshot")
+        )
+    )
+
     style_validation = enrich_style_validation(
         style_validation=base_style_validation,
         selected_style=selected_style_summary,
         summary=summary,
+        difficulty_feasibility_diagnostics=difficulty_feasibility_diagnostics,
     )
 
     monthly_plan["style_validation"] = style_validation

@@ -953,16 +953,16 @@ def calculate_step_count_points(step_count: int) -> int:
 def calculate_cooking_time_points(cooking_time: int) -> int:
     """
     조리 시간에 따른 난이도 가산점을 계산한다.
+
+    RAG 후보에서 조리 시간이 명확하지 않은 경우 20분이 기본값처럼
+    들어오는 케이스가 많으므로, 20분 이하는 난이도 penalty로 보지 않는다.
     """
 
     if cooking_time <= 0:
         return 0
 
-    if cooking_time <= 10:
-        return 0
-
     if cooking_time <= 20:
-        return 1
+        return 0
 
     if cooking_time <= 30:
         return 2
