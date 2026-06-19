@@ -46,4 +46,4 @@ app.*.map.json
 # Android Keystore credentials
 /android/key.properties
 
-/lib/core/env/env
+/lib/core/env/env.dart
