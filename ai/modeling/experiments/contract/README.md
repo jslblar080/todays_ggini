@@ -107,3 +107,17 @@ python -m py_compile ai/modeling/experiments/contract/validate_backend_contract_
 - Celery/Redis 비동기 처리
 - DB 저장 처리
 - 프론트 응답 형태 가공
+
+## 실제 Modeling service smoke test
+
+실제 Modeling service 진입 함수 응답이 Backend contract와 맞는지 확인할 수 있다.
+
+기본 실행은 안전 모드이며 실제 service 함수는 호출하지 않는다.
+
+python ai/modeling/experiments/contract/run_modeling_service_contract_smoke.py
+
+실제 service 함수를 호출하려면 아래 옵션을 추가한다.
+
+PYTHONPATH=ai/modeling:ai/modeling/experiments/contract python ai/modeling/experiments/contract/run_modeling_service_contract_smoke.py --run-service
+
+주의: --run-service 옵션은 RAG 호출이 발생할 수 있으므로 의도적으로만 실행한다.
