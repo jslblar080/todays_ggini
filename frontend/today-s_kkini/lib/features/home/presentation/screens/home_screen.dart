@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_primary_button.dart';
 import '../../../../core/widgets/bottom_nav_bar.dart';
+import '../../domain/menu_detail.dart';
 import '../providers/home_provider.dart';
+import '../widgets/date_rating_bar.dart';
 import '../widgets/ingredient_card.dart';
-import '../widgets/meal_slot_tabs.dart';
-import '../widgets/menu_video_player.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -18,7 +21,6 @@ class HomeScreen extends ConsumerWidget {
     final state = ref.watch(homeProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [Expanded(child: _buildBody(context, ref, state))],
@@ -37,8 +39,8 @@ class HomeScreen extends ConsumerWidget {
             '식단을 불러오지 못했습니다.\n${state.error}',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.error,
-            ),
+                  color: AppColors.error,
+                ),
           ),
         ),
       );
@@ -48,95 +50,178 @@ class HomeScreen extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final plan = state.dailyPlan!;
-
     return Column(
       children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 10, bottom: 5),
+          child: DateRatingBar(),
+        ),
+
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Center(
-                //   child: Text(
-                //     '오늘의 메뉴',
-                //     style: Theme.of(context).textTheme.headlineLarge,
-                //   ),
-                // ),
-                const SizedBox(height: 12),
-                MealSlotTabs(
-                  slotCount: plan.meals.length,
-                  selectedSlot: state.selectedSlot,
-                  onSlotSelected: (slot) {
-                    ref.read(homeProvider.notifier).selectSlot(slot);
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildMenuContent(context, state),
+                _buildMenuCard(context, ref, state),
+                const SizedBox(height: 20),
+                if (state.selectedMenu != null) ...[
+                  const Divider(height: 3, color: AppColors.border),
+                  ...List.generate(
+                    state.selectedMenu!.ingredients.length,
+                    (i) => IngredientCard(
+                      index: i + 1,
+                      ingredient: state.selectedMenu!.ingredients[i],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
+
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: state.selectedMenu == null
-                  ? null
-                  : () {
-                      context.push(AppRoutes.mealDetailPath(DateTime.now()));
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.buttonGray,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              child: Text(
-                '재료 선택 및 메뉴 변경',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: AppPrimaryButton(
+            text: '재료 선택 및 메뉴 변경',
+            enabled: state.selectedMenu != null,
+            onPressed: () {
+              final date = state.selectedDate ?? DateTime.now();
+              context.push(AppRoutes.mealDetailPath(date));
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMenuContent(BuildContext context, HomeState state) {
-    if (state.isLoadingMenu || state.selectedMenu == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 80),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final menu = state.selectedMenu!;
+  Widget _buildMenuCard(BuildContext context, WidgetRef ref, HomeState state) {
+    final plan = state.dailyPlan!;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(
-          child: Text(
-            '<${menu.menuName}>',
-            style: Theme.of(context).textTheme.headlineLarge,
+        // 탭 부분 (별도 Row)
+        Row(
+          children: List.generate(plan.meals.length, (i) {
+            final slot = i + 1;
+            final isSelected = slot == state.selectedSlot;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => ref.read(homeProvider.notifier).selectSlot(slot),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.border
+                        : AppColors.grayLight,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '식단 $slot',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: isSelected
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+
+        // 컨텐츠 박스 (별도 Container)
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: AppColors.border,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(10),
+              bottomRight: Radius.circular(10),
+            ),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: state.isLoadingMenu || state.selectedMenu == null
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 60),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : _buildMenuDetail(context, state.selectedMenu!),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuDetail(BuildContext context, MenuDetail menu) {
+    return Column(
+      children: [
+        AutoSizeText(
+          menu.menuName,
+          maxLines: 1,
+          minFontSize: 14,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontFamily: 'MemomentKkukkukk',
+              ),
+        ),
+        const SizedBox(height: 12),
+
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: menu.imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      menu.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.image_not_supported,
+                            color: AppColors.grayLight),
+                      ),
+                    ),
+                  )
+                : const SizedBox(),
           ),
         ),
-        const SizedBox(height: 16),
-        MenuVideoPlayer(videoUrl: menu.videoUrl),
-        const SizedBox(height: 20),
-        ...List.generate(menu.ingredients.length, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: IngredientCard(
-              index: i + 1,
-              ingredient: menu.ingredients[i],
-            ),
-          );
-        }),
+
+        const SizedBox(height: 12),
+
+        GestureDetector(
+          onTap: () async {
+            if (menu.videoUrl == null) return;
+            final uri = Uri.parse(menu.videoUrl!);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 28,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.play_arrow,
+                    color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '레시피 보러 가기',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

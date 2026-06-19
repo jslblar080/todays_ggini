@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from datetime import date, datetime
+import datetime
 from typing import List, Dict, Any, Optional
 
 # ----------- 스타일 확정 전용 스키마 ---------------
@@ -45,12 +45,12 @@ class MealGenerateResponse(BaseModel):
 # ----------- 식단 확정 전용 스키마 ---------------
 class MealConfirmResponse(BaseModel):
     plan_id: str
-    start_date: date
-    end_date: date
+    start_date: datetime.date
+    end_date: datetime.date
     duration_days: int
     total_price_per_plan: int
     average_calories_per_plan: int
-    generated_at: datetime
+    generated_at: datetime.datetime
 
 # --- [AI 응답 구조 반영: Day 레벨] ---
 
@@ -67,7 +67,7 @@ class MealDetailItem(BaseModel):
     image_url: Optional[str] = None
 
 class DailyMealDetailResponse(BaseModel):
-    date: date
+    date: datetime.date
     calories_per_day: int
     price_per_day: int
     meals: List[MealDetailItem]
@@ -78,7 +78,7 @@ class PlanSummary(BaseModel):
     goals: List[str] = Field(..., description="식단 생성 시 반영된 주요 목적")
     year: int
     month: int
-    # [추가] 이번 달 남은 일 수 계산 결과
+    # 이번 달 남은 일 수 계산 결과
     days_remaining: int = Field(..., description="해당 월의 남은 일 수 (오늘 포함)")
     meal_budget: int = Field(..., description="한 끼 권장 예산")
     meal_count_per_day: int = Field(..., description="하루당 설정된 식사 횟수")
@@ -98,12 +98,12 @@ class RecommendationResult(BaseModel):
     summary: PlanSummary
     weekly_plan: WeeklyPlan
 
-# # --- [백엔드 API 응답용 스키마] ---
+# --- [백엔드 API 응답용 스키마] ---
 
 # 단일 식단 응답용 (상세 페이지 화면 10번용)
 class MealPlanResponse(BaseModel):
     id: int
-    meal_date: date
+    meal_date: datetime.date
     estimated_cost: int
     total_calories: int
     # DB의 content 필드(JSON)가 이 리스트 형태로 역직렬화됩니다.
@@ -118,7 +118,7 @@ class CalendarMeal(BaseModel):
     menu_name: str
 
 class CalendarDay(BaseModel):
-    date: date
+    date: datetime.date
     calories_per_day: Optional[int] = None
     price_per_day: Optional[int] = None
     meals: List[CalendarMeal]
@@ -135,7 +135,7 @@ class MealSwapRequest(BaseModel):
     """
     스왑 대상 날짜를 받기 위한 요청 스키마
     """
-    with_date: date
+    with_date: datetime.date
 
 class MealSwapResponse(BaseModel):
     swapped: List[CalendarDay]
@@ -215,3 +215,22 @@ class FrontMonthlyPlanResponse(BaseModel):
     total_price_per_month: int
     average_calories_per_month: int
     days: List[FrontDayPlan]
+
+# -------------- 식단 피드백 요청 스키마 --------------------
+class MealFeedbackRequest(BaseModel):
+    date: datetime.date = Field(..., description="피드백 대상 날짜 (YYYY-MM-DD)")
+    meal_number: int = Field(..., ge=1, le=3, description="식단 번호 (1: 아침, 2: 점심, 3: 저녁)")
+    meal_name: str = Field(..., description="평가 대상 메뉴 이름 (예: 닭가슴살 브로콜리 만두)")
+    rating: int = Field(..., ge=1, le=5, description="부여한 별점 점수 (1점 ~ 5점)")
+    is_checked: List[str] = Field(default_factory=list, description="선택된 피드백 항목 리스트")
+
+# ------------------ 식단 피드백 응답 스키마 ----------------------
+class MealFeedbackResponse(BaseModel):
+    message: str = Field(..., description="성공 안내 메시지")
+    date: datetime.date = Field(..., description="평가된 식단 날짜")
+    meal_number: int = Field(..., description="식단 번호 (1~3)")
+    meal_name: str = Field(..., description="메뉴 이름")
+    rating: int = Field(..., description="부여된 별점 점수")
+    is_checked: List[str] = Field(..., description="선택된 피드백 항목 리스트")
+
+    model_config = ConfigDict(from_attributes=True)

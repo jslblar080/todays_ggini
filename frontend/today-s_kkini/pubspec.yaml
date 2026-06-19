@@ -27,6 +27,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.2.3
   image_picker: ^1.2.2
+  auto_size_text: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -51,8 +52,15 @@ flutter:
     - assets/mocks/ingredients/
     - assets/mocks/shopping-list/
     - assets/images/
+    - assets/images/onboarding/
   fonts:
-    - family: NanumSquareNeo
+    - family: Pretendard
       fonts:
-
-        - asset: assets/fonts/NanumSquareNeo-dEb.ttf
+        - asset: assets/fonts/Pretendard-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Pretendard-SemiBold.ttf
+          weight: 600
+    - family: MemomentKkukkukk
+      fonts:
+        - asset: assets/fonts/MemomentKkukkukk.ttf
+          weight: 400

@@ -15,6 +15,13 @@ class KkiniPickApp extends ConsumerWidget {
       theme: AppTheme.light(), // 앱의 밝은 테마 적용
       routerConfig: router, // 화면 이동 설정 적용
       debugShowCheckedModeBanner: false, // 오른쪽 위 DEBUG 배너 숨김
+      builder: (context, child) {
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: child,
+        );
+      },
     );
   }
 }

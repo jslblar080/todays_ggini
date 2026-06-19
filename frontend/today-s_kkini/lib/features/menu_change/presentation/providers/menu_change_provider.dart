@@ -6,25 +6,24 @@ import '../../../home/domain/daily_meal_plan.dart';
 import '../../data/menu_change_repository.dart';
 import '../../domain/menu_alternatives.dart';
 
-// Repository Provider
 final menuChangeRepositoryProvider = Provider<MenuChangeRepository>((ref) {
   return MenuChangeRepository(ref.watch(dioProvider));
 });
 
-/// family 인자. ingredient_list 와 같은 패턴
 typedef MenuChangeArgs = ({String mealId, DateTime date, int slot});
 
-// State 클래스
 class MenuChangeState {
   final MenuAlternatives? data;
   final bool isLoading;
-  final bool isChanging; // PUT 진행 중 (버튼 비활성 표시용)
+  final bool isChanging; // PUT 진행 중
+  final String? changingMealId; // 어떤 대안 메뉴가 변경 중인지
   final Object? error;
 
   const MenuChangeState({
     this.data,
     this.isLoading = false,
     this.isChanging = false,
+    this.changingMealId,
     this.error,
   });
 
@@ -32,19 +31,23 @@ class MenuChangeState {
     MenuAlternatives? data,
     bool? isLoading,
     bool? isChanging,
+    String? changingMealId,
     Object? error,
     bool clearError = false,
+    bool clearChangingMealId = false,
   }) {
     return MenuChangeState(
       data: data ?? this.data,
       isLoading: isLoading ?? this.isLoading,
       isChanging: isChanging ?? this.isChanging,
+      changingMealId: clearChangingMealId
+          ? null
+          : (changingMealId ?? this.changingMealId),
       error: clearError ? null : (error ?? this.error),
     );
   }
 }
 
-// Notifier 클래스
 class MenuChangeNotifier extends StateNotifier<MenuChangeState> {
   final MenuChangeRepository _repository;
   final String _mealId;
@@ -70,23 +73,16 @@ class MenuChangeNotifier extends StateNotifier<MenuChangeState> {
     }
   }
 
-  // 메뉴 변경 실행
-  //
-  // PUT mock 이 어떤 slot/meal_id 를 보내도 같은 응답을 돌려주는 한계 때문에,
-  // 새 plan 은 [currentPlan] 과 [chosenAlternative] 를 바탕으로 **클라이언트에서**
-  // 만든다. mock 응답 자체는 호출은 하되 무시. 백엔드 연동 시에는 응답을
-  // 신뢰하도록 전환 (TODO 참고)
-  //
-  // 성공 시 갱신된 [DailyMealPlan] 반환 — 화면에서 받아 mealDetailProvider 에 반영
-  // 실패 시 null 반환하고 state.error 채움
   Future<DailyMealPlan?> applyChange({
     required DailyMealPlan currentPlan,
     required AlternativeMeal chosenAlternative,
   }) async {
-    state = state.copyWith(isChanging: true, clearError: true);
+    state = state.copyWith(
+      isChanging: true,
+      changingMealId: chosenAlternative.mealId,
+      clearError: true,
+    );
     try {
-      // mock 모드: 호출은 하되 응답 무시 (mock 한계)
-      // 실서버 모드: 응답을 신뢰하고 그걸 반환하도록 바꿔야 함
       await _repository.changeMenu(
         date: _date,
         slot: _slot,
@@ -95,17 +91,19 @@ class MenuChangeNotifier extends StateNotifier<MenuChangeState> {
       if (!mounted) return null;
 
       final newPlan = _buildLocalPlan(currentPlan, chosenAlternative);
-      state = state.copyWith(isChanging: false);
+      state = state.copyWith(isChanging: false, clearChangingMealId: true);
       return newPlan;
     } catch (e) {
       if (!mounted) return null;
-      state = state.copyWith(isChanging: false, error: e);
+      state = state.copyWith(
+        isChanging: false,
+        clearChangingMealId: true,
+        error: e,
+      );
       return null;
     }
   }
 
-  // 현재 plan 에서 [_slot] 만 [alt] 로 교체한 새 [DailyMealPlan] 을 만들기
-  // 일일 칼로리/가격은 합산하여 재계산
   DailyMealPlan _buildLocalPlan(DailyMealPlan current, AlternativeMeal alt) {
     final newSlotMeal = MealSlotSummary(
       slot: _slot,
@@ -128,7 +126,6 @@ class MenuChangeNotifier extends StateNotifier<MenuChangeState> {
   }
 }
 
-// StateNotifierProvider.family
 final menuChangeProvider = StateNotifierProvider.autoDispose
     .family<MenuChangeNotifier, MenuChangeState, MenuChangeArgs>((ref, args) {
       final repository = ref.watch(menuChangeRepositoryProvider);

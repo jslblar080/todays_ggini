@@ -13,3 +13,6 @@ __pycache__/
 *.db
 *.rdb
 .vscode/
+
+# 키 페어 파일
+*.pem
