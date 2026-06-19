@@ -34,7 +34,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.987643896621-o1gm2kis44tbpsual8let30sd89r1obn</string>
+				<string></string>
 			</array>
 		</dict>
 		<!-- 카카오 로그인 URL 스킴 -->
@@ -43,7 +43,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>9eb912137d7833c4bda844bebcce1a3c</string>
+				<string></string>
 			</array>
 		</dict>
 		<!-- 네이버 로그인 URL 스킴 -->
