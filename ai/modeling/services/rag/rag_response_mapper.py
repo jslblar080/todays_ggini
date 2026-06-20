@@ -616,6 +616,10 @@ def calculate_ingredient_cost(
 
     ingredient_name = resolved_ingredient_name
 
+    standard_amount = ingredient.get("standard_amount")
+    standard_unit_type = ingredient.get("standard_unit_type")
+    e_commerce_prices = ingredient.get("e_commerce_prices") or {}
+
     lowest_price_info = get_lowest_price_info(ingredient)
 
     if lowest_price_info is None:
@@ -626,11 +630,14 @@ def calculate_ingredient_cost(
             amount=amount,
             unit=unit,
             is_estimated=is_estimated,
-            pricing_status="price_not_found"
+            pricing_status="price_not_found",
+            extra_data={
+                "standard_amount": standard_amount,
+                "standard_unit_type": standard_unit_type,
+                "e_commerce_market_count": len(e_commerce_prices),
+                "e_commerce_markets": list(e_commerce_prices.keys()),
+            }
         )
-
-    standard_amount = ingredient.get("standard_amount")
-    standard_unit_type = ingredient.get("standard_unit_type")
 
     if standard_amount is None or standard_amount <= 0:
         return build_failed_ingredient_cost(

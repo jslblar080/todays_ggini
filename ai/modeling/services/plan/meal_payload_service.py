@@ -25,6 +25,8 @@ def build_menu_payload(menu: dict) -> dict:
         "category": menu.get("category"),
         "final_score": menu["final_score"],
         "estimated_cost": menu["estimated_cost"],
+        "rag_estimated_cost": menu.get("rag_estimated_cost"),
+        "pricing_status": menu.get("pricing_status"),
 
         "calories": calories,
         "carbohydrate": carbohydrate,
@@ -38,6 +40,8 @@ def build_menu_payload(menu: dict) -> dict:
 
         "ingredients": menu.get("ingredients", []),
         "ingredient_groups": menu.get("ingredient_groups", []),
+        "ingredient_usages": menu.get("ingredient_usages", []),
+        "ingredient_costs": menu.get("ingredient_costs", []),
         "recipe": menu.get("recipe", {}),
         "scores": menu["scores"],
         "reasons": menu.get("reasons", []),

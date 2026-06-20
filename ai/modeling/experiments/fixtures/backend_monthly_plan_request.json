@@ -1,0 +1,26 @@
+{
+  "id": 1,
+  "request_type": "monthly_plan",
+  "profile": {
+    "goals": ["고단백", "식비 절약", "간편식"],
+    "monthly_budget": 250000,
+    "meal_count_per_day": 3,
+    "recommended_daily_calories": 2200,
+    "cooking_skill": 2,
+    "preferred_categories": ["한식"],
+    "diversity_level": "보통",
+    "ingredient_preferences": ["육류"],
+    "allergy_ingredients": [],
+    "period_days": 30
+  },
+  "selected_style": {
+    "style_id": "high_protein_budget_easy",
+    "style_name": "고단백 절약형",
+    "source_goal": "고단백",
+    "focus_key": "nutrition"
+  },
+  "use_ortools": true,
+  "optimizer_config": {
+    "enable_optimizer_retry_fallback": true
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "id": 1,
+  "request_type": "monthly_plan",
+  "selected_style": {
+    "style_id": "high_protein_budget_easy",
+    "style_name": "고단백 절약형",
+    "source_goal": "고단백",
+    "focus_key": "nutrition"
+  },
+  "meta": {
+    "period_days": 30,
+    "meal_count_per_day": 3,
+    "required_meal_count": 90,
+    "available_recommendation_count": 252,
+    "generated_at": "2026-06-19T20:36:47Z",
+    "warnings": [],
+    "fallback": {
+      "fallback_used": false,
+      "fallback_steps": [],
+      "warnings": [],
+      "final_candidate_count": 252
+    }
+  },
+  "modeling_profile": {
+    "goals": [
+      "고단백",
+      "식비 절약",
+      "간편식"
+    ],
+    "monthly_budget": 250000,
+    "period_days": 30,
+    "meal_count_per_day": 3,
+    "cooking_skill": 2,
+    "preferred_categories": [
+      "한식"
+    ],
+    "diversity_level": "보통",
+    "ingredient_preferences": [
+      "육류"
+    ],
+    "allergy_ingredients": []
+  },
+  "applied_style_adjustment": {
+    "applied_style_focus_key": "nutrition",
+    "base_weights": {},
+    "applied_monthly_weights": {},
+    "applied_nutrition_detail_weights": {}
+  },
+  "monthly_plan": {
+    "period_days": 30,
+    "meal_count_per_day": 3,
+    "required_meal_count": 90,
+    "available_recommendation_count": 252,
+    "warnings": [],
+    "optimizer": {
+      "enabled": true,
+      "solver": "OR-Tools CP-SAT",
+      "solver_status": "FEASIBLE",
+      "message": "OR-Tools 월간 식단 최적화가 완료되었습니다.",
+      "config": {}
+    },
+    "days": [
+      {
+        "day": 1,
+        "meals": [
+          {
+            "meal_order": 1,
+            "selected_menu": {
+              "menu_id": "menu_001",
+              "name": "오징어 콩나물찜",
+              "category": "한식",
+              "estimated_cost": 2940,
+              "calories": 301.8,
+              "protein": 6.8,
+              "ingredients": [
+                "오징어",
+                "콩나물"
+              ],
+              "ingredient_groups": [
+                "해산물류",
+                "채소류"
+              ],
+              "recipe": {
+                "serving_size": "1인분",
+                "cooking_time": 20,
+                "required_ingredients": [
+                  "오징어",
+                  "콩나물"
+                ]
+              },
+              "rag_estimated_cost": 3000,
+              "pricing_status": "partially_calculated",
+              "ingredient_usages": [
+                {
+                  "ingredient_id": "ingredient_001",
+                  "ingredient_name": "오징어",
+                  "display_amount": "100.0g",
+                  "amount": 100.0,
+                  "unit": "g",
+                  "is_estimated": true
+                }
+              ],
+              "ingredient_costs": [
+                {
+                  "ingredient_id": "ingredient_001",
+                  "ingredient_name": "오징어",
+                  "display_amount": "100.0g",
+                  "amount": 100.0,
+                  "unit": "g",
+                  "is_estimated": true,
+                  "estimated_cost": 2500,
+                  "pricing_status": "calculated",
+                  "lowest_price": 2500,
+                  "lowest_market": "coupang"
+                }
+              ]
+            },
+            "alternative_menus": []
+          }
+        ],
+        "total_estimated_cost": 2940,
+        "total_calories": 301.8
+      }
+    ]
+  }
+}
