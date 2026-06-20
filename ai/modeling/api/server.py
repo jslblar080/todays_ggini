@@ -117,13 +117,16 @@ def get_rag_error_status_code(error: RagRequestError) -> int:
     """
     RAG 호출 실패를 HTTP 상태 코드로 변환한다.
 
-    timeout 성격의 오류는 504로 반환하고,
+    failure_reason이 timeout 계열이면 504로 반환하고,
     그 외 RAG 외부 의존성 실패는 502로 반환한다.
     """
 
-    message = str(error).lower()
+    timeout_failure_reasons = {
+        "rag_read_timeout",
+        "rag_timeout",
+    }
 
-    if "timeout" in message or "시간이 초과" in message:
+    if error.failure_reason in timeout_failure_reasons:
         return status.HTTP_504_GATEWAY_TIMEOUT
 
     return status.HTTP_502_BAD_GATEWAY
