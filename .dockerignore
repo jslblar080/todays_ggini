@@ -17,3 +17,4 @@ ai/modeling/experiments/**/*.log
 
 .env
 .env.*
+.env.modeling

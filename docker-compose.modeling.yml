@@ -1,0 +1,14 @@
+services:
+  modeling-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.modeling
+    image: todays-ggini-modeling:local
+    container_name: todays-ggini-modeling
+    environment:
+      ENV: prod
+      MODELING_API_KEY: ${MODELING_API_KEY:?MODELING_API_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
