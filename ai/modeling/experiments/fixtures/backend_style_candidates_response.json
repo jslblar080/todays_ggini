@@ -1,0 +1,53 @@
+{
+  "id": 1,
+  "request_type": "meal_style_candidates",
+  "meta": {
+    "sample_period_days": 3,
+    "meal_count_per_day": 3,
+    "total_style_count": 1,
+    "generated_at": "2026-06-19T20:32:49Z",
+    "warnings": []
+  },
+  "meal_style_candidates": [
+    {
+      "style_id": "nutrition_balance",
+      "style_name": "영양 균형식",
+      "description": "칼로리와 단백질 균형을 함께 고려한 식단",
+      "summary_comment": "영양 균형을 고려해 건강하게 구성한 식단입니다.",
+      "source_goal": "영양 균형",
+      "focus_key": "nutrition",
+      "display_scores": {
+        "health": 8,
+        "cost_efficiency": 3,
+        "taste": 9,
+        "cooking_ease": 8
+      },
+      "display_labels": {
+        "health": "건강",
+        "cost_efficiency": "가성비",
+        "taste": "맛",
+        "cooking_ease": "조리"
+      },
+      "sample_plan": {
+        "period_days": 3,
+        "meal_count_per_day": 3,
+        "days": [
+          {
+            "day": 1,
+            "meals": [
+              {
+                "meal_order": 1,
+                "menu_id": "menu_001",
+                "name": "참치 비빔밥",
+                "category": "한식",
+                "estimated_cost": 31900,
+                "calories": 776.8,
+                "protein": 40.7
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
