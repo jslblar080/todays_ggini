@@ -31,6 +31,8 @@ def analyze_monthly_plan_shopping_coverage(response: dict) -> dict:
     issue_status_ingredient_count = Counter()
     issue_status_standard_unit_count = Counter()
     issue_unit_standard_unit_count = Counter()
+    issue_status_market_count = Counter()
+    price_not_found_market_count = Counter()
 
     total_ingredient_costs = 0
     calculated_ingredient_costs = 0
@@ -85,6 +87,9 @@ def analyze_monthly_plan_shopping_coverage(response: dict) -> dict:
                     ingredient_name = ingredient_cost.get("ingredient_name")
 
                     standard_unit_type = ingredient_cost.get("standard_unit_type")
+                    e_commerce_market_count = ingredient_cost.get(
+                        "e_commerce_market_count"
+                    )
 
                     issue_unit_count[unit] += 1
                     issue_ingredient_name_count[ingredient_name] += 1
@@ -96,6 +101,12 @@ def analyze_monthly_plan_shopping_coverage(response: dict) -> dict:
                     issue_unit_standard_unit_count[
                         (unit, standard_unit_type)
                     ] += 1
+                    issue_status_market_count[
+                        (ingredient_status, e_commerce_market_count)
+                    ] += 1
+
+                    if ingredient_status == "price_not_found":
+                        price_not_found_market_count[e_commerce_market_count] += 1
 
                     if len(issue_examples) < 10:
                         issue_examples.append(
@@ -110,6 +121,8 @@ def analyze_monthly_plan_shopping_coverage(response: dict) -> dict:
                                 "unit": unit,
                                 "standard_amount": ingredient_cost.get("standard_amount"),
                                 "standard_unit_type": standard_unit_type,
+                                "e_commerce_market_count": e_commerce_market_count,
+                                "e_commerce_markets": ingredient_cost.get("e_commerce_markets"),
                                 "pricing_status": ingredient_status,
                                 "lowest_price": ingredient_cost.get("lowest_price"),
                                 "lowest_market": ingredient_cost.get("lowest_market"),
@@ -189,6 +202,16 @@ def analyze_monthly_plan_shopping_coverage(response: dict) -> dict:
             for (unit, standard_unit_type), count
             in issue_unit_standard_unit_count.most_common(20)
         ],
+        "top_issue_status_market_counts": [
+            {
+                "pricing_status": status,
+                "e_commerce_market_count": market_count,
+                "count": count,
+            }
+            for (status, market_count), count
+            in issue_status_market_count.most_common(20)
+        ],
+        "price_not_found_market_count": dict(price_not_found_market_count),
         "empty_cost_examples": empty_cost_examples,
         "issue_examples": issue_examples,
     }
