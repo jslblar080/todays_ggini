@@ -1,0 +1,16 @@
+{
+  "id": 1,
+  "request_type": "meal_style_candidates",
+  "profile": {
+    "goals": ["영양 균형"],
+    "monthly_budget": 300000,
+    "meal_count_per_day": 3,
+    "recommended_daily_calories": 2100,
+    "cooking_skill": 3,
+    "preferred_categories": ["한식"],
+    "diversity_level": "보통",
+    "ingredient_preferences": ["채소류"],
+    "allergy_ingredients": [],
+    "sample_period_days": 3
+  }
+}
