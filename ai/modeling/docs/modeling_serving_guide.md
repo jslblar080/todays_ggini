@@ -210,3 +210,87 @@ Backend가 결과 조회
 현재 Docker 기반 실행은 로컬 검증과 배포 준비를 위한 단계다.
 
 실제 운영에서는 HTTPS, secret 관리, 접근 제어, 로그/모니터링, timeout 정책을 함께 구성해야 한다.
+
+## CI/CD 흐름
+
+모델링 서버 Docker 작업은 GitHub Actions를 통해 두 단계로 나누어 검증한다.
+
+### 1. Docker Build 검증
+
+`Modeling Docker Build` workflow는 모델링 서버 Docker 이미지가 정상적으로 빌드되고, 컨테이너가 실행되는지 확인한다.
+
+실행 조건:
+
+- `pull_request`: `develop`, `main` 대상
+- `push`: `feat/modeling-fastapi-serving`
+
+검증 내용:
+
+- Docker image build
+- container run
+- `/health` 200 확인
+- prod 모드에서 env 미노출 확인
+- wrong API key 요청 시 401 확인
+- `/docs` 비활성화 404 확인
+- container stop
+
+이 workflow는 이미지를 registry에 push하지 않는다.
+PR 단계에서는 배포용 이미지 게시보다 Dockerfile과 서버 실행 가능 여부를 검증하는 것이 목적이다.
+
+### 2. GHCR 이미지 게시
+
+`Modeling Docker Publish` workflow는 `develop` 또는 `main`에 push될 때만 실행된다.
+
+실행 조건:
+
+- `push`: `develop`
+- `push`: `main`
+
+이미지 게시 규칙:
+
+- develop merge 시: `ghcr.io/hekim-cse/todays-ggini-modeling:develop-<short-sha>`
+- main merge 시: `ghcr.io/hekim-cse/todays-ggini-modeling:latest`
+- main merge 시: `ghcr.io/hekim-cse/todays-ggini-modeling:main-<short-sha>`
+
+이 구조를 통해 feature branch나 PR에서는 이미지가 불필요하게 계속 쌓이지 않도록 하고, 실제 통합 브랜치에 반영될 때만 배포 가능한 이미지를 생성한다.
+
+## Docker Desktop에서 확인하는 방법
+
+로컬에서 Docker image를 빌드하면 Docker Desktop의 `Images` 탭에서 아래 이미지를 확인할 수 있다.
+
+- `todays-ggini-modeling:local`
+
+컨테이너를 실행하면 `Containers` 탭에서 아래 컨테이너를 확인할 수 있다.
+
+- `todays-ggini-modeling`
+
+컨테이너 상세 화면에서는 아래 정보를 확인할 수 있다.
+
+- Logs
+- Port mapping
+- Health status
+- Environment
+- Image name
+
+Dockerfile에 `HEALTHCHECK`가 설정되어 있으므로 컨테이너가 정상적으로 `/health`에 응답하면 상태가 `healthy`로 표시된다.
+
+## 운영 배포 시 주의사항
+
+현재 FastAPI 서버 컨테이너는 내부적으로 HTTP로 실행된다.
+
+- FastAPI Modeling Server
+- 내부 포트: `8000`
+- 내부 통신: HTTP
+
+운영 환경에서는 이 컨테이너를 외부에 직접 노출하지 않고, 반드시 HTTPS를 처리하는 앞단 프록시 뒤에 둔다.
+
+권장 구조:
+
+- Backend / Client
+- HTTPS
+- Nginx / ALB / API Gateway
+- Internal HTTP
+- FastAPI Modeling Server
+
+`X-API-Key`는 HTTPS와 함께 사용해야 한다.
+HTTP로 API Key를 전송하면 중간에서 평문으로 노출될 수 있으므로 운영 환경에서는 HTTPS 구성이 필수다.
