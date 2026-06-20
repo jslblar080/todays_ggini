@@ -87,7 +87,33 @@
                   "오징어",
                   "콩나물"
                 ]
-              }
+              },
+              "rag_estimated_cost": 3000,
+              "pricing_status": "partially_calculated",
+              "ingredient_usages": [
+                {
+                  "ingredient_id": "ingredient_001",
+                  "ingredient_name": "오징어",
+                  "display_amount": "100.0g",
+                  "amount": 100.0,
+                  "unit": "g",
+                  "is_estimated": true
+                }
+              ],
+              "ingredient_costs": [
+                {
+                  "ingredient_id": "ingredient_001",
+                  "ingredient_name": "오징어",
+                  "display_amount": "100.0g",
+                  "amount": 100.0,
+                  "unit": "g",
+                  "is_estimated": true,
+                  "estimated_cost": 2500,
+                  "pricing_status": "calculated",
+                  "lowest_price": 2500,
+                  "lowest_market": "coupang"
+                }
+              ]
             },
             "alternative_menus": []
           }

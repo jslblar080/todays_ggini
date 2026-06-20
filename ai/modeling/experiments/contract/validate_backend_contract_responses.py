@@ -221,6 +221,37 @@ def validate_monthly_success_response(response_data: dict[str, Any]) -> None:
                 f"monthly_plan.days[{day_index}].meals[{meal_index}].selected_menu",
             )
 
+            require_fields(
+                selected_menu,
+                ["ingredient_usages", "ingredient_costs", "pricing_status"],
+                f"monthly_plan.days[{day_index}].meals[{meal_index}].selected_menu shopping fields",
+            )
+
+            ingredient_costs = selected_menu["ingredient_costs"]
+
+            if not isinstance(ingredient_costs, list) or not ingredient_costs:
+                raise ValueError(
+                    f"monthly_plan.days[{day_index}].meals[{meal_index}].selected_menu.ingredient_costs는 비어 있지 않은 list여야 합니다."
+                )
+
+            for cost_index, ingredient_cost in enumerate(ingredient_costs):
+                if not isinstance(ingredient_cost, dict):
+                    raise ValueError(
+                        f"monthly_plan.days[{day_index}].meals[{meal_index}].selected_menu.ingredient_costs[{cost_index}]는 dict여야 합니다."
+                    )
+
+                require_fields(
+                    ingredient_cost,
+                    [
+                        "ingredient_id",
+                        "ingredient_name",
+                        "display_amount",
+                        "estimated_cost",
+                        "pricing_status",
+                    ],
+                    f"monthly_plan.days[{day_index}].meals[{meal_index}].selected_menu.ingredient_costs[{cost_index}]",
+                )
+
 def validate_monthly_failure_response(response_data: dict[str, Any]) -> None:
     require_fields(
         response_data,
