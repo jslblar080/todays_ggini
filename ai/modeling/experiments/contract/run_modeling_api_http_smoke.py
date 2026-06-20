@@ -52,6 +52,11 @@ def main() -> None:
         default="ai/modeling/experiments/fixtures/backend_monthly_plan_request.json",
         help="Path to monthly plan request fixture.",
     )
+    parser.add_argument(
+        "--skip-monthly",
+        action="store_true",
+        help="Skip monthly-plan API call to avoid external RAG dependency in CI.",
+    )
 
     args = parser.parse_args()
 
@@ -101,32 +106,37 @@ def main() -> None:
     # Local uvicorn mode may return 200 if ENV is not prod.
     assert_status(docs_response.status_code, {200, 404}, docs_response.text)
 
-    print_section("Monthly Plan API")
-    monthly_payload = load_json(Path(args.monthly_request))
+    if args.skip_monthly:
+        print_section("Monthly Plan API")
+        print("monthly-plan API check skipped.")
+        print("reason: --skip-monthly was enabled to avoid external RAG dependency.")
+    else:
+        print_section("Monthly Plan API")
+        monthly_payload = load_json(Path(args.monthly_request))
 
-    monthly_response = requests.post(
-        f"{base_url}/monthly-plan",
-        headers=headers,
-        json=monthly_payload,
-        timeout=args.timeout,
-    )
-    print("status:", monthly_response.status_code)
-    print("body:", monthly_response.text[:1000])
+        monthly_response = requests.post(
+            f"{base_url}/monthly-plan",
+            headers=headers,
+            json=monthly_payload,
+            timeout=args.timeout,
+        )
+        print("status:", monthly_response.status_code)
+        print("body:", monthly_response.text[:1000])
 
-    # 200: RAG까지 정상 응답한 경우
-    # 504: RAG timeout이 정상적으로 Gateway Timeout으로 분리된 경우
-    assert_status(monthly_response.status_code, {200, 504}, monthly_response.text)
+        # 200: RAG까지 정상 응답한 경우
+        # 504: RAG timeout이 정상적으로 Gateway Timeout으로 분리된 경우
+        assert_status(monthly_response.status_code, {200, 504}, monthly_response.text)
 
-    if monthly_response.status_code == 200:
-        data = monthly_response.json()
-        monthly_plan = data.get("monthly_plan", {})
-        days = monthly_plan.get("days", [])
-        print("monthly_plan_days:", len(days))
-        assert len(days) > 0
+        if monthly_response.status_code == 200:
+            data = monthly_response.json()
+            monthly_plan = data.get("monthly_plan", {})
+            days = monthly_plan.get("days", [])
+            print("monthly_plan_days:", len(days))
+            assert len(days) > 0
 
-    if monthly_response.status_code == 504:
-        data = monthly_response.json()
-        print("timeout_detail:", data.get("detail"))
+        if monthly_response.status_code == 504:
+            data = monthly_response.json()
+            print("timeout_detail:", data.get("detail"))
 
     print_section("Smoke Test Passed")
     print("Modeling API HTTP smoke test completed successfully.")

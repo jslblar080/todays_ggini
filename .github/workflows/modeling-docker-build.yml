@@ -104,6 +104,14 @@ jobs:
 
           test "${http_status}" = "404"
 
+      - name: Run Modeling API HTTP smoke test
+        run: |
+          python ai/modeling/experiments/contract/run_modeling_api_http_smoke.py \
+            --base-url http://localhost:8001 \
+            --api-key ci-secret-key \
+            --timeout 30 \
+            --skip-monthly
+
       - name: Stop Modeling container
         if: always()
         run: |
