@@ -143,3 +143,92 @@ API Key 인증 확인:
 3. docker compose up -d로 컨테이너 교체
 4. /health 기반 배포 검증
 5. 실패 시 이전 image tag로 rollback
+
+## 운영 도메인 및 HTTPS
+
+운영 모델링 API는 다음 도메인을 사용한다.
+
+    https://modeling.todays-ggini.shop
+
+요청 경로:
+
+    Backend 또는 Client
+    → Gabia DNS
+    → EC2 Elastic IP
+    → Nginx HTTPS :443
+    → FastAPI container 127.0.0.1:8000
+
+### DNS 레코드
+
+    Type: A
+    Host: modeling
+    Value: EC2 Elastic IP
+
+### Nginx 도메인 설정
+
+    server_name modeling.todays-ggini.shop;
+
+### 인증서 발급
+
+    sudo certbot --nginx \
+      -d modeling.todays-ggini.shop
+
+Certbot이 Nginx에 인증서를 적용하고 HTTP 요청을 HTTPS로
+리다이렉트하도록 설정한다.
+
+### 인증서 자동 갱신 검증
+
+    systemctl status certbot.timer --no-pager
+    sudo certbot renew --dry-run
+
+### 외부 배포 검증
+
+    ./deploy/modeling/scripts/verify_https_deployment.sh
+
+다른 주소를 검증하려면 환경변수로 전달한다.
+
+    MODELING_API_BASE_URL=https://example.com \
+      ./deploy/modeling/scripts/verify_https_deployment.sh
+
+## 백엔드 연동 설정
+
+백엔드는 다음 환경변수를 사용한다.
+
+    MODELING_API_BASE_URL=https://modeling.todays-ggini.shop
+    MODELING_API_KEY=<secret>
+    MODELING_API_CONNECT_TIMEOUT_SECONDS=10
+    MODELING_API_READ_TIMEOUT_SECONDS=120
+
+`MODELING_API_KEY`는 Git에 저장하지 않고 운영 Secret 또는
+서버 환경변수로 관리한다.
+
+월간 식단 API는 RAG 조회와 최적화를 포함하므로 실제 HTTPS
+E2E 검증에서 약 24초가 소요되었다.
+
+운영 중에는 RAG 응답 지연, 후보 수 증가, EC2 CPU 부하,
+동시 요청 등의 영향으로 처리 시간이 늘어날 수 있으므로
+백엔드와 Nginx의 읽기 제한 시간은 충분한 여유를 둔다.
+
+이번 수동 배포 검증 결과:
+
+    HTTP status: 200
+    Solver status: FEASIBLE
+    Days: 30
+    Selected meals: 90
+    Estimated cost: 249201
+    Warnings: []
+    Response size: 약 1.47 MB
+    End-to-end elapsed time: 약 24초
+
+응답 크기가 크기 때문에 운영 로그에는 전체 응답 JSON을
+기록하지 않는다. 다음과 같은 요약 정보만 기록하는 것을
+권장한다.
+
+    request_id
+    http_status
+    elapsed_ms
+    solver_status
+    days_count
+    selected_menu_count
+    failure_reason
+    response_size_bytes
