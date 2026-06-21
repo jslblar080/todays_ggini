@@ -66,6 +66,8 @@ def main() -> None:
         "X-API-Key": args.api_key,
     }
 
+    monthly_payload = load_json(Path(args.monthly_request))
+
     print_section("Health Check")
     health_response = requests.get(
         f"{base_url}/health",
@@ -87,7 +89,7 @@ def main() -> None:
             "Content-Type": "application/json",
             "X-API-Key": "wrong-key",
         },
-        json={},
+        json=monthly_payload,
         timeout=args.timeout,
     )
     print("status:", wrong_key_response.status_code)
@@ -112,8 +114,6 @@ def main() -> None:
         print("reason: --skip-monthly was enabled to avoid external RAG dependency.")
     else:
         print_section("Monthly Plan API")
-        monthly_payload = load_json(Path(args.monthly_request))
-
         monthly_response = requests.post(
             f"{base_url}/monthly-plan",
             headers=headers,
