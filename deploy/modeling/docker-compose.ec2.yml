@@ -1,9 +1,6 @@
 services:
   modeling-api:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.modeling
-    image: todays-ggini-modeling:manual
+    image: ${MODELING_IMAGE:?MODELING_IMAGE is required}
     container_name: todays-ggini-modeling
     environment:
       ENV: prod
