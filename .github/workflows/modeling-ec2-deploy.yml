@@ -9,6 +9,14 @@ on:
         default: "latest"
         type: string
 
+  workflow_run:
+    workflows:
+      - Modeling Docker Publish
+    types:
+      - completed
+    branches:
+      - main
+
 permissions:
   contents: read
   packages: read
@@ -24,6 +32,13 @@ env:
 jobs:
   deploy-modeling-api:
     name: Deploy Modeling API
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -31,6 +46,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: >-
+            ${{ github.event_name == 'workflow_run'
+                && github.event.workflow_run.head_sha
+                || github.sha }}
 
       - name: Validate deployment secrets
         shell: bash
@@ -63,13 +83,36 @@ jobs:
       - name: Resolve deployment image
         id: image
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_IMAGE_TAG: ${{ inputs.image_tag }}
+          PUBLISHED_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -Eeuo pipefail
 
-          IMAGE_TAG="${{ inputs.image_tag }}"
+          if [ "${EVENT_NAME}" = "workflow_run" ]; then
+            if [ -z "${PUBLISHED_HEAD_SHA}" ]; then
+              echo "::error::Publish Workflow의 commit SHA가 없습니다."
+              exit 1
+            fi
+
+            SHORT_SHA="${PUBLISHED_HEAD_SHA::7}"
+            IMAGE_TAG="main-${SHORT_SHA}"
+          else
+            IMAGE_TAG="${MANUAL_IMAGE_TAG}"
+          fi
+
+          if [[ ! "${IMAGE_TAG}" =~ ^(latest|main-[0-9a-f]{7,40})$ ]]; then
+            echo "::error::허용되지 않은 이미지 태그입니다: ${IMAGE_TAG}"
+            exit 1
+          fi
+
           DEPLOY_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
           echo "image=${DEPLOY_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+          echo "이벤트: ${EVENT_NAME}"
           echo "배포 대상 이미지: ${DEPLOY_IMAGE}"
 
       - name: Configure SSH
