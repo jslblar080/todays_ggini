@@ -14,7 +14,7 @@ from app.core.redis import get_redis
 from app.api.deps import get_current_user
 from app.core.redis import redis_client
 from app.models.user import User
-from app.schemas.user import SocialLoginResponse, SocialLoginRequest, TokenRefreshRequest, TokenRefreshResponse
+from app.schemas.user import SocialLoginResponse, SocialLoginRequest, TokenRefreshRequest, TokenRefreshResponse, NaverLoginRequest
 from app.crud import crud_user
 
 router = APIRouter()
@@ -224,9 +224,42 @@ async def verify_naver_token(access_token: str) -> dict:
         )
 
 @router.post("/naver", response_model=SocialLoginResponse)
-async def naver_login(request: SocialLoginRequest, db: Session = Depends(get_db), redis: Redis = Depends(get_redis)):
+async def naver_login(request: NaverLoginRequest, db: Session = Depends(get_db), redis: Redis = Depends(get_redis)):
     """ [소셜 로그인] 네이버 토큰을 검증하고 로그인/가입을 처리합니다. """
-    naver_data = await verify_naver_token(request.accessToken)
+    token_url = "https://nid.naver.com/oauth2.0/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": settings.NAVER_CLIENT_ID,         
+        "client_secret": settings.NAVER_CLIENT_SECRET, 
+        "code": request.code,
+        "redirect_uri": request.redirectUri            
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            token_response = await client.post(token_url, data=payload)
+            
+        if token_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="네이버 토큰 교환에 실패했습니다."
+            )
+            
+        token_data = token_response.json()
+        access_token = token_data.get("access_token")
+        
+        if not access_token:
+            # 네이버는 에러 시 error_description을 반환하기도 합니다.
+            error_msg = token_data.get("error_description", "인증 토큰을 발급받을 수 없습니다.")
+            raise HTTPException(status_code=400, detail=error_msg)
+            
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="네이버 토큰 교환 서버와 통신할 수 없습니다."
+        )
+    
+    naver_data = await verify_naver_token(access_token)
 
     # 네이버 API 전용 성공 코드("00") 확인 로직 추가
     if naver_data.get("resultcode") != "00":
