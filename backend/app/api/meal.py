@@ -10,6 +10,7 @@ import hashlib
 import json
 
 from app.api.deps import get_db, get_current_user
+from app.core.config import settings
 from app.core.redis import get_redis, ShortTermDistributedLock
 from app.core.celery_app import celery_app
 from app.db.session import SessionLocal
@@ -67,7 +68,7 @@ def background_monthly_plan_task(
     API 응답이 나간 뒤 백그라운드에서 조용히 실행될 함수
     """
     # 워커 내부에서 사용할 동기형 Redis 클라이언트 생성 (동기 컨텍스트 환경)
-    redis_client = sync_redis.from_url("redis://localhost:6379/0")
+    redis_client = sync_redis.from_url(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0")
 
     # [도우미 함수] 반복되는 Redis 상태 업데이트 코드를 깔끔하게 관리하기 위해 선언
     def update_status(job_status: str, progress: str, error: str = None):
