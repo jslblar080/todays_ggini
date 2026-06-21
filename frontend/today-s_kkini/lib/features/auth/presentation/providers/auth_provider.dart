@@ -236,16 +236,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
+    // 서버 로그아웃/구글 signOut은 best-effort — 실패해도 로컬 로그아웃은 무조건 진행한다.
+    // (서버 호출 성공 여부에 로컬 세션 정리를 묶으면, 서버가 죽었을 때 로그아웃이 안 됨)
+    try {
+      await _repository.logout();
+    } catch (_) {}
     try {
       await _googleSignIn.signOut();
-      await _repository.logout();
-      await _deleteTokens();
-      if (!mounted) return;
-      state = const AuthState();
-    } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(error: e, isLoading: false);
-    }
+    } catch (_) {}
+    await _deleteTokens();
+    if (!mounted) return;
+    state = const AuthState();
   }
 
   // 게스트 계정 완전 삭제
