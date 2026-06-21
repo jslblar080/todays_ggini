@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<title>Authentication complete</title>
+<p>Authentication is complete. If this does not happen automatically, please close the window.</p>
+<script>
+  // flutter_web_auth_2 web 콜백 엔드포인트.
+  // OAuth provider(네이버 등)가 이 페이지(/auth.html)로 redirect 하면
+  // 현재 URL(코드 포함)을 postMessage 로 앱에 전달하고 창을 닫는다.
+  function postAuthenticationMessage() {
+    const message = {
+      'flutter-web-auth-2': window.location.href
+    };
+
+    if (window.opener) {
+      window.opener.postMessage(message, window.location.origin);
+      window.close();
+    } else if (window.parent && window.parent !== window) {
+      window.parent.postMessage(message, window.location.origin);
+    } else {
+      localStorage.setItem('flutter-web-auth-2', window.location.href);
+      window.close();
+    }
+  }
+
+  postAuthenticationMessage();
+</script>

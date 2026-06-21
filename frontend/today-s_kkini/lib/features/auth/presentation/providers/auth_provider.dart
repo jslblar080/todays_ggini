@@ -139,15 +139,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loginWithNaver() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      // 웹은 커스텀 스킴(todaysggini://)이 동작하지 않으므로 같은 origin의
+      // HTTPS 콜백 페이지(web/auth.html)로 리다이렉트한다. origin 은 런타임에
+      // 구해서 vercel 미리보기/프로덕션/커스텀 도메인 어디서든 맞게 동작한다.
+      // 네이버 콘솔 Callback URL 에도 이 주소를 등록해야 한다.
+      final redirectUri =
+          kIsWeb ? '${Uri.base.origin}/auth.html' : 'todaysggini://auth';
+      final authUrl = Uri.https('nid.naver.com', '/oauth2.0/authorize', {
+        'client_id': Env.naverClientId,
+        'response_type': 'code',
+        'redirect_uri': redirectUri,
+      }).toString();
       final result = await FlutterWebAuth2.authenticate(
-        url: 'https://nid.naver.com/oauth2.0/authorize'
-            '?client_id=${Env.naverClientId}'
-            '&response_type=code'
-            '&redirect_uri=todaysggini://auth',
+        url: authUrl,
+        // web 에선 이 값이 redirect 매칭에 쓰이지 않고(콜백 페이지의 postMessage 로
+        // 처리), native 에선 todaysggini:// 스킴 매칭에 쓰인다.
         callbackUrlScheme: 'todaysggini',
       );
       final code = Uri.parse(result).queryParameters['code'] ?? '';
-      final user = await _repository.loginWithNaver(code);
+      final user = await _repository.loginWithNaver(code, redirectUri);
       await _saveTokens(user);
       if (!mounted) return;
       state = state.copyWith(user: user, isLoading: false);

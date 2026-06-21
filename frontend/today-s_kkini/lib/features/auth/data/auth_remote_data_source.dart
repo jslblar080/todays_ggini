@@ -12,8 +12,17 @@ class AuthRemoteDataSource {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> loginWithNaver(String code) async {
-    final response = await _dio.post('/auth/naver', data: {'code': code});
+  /// [redirectUri] 는 authorize 단계에서 쓴 값과 동일해야 한다.
+  /// 백엔드의 code→token 교환도 반드시 이 값을 사용해야 네이버가 거부하지 않는다
+  /// (web: https://<도메인>/auth.html, native: todaysggini://auth).
+  Future<Map<String, dynamic>> loginWithNaver(
+    String code,
+    String redirectUri,
+  ) async {
+    final response = await _dio.post(
+      '/auth/naver',
+      data: {'code': code, 'redirectUri': redirectUri},
+    );
     return response.data as Map<String, dynamic>;
   }
 
