@@ -91,7 +91,7 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
     container_name: kkini-celery-worker
-    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    command: sh -c "PYTHONPATH=. celery -A app.core.celery_app.celery_app worker --loglevel=info"
     env_file:
       - .env
     depends_on:
