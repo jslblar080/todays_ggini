@@ -46,6 +46,11 @@ class SocialLoginResponse(BaseModel):
     refreshToken: str
     user: UserInformation
 
+# ------- 네이버 로그인 전용 스키마 -----------
+class NaverLoginRequest(BaseModel):
+    code: str
+    redirectUri: str
+
 # ------ API 응답 시 유저 정보를 돌려주는 스키마 --------
 class UserResponse(BaseModel):
     id: int
