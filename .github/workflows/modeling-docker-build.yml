@@ -70,6 +70,7 @@ jobs:
               PYTHONPATH=/tmp/modeling-test-deps:/app/ai/modeling \
                 python -m pytest -q -p no:cacheprovider \
                 ai/modeling/experiments/contract/test_modeling_api_request_validation.py \
+                ai/modeling/experiments/contract/test_modeling_api_metrics.py \
                 ai/modeling/experiments/contract/test_optimizer_failure_response_contract.py &&
               PYTHONPATH=/app/ai/modeling \
                 python ai/modeling/experiments/contract/validate_backend_contract_requests.py &&
@@ -113,6 +114,91 @@ jobs:
           assert "env" not in data
 
           print("health response ok")
+          PY
+
+      - name: Verify Prometheus metrics endpoint
+        run: |
+          set -Eeuo pipefail
+
+          http_status="$(
+            curl -sS \
+              -o /tmp/modeling_metrics_response.txt \
+              -D /tmp/modeling_metrics_headers.txt \
+              -w "%{http_code}" \
+              http://localhost:8001/metrics \
+              -H "X-API-Key: ci-secret-key"
+          )"
+
+          cat /tmp/modeling_metrics_headers.txt
+          head -40 /tmp/modeling_metrics_response.txt
+          echo "http_status=${http_status}"
+
+          test "${http_status}" = "200"
+
+          grep -qi \
+            '^content-type: text/plain' \
+            /tmp/modeling_metrics_headers.txt
+
+          grep -q \
+            '^# HELP modeling_http_requests_total ' \
+            /tmp/modeling_metrics_response.txt
+
+          grep -q \
+            '^# HELP modeling_http_request_duration_seconds ' \
+            /tmp/modeling_metrics_response.txt
+
+          grep -q \
+            '^# HELP modeling_http_requests_in_progress ' \
+            /tmp/modeling_metrics_response.txt
+
+          if grep -q \
+            'path="/metrics"' \
+            /tmp/modeling_metrics_response.txt; then
+            echo "::error::/metrics 요청이 자체 HTTP 지표에 포함되었습니다."
+            exit 1
+          fi
+
+          if grep -q \
+            'path="/health"' \
+            /tmp/modeling_metrics_response.txt; then
+            echo "::error::/health 요청이 비즈니스 HTTP 지표에 포함되었습니다."
+            exit 1
+          fi
+
+          echo "Prometheus metrics endpoint 검증을 통과했습니다."
+
+      - name: Verify metrics API key protection
+        run: |
+          set -Eeuo pipefail
+
+          http_status="$(
+            curl -sS \
+              -o /tmp/modeling_metrics_wrong_key_response.json \
+              -w "%{http_code}" \
+              http://localhost:8001/metrics \
+              -H "X-API-Key: wrong-key"
+          )"
+
+          cat /tmp/modeling_metrics_wrong_key_response.json
+          echo "http_status=${http_status}"
+
+          test "${http_status}" = "401"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path(
+                  "/tmp/modeling_metrics_wrong_key_response.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert data == {
+              "detail": "Invalid or missing API key.",
+          }
+
+          print("metrics API key protection ok")
           PY
 
       - name: Verify API key protection
