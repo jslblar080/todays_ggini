@@ -1,5 +1,5 @@
 {
-  "user_id": 1,
+  "id": 1,
   "request_type": "monthly_plan",
   "success": false,
   "failure_reason": "candidate_insufficient",

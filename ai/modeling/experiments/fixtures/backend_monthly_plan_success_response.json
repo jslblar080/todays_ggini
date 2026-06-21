@@ -1,6 +1,8 @@
 {
   "id": 1,
   "request_type": "monthly_plan",
+  "success": true,
+  "failure_reason": null,
   "selected_style": {
     "style_id": "high_protein_budget_easy",
     "style_name": "고단백 절약형",

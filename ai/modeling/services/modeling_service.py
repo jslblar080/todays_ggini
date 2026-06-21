@@ -1027,6 +1027,106 @@ def build_optimizer_infeasible_user_guidance(
 
     return guidance
 
+def build_optimizer_unknown_monthly_response(
+    user_id: str,
+    selected_style: dict,
+    base_profile: dict,
+    monthly_profile: dict,
+    period_days: int,
+    meal_count_per_day: int,
+    available_recommendation_count: int,
+    optimizer_result: dict,
+    optimizer_input: dict,
+    fallback_info: dict,
+    profiling: dict | None = None,
+) -> dict:
+    """
+    OR-Tools가 제한 시간 내에 해의 존재 여부를 확정하지 못한 경우
+    INFEASIBLE과 구분된 실패 응답을 만든다.
+    """
+
+    required_meal_count = period_days * meal_count_per_day
+    warnings = list(fallback_info.get("warnings", []))
+    warnings.append(
+        "OR-Tools가 제한 시간 내에 월간 식단 최적화 결과를 확정하지 못했습니다."
+    )
+
+    return {
+        "id": user_id,
+        "request_type": "monthly_plan",
+        "success": False,
+        "failure_reason": "optimizer_unknown",
+        "message": "제한 시간 내에 월간 식단 최적화 결과를 확정하지 못했습니다.",
+        "relaxation_suggestions": [
+            "잠시 후 다시 생성해 주세요.",
+            "필요한 경우 최적화 제한 시간을 늘려 다시 시도해 주세요.",
+        ],
+        "selected_style": selected_style,
+        "meta": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "fallback": fallback_info,
+        },
+        "modeling_profile": base_profile,
+        "monthly_profile": monthly_profile,
+        "monthly_plan": {
+            "period_days": period_days,
+            "meal_count_per_day": meal_count_per_day,
+            "required_meal_count": required_meal_count,
+            "available_recommendation_count": available_recommendation_count,
+            "warnings": warnings,
+            "optimizer": {
+                "enabled": True,
+                "solver": "OR-Tools CP-SAT",
+                "solver_status": optimizer_result.get("solver_status"),
+                "objective_value": optimizer_result.get("objective_value"),
+                "message": optimizer_result.get("message"),
+                "config": {
+                    **optimizer_input.get("optimizer_config", {}),
+                    "monthly_budget": optimizer_input.get("monthly_budget"),
+                    "max_repeat_per_menu": optimizer_input.get(
+                        "max_repeat_per_menu"
+                    ),
+                    "solver_time_limit_seconds": optimizer_input.get(
+                        "solver_time_limit_seconds"
+                    ),
+                    "required_meal_count": optimizer_input.get(
+                        "required_meal_count"
+                    ),
+                },
+            },
+            "profiling": profiling or {},
+            "summary": {
+                "selected_menu_count": 0,
+                "unique_menu_count": 0,
+                "duplicate_menu_count": 0,
+                "total_estimated_cost": 0,
+                "average_daily_cost": 0,
+            },
+            "days": [],
+        },
+    }
+
+
+def build_optimizer_failure_monthly_response(
+    **kwargs,
+) -> dict:
+    """
+    Solver 상태에 따라 UNKNOWN과 INFEASIBLE 계열 응답을 구분한다.
+    """
+
+    optimizer_result = kwargs.get("optimizer_result") or {}
+    solver_status = optimizer_result.get("solver_status")
+
+    if solver_status == "UNKNOWN":
+        return build_optimizer_unknown_monthly_response(**kwargs)
+
+    return build_optimizer_infeasible_monthly_response(**kwargs)
+
+
 def build_optimizer_infeasible_monthly_response(
     user_id: str,
     selected_style: dict,
@@ -1462,7 +1562,7 @@ def create_monthly_plan(request_data: dict) -> dict:
                 )
 
             if optimizer_result.get("solver_status") not in ["OPTIMAL", "FEASIBLE"]:
-                return build_optimizer_infeasible_monthly_response(
+                return build_optimizer_failure_monthly_response(
                     user_id=user_id,
                     selected_style=selected_style_summary,
                     base_profile=base_profile,
@@ -1477,7 +1577,7 @@ def create_monthly_plan(request_data: dict) -> dict:
                 )
 
         if optimizer_result.get("solver_status") not in ["OPTIMAL", "FEASIBLE"]:
-            return build_optimizer_infeasible_monthly_response(
+            return build_optimizer_failure_monthly_response(
                 user_id=user_id,
                 selected_style=selected_style_summary,
                 base_profile=base_profile,

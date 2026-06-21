@@ -19,6 +19,7 @@ ALLOWED_FAILURE_REASONS = {
     "candidate_insufficient",
     "budget_infeasible",
     "optimizer_infeasible",
+    "optimizer_unknown",
 }
 
 
@@ -98,6 +99,8 @@ def validate_monthly_success_response(response_data: dict[str, Any]) -> None:
         [
             "id",
             "request_type",
+            "success",
+            "failure_reason",
             "selected_style",
             "meta",
             "modeling_profile",
@@ -109,6 +112,14 @@ def validate_monthly_success_response(response_data: dict[str, Any]) -> None:
 
     if response_data["request_type"] != "monthly_plan":
         raise ValueError("monthly success response request_type이 올바르지 않습니다.")
+
+    if response_data["success"] is not True:
+        raise ValueError("success response의 success 값은 true여야 합니다.")
+
+    if response_data["failure_reason"] is not None:
+        raise ValueError(
+            "success response의 failure_reason은 null이어야 합니다."
+        )
 
     selected_style = response_data["selected_style"]
 
@@ -255,7 +266,7 @@ def validate_monthly_success_response(response_data: dict[str, Any]) -> None:
 def validate_monthly_failure_response(response_data: dict[str, Any]) -> None:
     require_fields(
         response_data,
-        ["user_id", "request_type", "success", "failure_reason", "message"],
+        ["id", "request_type", "success", "failure_reason", "message"],
         "monthly failure response",
     )
 
