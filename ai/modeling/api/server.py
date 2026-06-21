@@ -1,15 +1,16 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from services.modeling_service import (
     create_meal_style_candidates,
     create_monthly_plan,
 )
 from services.rag.rag_client import RagRequestError
+from schemas.user_profile_schema import UserProfileRequest
 
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -35,28 +36,46 @@ app = FastAPI(
 )
 
 
-class MealStyleCandidatesRequest(BaseModel):
+class MealStyleCandidatesRequest(UserProfileRequest):
     """
     식단 스타일 후보 생성 요청 모델.
 
-    현재는 Backend contract 호환성을 위해 extra field를 허용한다.
-    추후 request contract가 더 고정되면 필수 필드를 명시한다.
+    기존 UserProfileRequest의 id, request_type, profile 검증을 재사용하고,
+    request_type은 meal_style_candidates만 허용한다.
     """
 
-    class Config:
-        extra = "allow"
+    request_type: Literal["meal_style_candidates"]
+
+    model_config = ConfigDict(extra="allow")
 
 
-class MonthlyPlanRequest(BaseModel):
+class SelectedStyleRequest(BaseModel):
+    """
+    월간 식단 생성 시 사용자가 선택한 식단 스타일 정보이다.
+    """
+
+    style_id: str
+    style_name: str
+    source_goal: str
+    focus_key: str
+
+    model_config = ConfigDict(extra="allow")
+
+
+class MonthlyPlanRequest(UserProfileRequest):
     """
     월간 식단 생성 요청 모델.
 
-    현재는 Backend contract 호환성을 위해 extra field를 허용한다.
-    추후 user_id, budget, meal_count 등 필수 필드를 명시할 수 있다.
+    기존 UserProfileRequest의 id, request_type, profile 검증을 재사용하며,
+    월간 식단 생성에 필요한 selected_style을 추가로 검증한다.
     """
 
-    class Config:
-        extra = "allow"
+    request_type: Literal["monthly_plan"]
+    selected_style: SelectedStyleRequest
+    use_ortools: bool = True
+    optimizer_config: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow")
 
 
 def model_to_payload(model: BaseModel) -> dict[str, Any]:

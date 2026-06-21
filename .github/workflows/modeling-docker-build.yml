@@ -15,7 +15,7 @@ on:
 
   push:
     branches:
-      - feat/modeling-fastapi-serving
+      - "feat/modeling-*"
     paths:
       - "ai/modeling/**"
       - "Dockerfile.modeling"
@@ -44,6 +44,21 @@ jobs:
           docker run --rm \
             todays-ggini-modeling:ci \
             python ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py
+
+      - name: Verify Modeling API request validation
+        run: |
+          docker run --rm \
+            -e MODELING_API_KEY=ci-secret-key \
+            todays-ggini-modeling:ci \
+            sh -c "
+              python -m pip install \
+                --no-cache-dir \
+                --target /tmp/modeling-test-deps \
+                -r ai/modeling/requirements-test.txt &&
+              PYTHONPATH=/tmp/modeling-test-deps:/app/ai/modeling \
+                python -m pytest -q -p no:cacheprovider \
+                ai/modeling/experiments/contract/test_modeling_api_request_validation.py
+            "
 
       - name: Run Modeling container
         run: |
@@ -90,7 +105,8 @@ jobs:
               -X POST http://localhost:8001/monthly-plan \
               -H "Content-Type: application/json" \
               -H "X-API-Key: wrong-key" \
-              --data '{}'
+              --data-binary \
+              @ai/modeling/experiments/fixtures/backend_monthly_plan_request.json
           )"
 
           cat /tmp/modeling_wrong_key_response.json
