@@ -91,7 +91,7 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
     container_name: kkini-celery-worker
-    working_dir: /app
+    working_dir: /app/backend
     command: celery -A app.core.celery_app.celery_app worker --loglevel=info
     env_file:
       - .env
