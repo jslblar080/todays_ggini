@@ -180,6 +180,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // web 에선 이 값이 redirect 매칭에 쓰이지 않고(콜백 페이지의 postMessage 로
         // 처리), native 에선 todaysggini:// 스킴 매칭에 쓰인다.
         callbackUrlScheme: 'todaysggini',
+        // preferEphemeral: 모바일에서 시스템 브라우저와 쿠키·탭을 공유하지 않는
+        // 새 프라이빗 세션으로 연다. 로그아웃 후 잔여 세션/탭이 남아 첫 로그인이
+        // 헛돌고 재시도해야 하던 문제를 막고, 매번 깨끗한 로그인으로 계정 전환을
+        // 안정화한다(web 에선 무시됨).
+        options: const FlutterWebAuth2Options(preferEphemeral: true),
       );
       final returned = Uri.parse(result).queryParameters;
       if (returned['state'] != stateValue) {
