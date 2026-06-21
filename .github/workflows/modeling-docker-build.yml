@@ -81,6 +81,7 @@ jobs:
               exit 0
             fi
 
+            echo "Modeling API healthcheck 대기 중 (${i}/20)"
             sleep 1
           done
 

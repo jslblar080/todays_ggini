@@ -1,0 +1,190 @@
+name: Modeling EC2 Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "배포할 GHCR 이미지 태그"
+        required: true
+        default: "latest"
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: modeling-production-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/todays-ggini-modeling
+  REMOTE_PROJECT_DIR: /home/ubuntu/todays_ggini
+
+jobs:
+  deploy-modeling-api:
+    name: Deploy Modeling API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate deployment secrets
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
+          EC2_USER: ${{ secrets.MODELING_EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY }}
+          GHCR_USERNAME: ${{ secrets.MODELING_GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.MODELING_GHCR_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+
+          required_secret_names=(
+            EC2_HOST
+            EC2_USER
+            EC2_SSH_PRIVATE_KEY
+            GHCR_USERNAME
+            GHCR_READ_TOKEN
+          )
+
+          for secret_name in "${required_secret_names[@]}"; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::필수 배포 Secret이 없습니다: ${secret_name}"
+              exit 1
+            fi
+          done
+
+          echo "필수 배포 Secret 설정을 확인했습니다."
+
+      - name: Resolve deployment image
+        id: image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          IMAGE_TAG="${{ inputs.image_tag }}"
+          DEPLOY_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
+
+          echo "image=${DEPLOY_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "배포 대상 이미지: ${DEPLOY_IMAGE}"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY }}
+        run: |
+          set -Eeuo pipefail
+
+          install -d -m 700 "${HOME}/.ssh"
+
+          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" \
+            > "${HOME}/.ssh/modeling-ec2-key"
+
+          chmod 600 "${HOME}/.ssh/modeling-ec2-key"
+
+          ssh-keyscan \
+            -H \
+            "${EC2_HOST}" \
+            >> "${HOME}/.ssh/known_hosts"
+
+      - name: Validate deployment files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          bash -n \
+            deploy/modeling/scripts/deploy_from_ghcr.sh
+
+          MODELING_IMAGE="${{ steps.image.outputs.image }}" \
+          MODELING_API_KEY=workflow-validation-key \
+          docker compose \
+            -f deploy/modeling/docker-compose.ec2.yml \
+            config \
+            --quiet
+
+      - name: Upload deployment files
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
+          EC2_USER: ${{ secrets.MODELING_EC2_USER }}
+        run: |
+          set -Eeuo pipefail
+
+          ARCHIVE_PATH="/tmp/modeling-deploy-${GITHUB_RUN_ID}.tar.gz"
+          REMOTE_ARCHIVE="/tmp/modeling-deploy-${GITHUB_RUN_ID}.tar.gz"
+
+          tar \
+            -czf "${ARCHIVE_PATH}" \
+            deploy/modeling/docker-compose.ec2.yml \
+            deploy/modeling/scripts/deploy_from_ghcr.sh
+
+          scp \
+            -i "${HOME}/.ssh/modeling-ec2-key" \
+            "${ARCHIVE_PATH}" \
+            "${EC2_USER}@${EC2_HOST}:${REMOTE_ARCHIVE}"
+
+          ssh \
+            -i "${HOME}/.ssh/modeling-ec2-key" \
+            "${EC2_USER}@${EC2_HOST}" \
+            "set -Eeuo pipefail
+             mkdir -p '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts'
+             tar -xzf '${REMOTE_ARCHIVE}' -C '${REMOTE_PROJECT_DIR}'
+             chmod +x '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts/deploy_from_ghcr.sh'
+             rm -f '${REMOTE_ARCHIVE}'"
+
+      - name: Login EC2 to GHCR
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
+          EC2_USER: ${{ secrets.MODELING_EC2_USER }}
+          GHCR_USERNAME: ${{ secrets.MODELING_GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.MODELING_GHCR_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+
+          printf '%s' "${GHCR_READ_TOKEN}" \
+            | ssh \
+                -i "${HOME}/.ssh/modeling-ec2-key" \
+                "${EC2_USER}@${EC2_HOST}" \
+                "docker login ghcr.io \
+                  --username '${GHCR_USERNAME}' \
+                  --password-stdin"
+
+      - name: Deploy Modeling API
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
+          EC2_USER: ${{ secrets.MODELING_EC2_USER }}
+          DEPLOY_IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/modeling-ec2-key" \
+            "${EC2_USER}@${EC2_HOST}" \
+            "PROJECT_DIR='${REMOTE_PROJECT_DIR}' \
+             bash '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts/deploy_from_ghcr.sh' \
+             '${DEPLOY_IMAGE}'"
+
+      - name: Verify public HTTPS health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 20 \
+            https://modeling.todays-ggini.shop/health
+
+      - name: Cleanup SSH key
+        if: always()
+        shell: bash
+        run: |
+          rm -f "${HOME}/.ssh/modeling-ec2-key"
