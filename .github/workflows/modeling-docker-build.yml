@@ -9,6 +9,8 @@ on:
       - "ai/modeling/**"
       - "Dockerfile.modeling"
       - "docker-compose.modeling.yml"
+      - "deploy/modeling/docker-compose.ec2.yml"
+      - "deploy/modeling/scripts/**"
       - ".dockerignore"
       - ".env.modeling.example"
       - ".github/workflows/modeling-docker-build.yml"
@@ -20,6 +22,8 @@ on:
       - "ai/modeling/**"
       - "Dockerfile.modeling"
       - "docker-compose.modeling.yml"
+      - "deploy/modeling/docker-compose.ec2.yml"
+      - "deploy/modeling/scripts/**"
       - ".dockerignore"
       - ".env.modeling.example"
       - ".github/workflows/modeling-docker-build.yml"
@@ -31,6 +35,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Validate Modeling deployment scripts
+        run: |
+          set -Eeuo pipefail
+
+          bash -n deploy/modeling/scripts/deploy_from_ghcr.sh
+          bash -n deploy/modeling/scripts/test_deploy_from_ghcr.sh
+          bash deploy/modeling/scripts/test_deploy_from_ghcr.sh
 
       - name: Build Modeling Docker image
         run: |
@@ -81,6 +93,7 @@ jobs:
               exit 0
             fi
 
+            echo "Modeling API healthcheck 대기 중 (${i}/20)"
             sleep 1
           done
 
