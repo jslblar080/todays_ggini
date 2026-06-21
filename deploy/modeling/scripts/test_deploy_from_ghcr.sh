@@ -18,7 +18,7 @@ FAKE_BIN_DIR="${TEST_ROOT}/fake-bin"
 STATE_DIR="${TEST_ROOT}/state"
 
 NEW_IMAGE="ghcr.io/hekim-cse/todays-ggini-modeling:main-new1234"
-PREVIOUS_IMAGE="ghcr.io/hekim-cse/todays-ggini-modeling:main-old5678"
+PREVIOUS_IMAGE="todays-ggini-modeling:manual"
 
 cleanup() {
     rm -rf "${TEST_ROOT}"

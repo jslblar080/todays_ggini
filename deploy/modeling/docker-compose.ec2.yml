@@ -1,7 +1,6 @@
 services:
   modeling-api:
     image: ${MODELING_IMAGE:?MODELING_IMAGE is required}
-    pull_policy: always
     container_name: todays-ggini-modeling
     environment:
       ENV: prod
