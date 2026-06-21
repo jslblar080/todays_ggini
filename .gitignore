@@ -25,3 +25,4 @@ ai/modeling/experiments/results/*_snapshot_summary.csv
 ai/modeling/experiments/results/optimizer_policy_replay/
 ai/modeling/experiments/results/optimizer_snapshot_replay/
 ai/modeling/experiments/snapshots/
+.env.modeling

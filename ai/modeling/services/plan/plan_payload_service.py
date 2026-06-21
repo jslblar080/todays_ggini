@@ -234,6 +234,8 @@ def build_modeling_to_back_monthly_response(
     return {
         "id": user_id,
         "request_type": "monthly_plan",
+        "success": True,
+        "failure_reason": None,
         "selected_style": selected_style,
         "meta": {
             "period_days": period_days,

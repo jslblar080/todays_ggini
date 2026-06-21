@@ -1,0 +1,149 @@
+name: Modeling Docker Build
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "ai/modeling/**"
+      - "Dockerfile.modeling"
+      - "docker-compose.modeling.yml"
+      - ".dockerignore"
+      - ".env.modeling.example"
+      - ".github/workflows/modeling-docker-build.yml"
+
+  push:
+    branches:
+      - "feat/modeling-*"
+    paths:
+      - "ai/modeling/**"
+      - "Dockerfile.modeling"
+      - "docker-compose.modeling.yml"
+      - ".dockerignore"
+      - ".env.modeling.example"
+      - ".github/workflows/modeling-docker-build.yml"
+
+jobs:
+  modeling-docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build Modeling Docker image
+        run: |
+          docker build \
+            -f Dockerfile.modeling \
+            -t todays-ggini-modeling:ci \
+            .
+
+      - name: Verify RAG error status mapping
+        run: |
+          docker run --rm \
+            todays-ggini-modeling:ci \
+            python ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py
+
+      - name: Verify Modeling API contracts
+        run: |
+          docker run --rm \
+            -e MODELING_API_KEY=ci-secret-key \
+            todays-ggini-modeling:ci \
+            sh -c "
+              python -m pip install \
+                --no-cache-dir \
+                --target /tmp/modeling-test-deps \
+                -r ai/modeling/requirements-test.txt &&
+              PYTHONPATH=/tmp/modeling-test-deps:/app/ai/modeling \
+                python -m pytest -q -p no:cacheprovider \
+                ai/modeling/experiments/contract/test_modeling_api_request_validation.py \
+                ai/modeling/experiments/contract/test_optimizer_failure_response_contract.py &&
+              PYTHONPATH=/app/ai/modeling \
+                python ai/modeling/experiments/contract/validate_backend_contract_requests.py &&
+              PYTHONPATH=/app/ai/modeling \
+                python ai/modeling/experiments/contract/validate_backend_contract_responses.py
+            "
+
+      - name: Run Modeling container
+        run: |
+          docker run -d \
+            --name todays-ggini-modeling-ci \
+            -e MODELING_API_KEY=ci-secret-key \
+            -p 8001:8000 \
+            todays-ggini-modeling:ci
+
+      - name: Wait for Modeling API health
+        run: |
+          for i in {1..20}; do
+            if curl -fsS http://localhost:8001/health > /tmp/modeling_health_response.json; then
+              cat /tmp/modeling_health_response.json
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          docker logs todays-ggini-modeling-ci
+          exit 1
+
+      - name: Validate health response
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("/tmp/modeling_health_response.json").read_text())
+
+          assert data["status"] == "ok"
+          assert data["service"] == "todays-ggini-modeling"
+          assert "env" not in data
+
+          print("health response ok")
+          PY
+
+      - name: Verify API key protection
+        run: |
+          http_status="$(
+            curl -s -o /tmp/modeling_wrong_key_response.json \
+              -w "%{http_code}" \
+              -X POST http://localhost:8001/monthly-plan \
+              -H "Content-Type: application/json" \
+              -H "X-API-Key: wrong-key" \
+              --data-binary \
+              @ai/modeling/experiments/fixtures/backend_monthly_plan_request.json
+          )"
+
+          cat /tmp/modeling_wrong_key_response.json
+          echo "http_status=${http_status}"
+
+          test "${http_status}" = "401"
+
+      - name: Verify docs are disabled in prod mode
+        run: |
+          http_status="$(
+            curl -s -o /tmp/modeling_docs_response.html \
+              -w "%{http_code}" \
+              http://localhost:8001/docs
+          )"
+
+          echo "http_status=${http_status}"
+
+          test "${http_status}" = "404"
+
+      - name: Run Modeling API HTTP smoke test
+        run: |
+          docker run --rm \
+            --network host \
+            todays-ggini-modeling:ci \
+            python ai/modeling/experiments/contract/run_modeling_api_http_smoke.py \
+              --base-url http://127.0.0.1:8001 \
+              --api-key ci-secret-key \
+              --timeout 30 \
+              --skip-monthly
+
+      - name: Stop Modeling container
+        if: always()
+        run: |
+          docker logs todays-ggini-modeling-ci || true
+          docker stop todays-ggini-modeling-ci || true
