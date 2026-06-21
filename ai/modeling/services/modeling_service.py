@@ -1218,12 +1218,14 @@ def create_monthly_plan(request_data: dict) -> dict:
         2,
     )
 
-    use_ortools = request_data.get("use_ortools", False)
+    # OR-Tools optimizer is an internal modeling default.
+    # Backend payload does not need to expose this execution option.
+    use_ortools = request_data.get("use_ortools", True)
 
     if use_ortools:
         optimizer_config = request_data.get("optimizer_config", {}) or {}
         enable_optimizer_retry_fallback = bool(
-            optimizer_config.get("enable_optimizer_retry_fallback", False)
+            optimizer_config.get("enable_optimizer_retry_fallback", True)
         )
 
         optimizer_profile = {
