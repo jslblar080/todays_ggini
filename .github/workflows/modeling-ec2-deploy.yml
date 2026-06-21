@@ -58,7 +58,7 @@ jobs:
         env:
           EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
           EC2_USER: ${{ secrets.MODELING_EC2_USER }}
-          EC2_SSH_PRIVATE_KEY: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY }}
+          EC2_SSH_PRIVATE_KEY_B64: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY_B64 }}
           GHCR_USERNAME: ${{ secrets.MODELING_GHCR_USERNAME }}
           GHCR_READ_TOKEN: ${{ secrets.MODELING_GHCR_READ_TOKEN }}
         run: |
@@ -67,7 +67,7 @@ jobs:
           required_secret_names=(
             EC2_HOST
             EC2_USER
-            EC2_SSH_PRIVATE_KEY
+            EC2_SSH_PRIVATE_KEY_B64
             GHCR_USERNAME
             GHCR_READ_TOKEN
           )
@@ -120,21 +120,33 @@ jobs:
         shell: bash
         env:
           EC2_HOST: ${{ secrets.MODELING_EC2_HOST }}
-          EC2_SSH_PRIVATE_KEY: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY }}
+          EC2_SSH_PRIVATE_KEY_B64: ${{ secrets.MODELING_EC2_SSH_PRIVATE_KEY_B64 }}
         run: |
           set -Eeuo pipefail
 
           install -d -m 700 "${HOME}/.ssh"
 
-          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" \
+          printf '%s' "${EC2_SSH_PRIVATE_KEY_B64}" \
+            | base64 --decode \
             > "${HOME}/.ssh/modeling-ec2-key"
 
           chmod 600 "${HOME}/.ssh/modeling-ec2-key"
 
-          ssh-keyscan \
+          if ! ssh-keygen -y \
+            -f "${HOME}/.ssh/modeling-ec2-key" \
+            >/dev/null; then
+            echo "::error::Base64에서 복원한 EC2 SSH 개인 키가 유효하지 않습니다."
+            exit 1
+          fi
+
+          if ! timeout 15 ssh-keyscan \
+            -T 10 \
             -H \
             "${EC2_HOST}" \
-            >> "${HOME}/.ssh/known_hosts"
+            >> "${HOME}/.ssh/known_hosts"; then
+            echo "::error::EC2 SSH 호스트 키 조회에 실패했습니다. EC2_HOST와 보안 그룹의 22번 포트를 확인하세요."
+            exit 1
+          fi
 
       - name: Validate deployment files
         shell: bash
