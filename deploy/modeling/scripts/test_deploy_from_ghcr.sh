@@ -18,7 +18,7 @@ FAKE_BIN_DIR="${TEST_ROOT}/fake-bin"
 STATE_DIR="${TEST_ROOT}/state"
 
 NEW_IMAGE="ghcr.io/hekim-cse/todays-ggini-modeling:main-deadbee"
-PREVIOUS_IMAGE="todays-ggini-modeling:manual"
+PREVIOUS_IMAGE="ghcr.io/hekim-cse/todays-ggini-modeling:main-acde123"
 
 cleanup() {
     rm -rf "${TEST_ROOT}"
@@ -153,6 +153,18 @@ assert_equals() {
     fi
 }
 
+assert_not_equals() {
+    local unexpected="$1"
+    local actual="$2"
+    local message="$3"
+
+    if [ "${unexpected}" = "${actual}" ]; then
+        printf 'FAIL: %s\n' "${message}" >&2
+        printf '동일하면 안 되는 값: %s\n' "${actual}" >&2
+        exit 1
+    fi
+}
+
 assert_contains() {
     local file="$1"
     local expected="$2"
@@ -264,9 +276,6 @@ test_rollback_after_health_failure() {
     printf '[pass] Health 실패 후 Rollback\n'
 }
 
-test_successful_deployment
-
-
 test_rejects_mutable_latest_tag() {
     local latest_image
     local output_file
@@ -305,6 +314,12 @@ test_rejects_mutable_latest_tag() {
         "latest 이미지 태그 거부 테스트를 통과했습니다."
 }
 
+assert_not_equals \
+    "${PREVIOUS_IMAGE}" \
+    "${NEW_IMAGE}" \
+    "이전 이미지와 신규 이미지는 서로 달라야 합니다."
+
+test_successful_deployment
 test_rollback_after_health_failure
 test_rejects_mutable_latest_tag
 
