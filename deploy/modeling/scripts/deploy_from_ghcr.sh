@@ -17,6 +17,7 @@ HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-5}"
 
 NEW_IMAGE="${1:-}"
 PREVIOUS_IMAGE=""
+DEPLOYMENT_STARTED="false"
 ROLLBACK_STARTED="false"
 
 
@@ -122,7 +123,9 @@ handle_error() {
 
     show_container_logs
 
-    if [ -n "${PREVIOUS_IMAGE}" ]; then
+    if [ "${DEPLOYMENT_STARTED}" != "true" ]; then
+        log "컨테이너 변경 전 오류이므로 Rollback을 수행하지 않습니다."
+    elif [ -n "${PREVIOUS_IMAGE}" ]; then
         if rollback; then
             log "새 이미지 배포 실패 후 이전 버전으로 복구했습니다."
         else
@@ -143,6 +146,12 @@ if [ -z "${NEW_IMAGE}" ]; then
     fail \
         "배포할 이미지가 필요합니다. " \
         "사용법: $0 ghcr.io/<owner>/<image>:<tag>"
+fi
+
+if [[ ! "${NEW_IMAGE}" =~ :main-[0-9a-f]{7,40}$ ]]; then
+    fail \
+        "불변 main SHA 이미지 태그만 배포할 수 있습니다. " \
+        "입력값: ${NEW_IMAGE}"
 fi
 
 # Compose 파일은 ps, logs, config 등 모든 명령에서
@@ -184,6 +193,29 @@ else
     log "현재 실행 중인 Modeling 컨테이너가 없습니다."
 fi
 
+if [ "${PREVIOUS_IMAGE}" = "${NEW_IMAGE}" ]; then
+    log "현재 동일한 이미지가 실행 중입니다."
+    log "컨테이너 재배포를 건너뛰고 Health 상태만 확인합니다."
+
+    wait_for_health \
+        "${INTERNAL_HEALTH_URL}" \
+        "내부"
+
+    wait_for_health \
+        "${EXTERNAL_HEALTH_URL}" \
+        "외부"
+
+    log "동일 이미지 배포 요청 확인 완료"
+    log "실행 이미지: ${PREVIOUS_IMAGE}"
+
+    docker compose \
+        --env-file "${ENV_FILE}" \
+        -f "${COMPOSE_FILE}" \
+        ps
+
+    exit 0
+fi
+
 log "GHCR 이미지를 내려받습니다."
 
 docker pull "${NEW_IMAGE}"
@@ -198,6 +230,8 @@ docker compose \
     --quiet
 
 log "새 이미지로 컨테이너를 실행합니다."
+
+DEPLOYMENT_STARTED="true"
 
 MODELING_IMAGE="${NEW_IMAGE}" \
 docker compose \
@@ -223,9 +257,11 @@ DEPLOYED_IMAGE="$(
 )"
 
 if [ "${DEPLOYED_IMAGE}" != "${NEW_IMAGE}" ]; then
-    fail \
-        "실행 이미지가 배포 대상과 다릅니다. " \
+    log \
+        "ERROR: 실행 이미지가 배포 대상과 다릅니다. " \
         "expected=${NEW_IMAGE}, actual=${DEPLOYED_IMAGE}"
+
+    false
 fi
 
 log "배포 성공"
