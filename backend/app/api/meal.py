@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
+from typing import Dict, Any, List
+import calendar
+import logging
 from redis.asyncio import Redis
 import redis as sync_redis
 import uuid
@@ -31,6 +34,7 @@ from app.schemas.meal import (
 )
 from app.crud import crud_meal
 from app.utils.image_search import get_food_image_url
+from app.clients.modeling_api_client import ModelingApiClient
 
 
 import asyncio
@@ -38,21 +42,100 @@ import sys
 import traceback
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MODELING_ROOT = PROJECT_ROOT / "ai" / "modeling"
+# PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# MODELING_ROOT = PROJECT_ROOT / "ai" / "modeling"
 
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
+# if str(PROJECT_ROOT) not in sys.path:
+#     sys.path.append(str(PROJECT_ROOT))
 
-if str(MODELING_ROOT) not in sys.path:
-    sys.path.append(str(MODELING_ROOT))
+# if str(MODELING_ROOT) not in sys.path:
+#     sys.path.append(str(MODELING_ROOT))
 
-from ai.modeling.services.modeling_service import (
-    create_meal_style_candidates,
-    create_monthly_plan,
-)
+# from ai.modeling.services.modeling_service import (
+#     create_meal_style_candidates,
+#     create_monthly_plan,
+# )
 
 router = APIRouter()
+
+# ------------------- 월간 식단 생성 요청 payload 조립 함수 -----------------------
+def build_modeling_monthly_plan_payload(user: Any, selected_style_id: str) -> Dict[str, Any]:
+    """
+    유저 정보와 스타일 ID를 기반으로 모델링 서버가 요구하는 최종 Payload 규격을 생성합니다.
+    """
+    today = date.today()
+    _, last_day = calendar.monthrange(today.year, today.month)
+    days_remaining = last_day - today.day + 1
+    
+    selected_style = build_selected_style_from_style_id(style_id=selected_style_id)
+    user_profile = build_modeling_profile_from_user(
+        current_user=user,
+        period_days=days_remaining,
+    )
+
+    return {
+        "id": user.id,
+        "request_type": "monthly_plan",
+        "selected_style": selected_style,
+        "profile": user_profile,
+    }
+
+# ---------------------- 월간 식단 응답 데이터 파싱 함수 -------------------
+def map_modeling_monthly_plan_response(ai_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    모델링 서버의 복잡한 응답 계층에서 실제 식단 데이터(days) 레이어를 안전하게 파싱합니다.
+    Solver status가 UNKNOWN이더라도 데이터가 존재하면 유연하게 처리할 수 있도록 방어적으로 설계합니다.
+    """
+    if not ai_response:
+        return []
+        
+    # 최상위 혹은 내부의 식단 구조 스캔 (UNKNOWN 대응 및 유연한 딕셔너리 탐색)
+    monthly_plan = ai_response.get("monthly_plan", {})
+    days_data = monthly_plan.get("days", [])
+    
+    # 만약 구조가 래핑되지 않고 바로 왔을 경우를 대비한 2차 방어선
+    if not days_data and "days" in ai_response:
+        days_data = ai_response["days"]
+        
+    return days_data
+
+# --------------------- health_check() 테스트 API ---------------------
+@router.get("/test-modeling-health")
+async def test_modeling_health():
+    client = ModelingApiClient()
+    is_alive = await client.health_check()
+    import time
+    start_time = time.time()
+    
+    try:
+        is_alive = await client.health_check()
+        
+        # 소요 시간 계산
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        
+        if is_alive:
+            log_message = f"[Modeling API SUCCESS] Endpoint: /health | HTTP Status: 200 | Elapsed: {elapsed_ms}ms"
+            return {
+                "status": "success",
+                "message": "모델링 서버와 연결 및 API Key 인증 성공!",
+                "console_log_summary": log_message
+            }
+        else:
+            log_message = f"[Modeling API FAIL] Endpoint: /health | HTTP Status: 인증 실패 또는 연결 끊김 | Elapsed: {elapsed_ms}ms"
+            return {
+                "status": "failed",
+                "message": "모델링 서버 연결 실패 또는 API Key 인증 오류.",
+                "console_log_summary": log_message
+            }
+            
+    except Exception as e:
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        log_message = f"[Modeling API ERROR] Endpoint: /health | Elapsed: {elapsed_ms}ms | Reason: {str(e)}"
+        return {
+            "status": "error",
+            "message": "시스템 예외가 발생했습니다.",
+            "console_log_summary": log_message
+        }
 
 # ---------------------------  프론트엔드 호출용 API ---------------------------------
 # -------------------- 월간 식단 요청(비동기 실행) ----------------------------
@@ -69,6 +152,7 @@ def background_monthly_plan_task(
     """
     # 워커 내부에서 사용할 동기형 Redis 클라이언트 생성 (동기 컨텍스트 환경)
     redis_client = sync_redis.from_url(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0")
+    logger = logging.getLogger(__name__)
 
     # [도우미 함수] 반복되는 Redis 상태 업데이트 코드를 깔끔하게 관리하기 위해 선언
     def update_status(job_status: str, progress: str, error: str = None):
@@ -99,35 +183,16 @@ def background_monthly_plan_task(
 
         update_user_selected_style(db, current_user.id, selected_style_id)
 
-        # --- AI 요청 로직 (기존 request_monthly_plan과 동일) ---
-        today = date.today()
-
-        _, last_day = calendar.monthrange(today.year, today.month)
-        days_remaining = last_day - today.day + 1
-
-        selected_style = build_selected_style_from_style_id(
-            style_id=selected_style_id,
-        )
-
-        request_type = "monthly_plan"
-
-        user_profile = build_modeling_profile_from_user(
-            current_user=current_user,
-            period_days=days_remaining,
-        )
-
-        modeling_payload = {
-            "id": user_id,
-            "request_type": request_type,
-            "selected_style": selected_style,
-            "profile":user_profile,
-        }
+        # --- 요청 payload 조립 ---
+        modeling_payload = build_modeling_monthly_plan_payload(current_user, selected_style_id)
 
         # ----------------------- [AI 응답 결과 캐싱 구간 ] -----------------------
         update_status("PROCESSING", "기존 식단 캐시 확인 중")
 
         # 딕셔너리 내부 순서가 달라도 같은 해시가 나오도록 고정 정렬 후 JSON 문자열 덤프
         # (user_id를 제외한 user_profile과 request_type, selected_style_id만 조합하여 공유 캐시 효율 극대화)
+        request_type = modeling_payload["request_type"]
+        user_profile = modeling_payload["profile"]
         profile_json_string = json.dumps(user_profile, sort_keys=True, ensure_ascii=False)
         raw_cache_string = f"{request_type}:{selected_style_id}:{profile_json_string}"
         
@@ -147,7 +212,8 @@ def background_monthly_plan_task(
             update_status("PROCESSING", "새로운 식단 생성 중 (AI 연산)")
             
             # AI 호출
-            ai_response = create_monthly_plan(modeling_payload)
+            client = ModelingApiClient()
+            ai_response = asyncio.run(client.create_monthly_plan(modeling_payload))
 
             # 다음 중복 요청을 위해 연산 결과를 Redis에 캐싱 (TTL: 2일 = 172800초)
             redis_client.setex(
@@ -157,7 +223,7 @@ def background_monthly_plan_task(
             )
         # ------------------------------------------------------------------
 
-        days_data = ai_response.get("monthly_plan", {}).get("days", [])
+        days_data = map_modeling_monthly_plan_response(ai_response)
 
         update_status("PROCESSING", "DB에 결과 저장 중")
         # 💡 DB 저장
@@ -168,9 +234,27 @@ def background_monthly_plan_task(
         # 모든 작업 완료 기록
         update_status("COMPLETED", "완료")
 
+    except HTTPException as http_exc:
+        db.rollback()
+        logger.error(f"[Task HTTP Error] Status: {http_exc.status_code} | Detail: {http_exc.detail}")
+        
+        # 프론트엔드가 폴링 시 에러 원인을 분기 처리할 수 있도록 명확한 메시지 바인딩
+        update_status(
+            job_status="FAILED", 
+            progress="식단 생성 중단", 
+            error=f"[{http_exc.status_code}] {http_exc.detail}"
+        )
+        
+        # 5xx 계열 서버 에러나 타임아웃(504)인 경우에만 Celery 재시도(Retry) 메커니즘 발동
+        if http_exc.status_code in [500, 502, 503, 504]:
+            raise background_monthly_plan_task.retry(exc=http_exc, countdown=10)
+            
     except Exception as e:
-        print(f"Background Task Error: {str(e)}")
-        update_status("FAILED", "오류 발생", error=str(e))
+        # 시스템 런타임 에러 처리
+        db.rollback()
+        logger.critical(f"[Task Fatal Error] 시스템 장애 발생: {str(e)}\n{traceback.format_exc()}")
+        update_status("FAILED", "시스템 오류 발생", error="알 수 없는 시스템 오류가 발생했습니다.")
+        raise background_monthly_plan_task.retry(exc=e, countdown=15)
     finally:
         db.close()  # 필수: 작업이 끝나면 DB 세션 닫기
 
@@ -1147,24 +1231,8 @@ async def generate_initial_meal_plan(
         ),
     }
 
-    try:
-        ai_response = await asyncio.to_thread(
-            create_meal_style_candidates,
-            ai_payload,
-        )
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
-
-    except Exception as error:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        )
+    client = ModelingApiClient()
+    ai_response = await client.create_meal_style_candidates(ai_payload)
 
     frontend_candidates = []
 
@@ -1179,22 +1247,12 @@ async def generate_initial_meal_plan(
 
         frontend_candidates.append(
             {
-                "style_id": candidate.get(
-                    "style_id"
-                ),  # 나중에 유저가 선택했을 때 백엔드로 다시 보낼 식별자
+                "style_id": candidate.get("style_id"),  # 나중에 유저가 선택했을 때 백엔드로 다시 보낼 식별자
                 "style_name": candidate.get("style_name"),  # 예: "가성비 최우선"
-                "description": candidate.get(
-                    "description"
-                ),  # "단백질 섭취를 우선으로 고려한 식단" 등 상세 설명
-                "summary_comment": candidate.get(
-                    "summary_comment"
-                ),  # 예: "단백질 섭취를 늘리고 싶은..."
-                "display_labels": candidate.get(
-                    "display_labels"
-                ),  # 점수 라벨 (건강, 가성비 등)
-                "display_scores": candidate.get(
-                    "display_scores"
-                ),  # 실제 점수 데이터 (그래프용)
+                "description": candidate.get("description"),  # "단백질 섭취를 우선으로 고려한 식단" 등 상세 설명
+                "summary_comment": candidate.get("summary_comment"),  # 예: "단백질 섭취를 늘리고 싶은..."
+                "display_labels": candidate.get("display_labels"),  # 점수 라벨 (건강, 가성비 등)
+                "display_scores": candidate.get("display_scores"),  # 실제 점수 데이터 (그래프용)
                 "representative_menus": representative_menus,  # 예: ["새우 두부 계란찜", "닭가슴살 브로콜리 만두", "부추 콩가루 찜"]
             }
         )
@@ -1209,62 +1267,17 @@ async def generate_initial_meal_plan(
 
 
 @router.post("/modeling/style-candidates")
-async def create_modeling_style_candidates(
-    request_data: dict,
-):
+async def create_modeling_style_candidates(request_data: dict):
     """
-    Back → Modeling 3일치 식단 스타일 후보 생성 테스트 API.
-
-    이 API는 Swagger 또는 curl에서 모델링 응답 구조를 직접 확인하기 위한 개발용 API입니다.
-    request body에 들어온 user_id, request_type, profile을 그대로 사용합니다.
+    Back → Modeling 3일치 식단 스타일 후보 생성 테스트 전용 API (비동기 HTTP 라우팅 구조 검증용)
     """
-
-    try:
-        return await asyncio.to_thread(
-            create_meal_style_candidates,
-            request_data,
-        )
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
-
-    except Exception as error:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        )
-
+    client = ModelingApiClient()
+    return await client.create_meal_style_candidates(request_data)
 
 @router.post("/modeling/monthly-plan")
-async def create_modeling_monthly_plan(
-    request_data: dict,
-):
+async def create_modeling_monthly_plan(request_data: dict):
     """
-    Back → Modeling 월간 식단 생성 테스트 API.
-
-    이 API는 Swagger 또는 curl에서 모델링 월간 식단 응답 구조를 직접 확인하기 위한 개발용 API입니다.
-    request body에 들어온 user_id, request_type, profile, selected_style을 그대로 사용합니다.
+    Back → Modeling 월간 식단 생성 테스트 전용 API (비동기 HTTP 라우팅 구조 검증용)
     """
-
-    try:
-        return await asyncio.to_thread(
-            create_monthly_plan,
-            request_data,
-        )
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
-
-    except Exception as error:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(error),
-        )
+    client = ModelingApiClient()
+    return await client.create_monthly_plan(request_data)

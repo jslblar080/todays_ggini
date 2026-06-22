@@ -21,5 +21,9 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
     NAVER_CLIENT_ID: str =  os.getenv("NAVER_CLIENT_ID")
     NAVER_CLIENT_SECRET: str =  os.getenv("NAVER_CLIENT_SECRET")
+    MODELING_API_BASE_URL: str = os.getenv("MODELING_API_BASE_URL")
+    MODELING_API_KEY: str = os.getenv("MODELING_API_KEY") 
+    MODELING_API_CONNECT_TIMEOUT_SECONDS: float = float(os.getenv("MODELING_API_CONNECT_TIMEOUT_SECONDS", "10.0"))
+    MODELING_API_READ_TIMEOUT_SECONDS: float = float(os.getenv("MODELING_API_READ_TIMEOUT_SECONDS", "120.0"))
 
 settings = Settings()
