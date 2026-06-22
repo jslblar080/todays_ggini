@@ -10,8 +10,8 @@ class AuthRepository {
     return User.fromJson(raw, 'kakao');
   }
 
-  Future<User> loginWithNaver(String code) async {
-    final raw = await _remote.loginWithNaver(code);
+  Future<User> loginWithNaver(String code, String redirectUri) async {
+    final raw = await _remote.loginWithNaver(code, redirectUri);
     return User.fromJson(raw, 'naver');
   }
 

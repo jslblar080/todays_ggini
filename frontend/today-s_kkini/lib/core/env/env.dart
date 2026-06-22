@@ -38,11 +38,9 @@ class Env {
     defaultValue: '',
   );
 
-  /// 네이버 Client Secret.
-  static const String naverClientSecret = String.fromEnvironment(
-    'NAVER_CLIENT_SECRET',
-    defaultValue: '',
-  );
+  // 네이버 Client Secret 은 프론트에서 쓰지 않는다.
+  // code→token 교환은 백엔드만 수행하므로 시크릿은 백엔드에만 둔다.
+  // (web 빌드에 dart-define 하면 JS 번들로 유출되므로 의도적으로 제거함)
 
   /// 구글 OAuth Client ID — Web 용. Google Cloud Console에서 "Web application" 타입.
   static const String googleWebClientId = String.fromEnvironment(

@@ -33,6 +33,11 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Vercel 빌드 중 클론되는 Flutter SDK (build.sh)
+/_flutter/
+.vercel/
+/VERCEL_DEPLOY.md
+
 # Symbolication related
 app.*.symbols
 
