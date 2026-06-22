@@ -145,6 +145,12 @@ if [ -z "${NEW_IMAGE}" ]; then
         "사용법: $0 ghcr.io/<owner>/<image>:<tag>"
 fi
 
+# Compose 파일은 ps, logs, config 등 모든 명령에서
+# MODELING_IMAGE 값이 있어야 해석할 수 있다.
+# 기본값은 새 배포 이미지로 설정하고,
+# Rollback 시에는 해당 명령에서 PREVIOUS_IMAGE로 덮어쓴다.
+export MODELING_IMAGE="${NEW_IMAGE}"
+
 if [ ! -f "${COMPOSE_FILE}" ]; then
     fail "Compose 파일을 찾을 수 없습니다: ${COMPOSE_FILE}"
 fi
