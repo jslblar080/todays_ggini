@@ -178,6 +178,19 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    local file="$1"
+    local unexpected="$2"
+    local message="$3"
+
+    if grep -Fq "${unexpected}" "${file}"; then
+        printf 'FAIL: %s\n' "${message}" >&2
+        printf '  unexpected: %s\n' "${unexpected}" >&2
+        printf '  file:       %s\n' "${file}" >&2
+        exit 1
+    fi
+}
+
 reset_state() {
     printf '%s\n' "${PREVIOUS_IMAGE}" \
         > "${STATE_DIR}/current-image"
@@ -188,17 +201,18 @@ reset_state() {
 
 run_deploy() {
     local health_mode="$1"
+    local deploy_image="${2:-${NEW_IMAGE}}"
 
     PATH="${FAKE_BIN_DIR}:${PATH}" \
     PROJECT_DIR="${PROJECT_DIR}" \
     TEST_STATE_DIR="${STATE_DIR}" \
     TEST_HEALTH_MODE="${health_mode}" \
-    TEST_NEW_IMAGE="${NEW_IMAGE}" \
+    TEST_NEW_IMAGE="${deploy_image}" \
     HEALTH_ATTEMPTS=1 \
     HEALTH_INTERVAL_SECONDS=0 \
     INTERNAL_HEALTH_URL="http://internal.test/health" \
     EXTERNAL_HEALTH_URL="https://external.test/health" \
-    bash "${DEPLOY_SCRIPT}" "${NEW_IMAGE}"
+    bash "${DEPLOY_SCRIPT}" "${deploy_image}"
 }
 
 test_successful_deployment() {
@@ -276,6 +290,100 @@ test_rollback_after_health_failure() {
     printf '[pass] Health 실패 후 Rollback\n'
 }
 
+test_same_image_deployment_is_noop() {
+    reset_state
+
+    printf '\n[test] 동일 이미지 재배포 no-op\n'
+
+    run_deploy \
+        success \
+        "${PREVIOUS_IMAGE}"
+
+    assert_equals \
+        "${PREVIOUS_IMAGE}" \
+        "$(cat "${STATE_DIR}/current-image")" \
+        "동일 이미지 요청 후 실행 이미지는 변경되지 않아야 합니다."
+
+    assert_not_contains \
+        "${STATE_DIR}/docker.log" \
+        "docker pull ${PREVIOUS_IMAGE}" \
+        "동일 이미지 요청에서는 pull을 실행하면 안 됩니다."
+
+    assert_not_contains \
+        "${STATE_DIR}/docker.log" \
+        "up -d" \
+        "동일 이미지 요청에서는 컨테이너를 재실행하면 안 됩니다."
+
+    assert_contains \
+        "${STATE_DIR}/curl.log" \
+        "http://internal.test/health" \
+        "동일 이미지 요청에서도 내부 Health를 확인해야 합니다."
+
+    assert_contains \
+        "${STATE_DIR}/curl.log" \
+        "https://external.test/health" \
+        "동일 이미지 요청에서도 외부 Health를 확인해야 합니다."
+
+    printf '[pass] 동일 이미지 재배포 no-op\n'
+}
+
+
+test_same_image_health_failure_does_not_redeploy() {
+    reset_state
+
+    printf '\n[test] 동일 이미지 Health 실패\n'
+
+    local output_file
+    local exit_code
+
+    output_file="$(
+        mktemp
+    )"
+
+    exit_code=0
+
+    run_deploy \
+        fail-new-image \
+        "${PREVIOUS_IMAGE}" \
+        >"${output_file}" \
+        2>&1 \
+        || exit_code="$?"
+
+    if [ "${exit_code}" -eq 0 ]; then
+        cat "${output_file}"
+        rm -f "${output_file}"
+        printf \
+            'FAIL: 동일 이미지의 Health 실패를 성공으로 처리하면 안 됩니다.\n' \
+            >&2
+        exit 1
+    fi
+
+    assert_equals \
+        "${PREVIOUS_IMAGE}" \
+        "$(cat "${STATE_DIR}/current-image")" \
+        "Health 실패 후에도 실행 이미지 상태는 변경되지 않아야 합니다."
+
+    assert_not_contains \
+        "${STATE_DIR}/docker.log" \
+        "docker pull ${PREVIOUS_IMAGE}" \
+        "동일 이미지 Health 실패 시 pull을 실행하면 안 됩니다."
+
+    assert_not_contains \
+        "${STATE_DIR}/docker.log" \
+        "up -d" \
+        "배포를 시작하지 않았으므로 Rollback 재배포를 실행하면 안 됩니다."
+
+    assert_contains \
+        "${output_file}" \
+        "healthcheck 실패" \
+        "동일 이미지의 Health 실패 원인을 출력해야 합니다."
+
+    rm -f "${output_file}"
+
+    printf '[pass] 동일 이미지 Health 실패\n'
+}
+
+
 test_rejects_mutable_latest_tag() {
     local latest_image
     local output_file
@@ -321,6 +429,8 @@ assert_not_equals \
 
 test_successful_deployment
 test_rollback_after_health_failure
+test_same_image_deployment_is_noop
+test_same_image_health_failure_does_not_redeploy
 test_rejects_mutable_latest_tag
 
 printf '\n모든 deploy_from_ghcr 회귀 테스트를 통과했습니다.\n'
