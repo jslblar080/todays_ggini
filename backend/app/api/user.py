@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MODELING_ROOT = PROJECT_ROOT / "ai" / "modeling"
+MODELING_ROOT = PROJECT_ROOT / "modeling"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
