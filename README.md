@@ -4,11 +4,12 @@
   <img src="assets/images/project-cover.png" width="640" alt="오늘의 끼니 프로젝트 커버" />
 </p>
 
-<h3 align="center">🥗 AI 기반 스마트 영양 & 식단 플래너</h3>
+<h3 align="center">🥗 AI 기반 개인 맞춤형 식단 추천 및 장보기 서비스</h3>
 
 <p align="center">
-  사용자의 <strong>식습관</strong>, <strong>예산</strong>, <strong>선호도</strong>, <strong>조리 난이도</strong>를 기반으로<br>
-  개인화된 식단과 식료품 구매 정보를 제공하는 맞춤형 식단 추천 서비스입니다.
+  사용자의 <strong>식단 목표</strong>, <strong>예산</strong>, <strong>선호도</strong>,
+  <strong>알레르기</strong>, <strong>조리 난이도</strong>를 반영하여<br>
+  식단 스타일 추천부터 월간 식단, 대체 메뉴, 장보기 정보까지 연결합니다.
 </p>
 
 <p align="center">
@@ -16,17 +17,18 @@
   <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
   <img src="https://img.shields.io/badge/Modeling-Python-3776AB?style=flat-square&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/GraphDB-Neo4j-4581C3?style=flat-square&logo=neo4j&logoColor=white" />
-  <img src="https://img.shields.io/badge/Re--ranking-MMR-orange?style=flat-square" />
-  <img src="https://img.shields.io/badge/Status-MVP-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/Optimizer-OR--Tools-4285F4?style=flat-square" />
+  <img src="https://img.shields.io/badge/Deploy-Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
 </p>
 
 <br>
 
-## 1. 프로젝트 개요
+## 1. 프로젝트 소개
 
-<p align="left">
-  <img src="assets/images/project-overview.png" width="750" alt="오늘의 끼니 프로젝트 개요" />
+<p align="center">
+  <img src="assets/images/project-overview.png" width="1000" alt="오늘의 끼니 프로젝트 개요" />
 </p>
+
 
 <table style="background-color:#FFF6C7; border-left:6px solid #E6C85C; padding:12px; width:100%;">
   <tr>
@@ -39,479 +41,467 @@
 </table>
 <br>
 
-## 2. 문제 정의
+## 2. 문제 정의와 서비스 차별점
 
-최근 식비 부담이 증가하면서 사용자는 매일 다음과 같은 고민을 하게 됩니다.
+### 해결하고자 한 문제
 
-| **문제 상황** | **사용자 불편** |
-|---|---|
-| 🕖 메뉴 결정 | 오늘 무엇을 먹을지 결정하는 데 시간이 오래 걸림 |
-| 💸 예산 관리 | 예산 안에서 식단을 구성하기 어려움 |
-| 🥗 영양 고려 | 영양 균형과 선호도를 동시에 고려하기 어려움 |
-| 🦐 알레르기 확인 | 알레르기나 제외 재료를 매번 직접 확인해야 함 |
-| 🛒 가격 비교 | 재료 가격을 직접 비교하는 과정이 번거로움 |
+| 문제 상황      | 사용자 불편                      |
+| ---------- | --------------------------- |
+| 🍽️ 메뉴 결정  | 매일 무엇을 먹을지 고민하는 데 시간이 오래 걸림 |
+| 💰 예산 관리   | 월 식비 안에서 여러 끼니를 구성하기 어려움    |
+| 🥗 영양 고려   | 영양 균형과 개인 선호를 함께 고려하기 어려움   |
+| ⚠️ 알레르기 확인 | 알레르기 및 제외 재료를 메뉴마다 확인해야 함   |
+| 🛒 장보기     | 필요한 재료와 상품 가격을 직접 비교해야 함    |
 
-본 프로젝트는 사용자가 매일 식단을 정하고 재료 가격을 비교하는 데 드는 **탐색 비용을 줄이는 것**을 핵심 목표로 합니다.
+### 오늘의 끼니의 차별점
+
+| 기존 서비스                    | 오늘의 끼니                         |
+| ------------------------- | ------------------------------ |
+| ✍️ 사용자가 먹은 식단을 직접 기록      | ✨ 사용자 조건 기반 식단 자동 추천           |
+| 🔍 개별 메뉴 또는 레시피 검색 중심     | 📅 식단 스타일과 월간 식단 단위 구성         |
+| 🔁 메뉴 반복 및 장기 구성을 사용자가 관리 | ⚙️ 추천·최적화 엔진을 통한 다양성 및 반복 제어   |
+| 📖 레시피 제공에 집중             | 🛒 식단과 식재료 구매 흐름 연결            |
+| 👤 단일 사용자 조건 중심           | 👨‍👩‍👧‍👦 가구 형태와 가구원 정보까지 반영 |
 
 <br>
 
 ## 3. 핵심 기능
 
 ### 👤 사용자 개인화
-- 사용자 맞춤 설정: 목표, 예산, 선호 음식, 조리 난이도, 제외 재료 입력
-- 프로필 벡터화: 입력값을 추천 점수 계산용 조건으로 변환
-- 하드 필터: 알레르기 및 제외 재료가 포함된 메뉴 제거
 
-### 🥗 식단 추천
-- 식단 스타일 후보 생성: 사용자 조건에 맞는 3일치 샘플 식단 스타일 제공
-- 월간 식단 생성: 선택한 스타일을 기반으로 월간 식단 구성
-- 대체 식단 추천: 각 끼니별 대체 메뉴 후보 제공
+- 식단 목표, 월 예산, 활동량, 요리 실력 입력
+- 선호 음식과 비선호 재료 설정
+- 알레르기 및 제외 재료 기반 메뉴 필터링
+- 가구 형태와 가구원 정보를 반영한 사용자 설정
+- 사용자 조건 기반 페르소나 후보 추천
 
-### 🧠 추천 고도화
-- Weighted Scoring: 예산, 영양, 선호도, 난이도, 다양성 점수 계산
-- Re-ranking / MMR: 후보 메뉴 재정렬 및 반복 메뉴 완화
-- Quality Penalty: RAG 응답 품질 이슈를 추천 점수에 반영
+### 🥗 맞춤형 식단 추천
+
+- 사용자 조건에 맞는 식단 스타일 후보 제공
+- 선택한 스타일을 기반으로 월간 식단 최적화
+- 끼니별 대체 메뉴 후보 제공
+- 일별·월별 식단 캘린더 조회
+- 메뉴별 영양 성분과 상세 정보 제공
+
+### 🔄 식단 변경 및 피드백
+
+- 특정 날짜와 끼니의 메뉴 변경
+- 기존 식단의 균형을 고려한 대체 메뉴 제공
+- 식단 만족도 및 사용자 피드백 저장
+- 피드백을 활용한 추천 고도화 기반 마련
 
 ### 🛒 장보기 연결
-- 메뉴별 예상 비용 계산
-- 재료 목록 및 식료품 가격 정보 연결
+
+- 식단에 필요한 재료 목록 구성
+- 재료별 상품 및 가격 정보 조회
+- 선택한 식재료를 장보기 목록에 추가
+- 장보기 완료 여부와 예상 비용 관리
+- 삭제한 장보기 항목 복원 지원
+
+### 🔐 사용자 및 인증
+
+- 게스트 로그인 지원
+- Google, Kakao, Naver 소셜 로그인
+- Access Token과 Refresh Token 기반 인증
+- 로그아웃 및 회원 탈퇴 시 토큰 무효화
+- 사용자 프로필과 온보딩 설정 관리
 
 <br>
 
-## 4. 서비스 흐름
-
-<p align="left">
-  <img src="assets/images/service-flow.png" width="1300" alt="오늘의 끼니 서비스 흐름" />
-</p>
-
-<br>
-
-## 5. 전체 아키텍처
+## 4. 사용자 서비스 흐름
 
 <p align="center">
-  <img src="assets/images/system-architecture.png" width="800" alt="오늘의 끼니 전체 아키텍처" />
+  <img src="assets/images/service-flow.png" width="1100" alt="오늘의 끼니 서비스 흐름" />
 </p>
 
-### 🔗 역할 분리
+```text
+회원가입 및 로그인
+→ 사용자·가구 정보 입력
+→ 추천 페르소나 및 식단 스타일 선택
+→ 월간 식단 생성 요청
+→ 식단 생성 상태 조회
+→ 월간 캘린더 및 메뉴 상세 확인
+→ 대체 메뉴 선택
+→ 장보기 목록 생성 및 가격 확인
+→ 식단 피드백 등록
+```
 
-| **파트** | **역할** |
-|---|---|
-| 📱 Frontend | 사용자 입력, 식단 스타일 선택, 월간 캘린더, 메뉴 상세, 장보기 화면 구성 |
-| ⚙️ Backend | API 서버, 인증, 요청 검증, 비동기 식단 생성, DB 저장, 모델링 호출 |
-| 🧠 Modeling | 사용자 프로필 변환, 추천 점수 계산, 식단 생성, 비용 계산, 난이도 계산, 재랭킹 및 다양성 제어 |
-| 🕸️ RAG / Graph DB | 메뉴, 재료, 영양, 태그, 가격 관계 데이터 제공 및 후보 메뉴 검색 |
+월간 식단 생성과 같이 처리 시간이 긴 작업은 비동기로 수행하며, Frontend는 작업 ID를 사용해 생성 상태를 주기적으로 조회합니다.
 
 <br>
+
+## 5. 전체 시스템 아키텍처
+
+<p align="center">
+  <img src="assets/images/system-architecture.png" width="1100" alt="오늘의 끼니 전체 시스템 아키텍처" />
+</p>
+
+오늘의 끼니는 `Frontend`, `Backend`, `Modeling`, `RAG`를 역할별로 분리하고, 각 파트를 API 기반으로 연결한 구조입니다.
+
+```text
+Frontend
+  └── Flutter 기반 사용자 화면
+          ↓ JSON API
+
+Backend
+  ├── FastAPI 기반 API 서버
+  ├── OAuth2 및 JWT 인증
+  ├── Celery 비동기 작업 처리
+  ├── Redis 작업 큐·캐싱·분산 락
+  └── SQLAlchemy 기반 PostgreSQL 저장
+          ↓ JSON API
+
+Modeling
+  ├── Profile Builder
+  ├── RAG Candidate Request & Fallback
+  ├── Scoring Engine
+  ├── MMR Re-ranking
+  ├── Monthly Plan Optimizer
+  └── Plan Quality Validator
+          ↕ JSON API
+
+RAG
+  ├── Ollama 기반 데이터 가공
+  ├── Neo4j 지식 그래프
+  └── GraphRAG 기반 후보 메뉴 검색
+```
+
+### 파트별 역할
+
+| 파트 | 주요 역할 |
+|---|---|
+| 📱 Frontend | 사용자 입력, 온보딩, 식단 캘린더, 메뉴 상세 및 장보기 화면 제공 |
+| ⚙️ Backend | 인증, 요청 검증, 비동기 작업 처리, 캐싱, 데이터 저장 및 파트 간 API 연동 |
+| 🧠 Modeling | 사용자 프로필 생성, 후보 메뉴 평가, 재랭킹, 월간 식단 최적화 및 결과 검증 |
+| 🕸️ RAG | 레시피·재료·영양 관계 데이터를 기반으로 후보 메뉴를 검색하고 Modeling에 제공 |
+| 🚀 Infrastructure | Docker 기반 실행 환경, AWS EC2 배포, Nginx HTTPS 연결 및 Prometheus·Grafana 모니터링 |
+
 
 <table style="background-color:#EAF4FF; border-left:6px solid #4D96D9; padding:12px; width:100%;">
   <tr>
     <td>
       <strong>💡 구조 핵심</strong><br>
-      Modeling은 Backend와 RAG 사이에서 사용자 조건을 추천 계산 구조로 변환하고,
-      RAG는 후보 메뉴와 관계 데이터를 제공하는 역할로 분리됩니다.
+      월간 식단 생성과 같이 처리 시간이 긴 요청은 Backend에서 Celery 작업으로 분리합니다. Redis는 작업 큐, 캐싱 및 분산 락에 사용하며, 생성된 식단 결과는 PostgreSQL에 저장합니다. <br>
+      운영 환경에서는 Docker와 AWS EC2를 기반으로 서비스를 실행하고, Nginx를 통해 외부 요청을 전달합니다. Modeling API의 요청 수, 오류율 및 응답시간 지표는 Prometheus가 수집하고 Grafana에서 시각화합니다.
     </td>
   </tr>
 </table>
 
-<br>
 
-## 6. 기술 스택
 
-<p>
-  <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/Neo4j-4581C3?style=flat-square&logo=neo4j&logoColor=white" />
-  <img src="https://img.shields.io/badge/RAG-GraphRAG-7C3AED?style=flat-square" />
-  <img src="https://img.shields.io/badge/Re--ranking-MMR-orange?style=flat-square" />
-</p>
+
+## 6. 파트별 기술 스택
 
 ### 📱 Frontend
 
-| **기술** | **사용 목적** |
+| 기술 | 사용 목적 |
 |---|---|
-| Flutter | 크로스 플랫폼 모바일 앱 UI 구현 |
+| Flutter | 크로스 플랫폼 모바일 애플리케이션 |
+| Riverpod | 화면 및 비동기 상태 관리 |
 | Dio | Backend API 통신 |
 | go_router | 화면 라우팅 |
-| Riverpod | 상태 관리 |
-| Figma | UI/UX 설계 및 프로토타입 제작 |
+| Figma | UI·UX 설계 및 프로토타입 제작 |
 
 ### ⚙️ Backend
 
-| **기술** | **사용 목적** |
+| 기술 | 사용 목적 |
 |---|---|
-| Python 3.11 | 백엔드 개발 언어 |
-| FastAPI | REST API 서버 및 Swagger 문서 제공 |
-| Pydantic | 요청/응답 데이터 검증 |
-| SQLAlchemy | ORM 기반 DB 작업 |
-| SQLite / PostgreSQL | MVP 단계 DB 및 향후 운영 DB |
-| BackgroundTasks | 식단 생성 비동기 처리 |
-| JWT / HTTPBearer | 인증 및 API 요청 검증 |
-|OAuth2.0 | 소셜 로그인 연동 |
+| Python 3.13 | Backend 개발 언어 |
+| FastAPI | REST API 서버 |
+| Pydantic V2 | 요청·응답 데이터 검증 |
+| SQLAlchemy | ORM 기반 데이터 접근 |
+| PostgreSQL | 사용자·식단·장보기 데이터 저장 |
+| Redis | 작업 큐, 캐싱, 분산 락 및 토큰 블랙리스트 |
+| Celery | 식단 생성 비동기 작업 처리 |
+| HTTPX | Modeling 등 외부 API 통신 |
+| OAuth2 / JWT | 소셜 로그인 및 사용자 인증 |
 
 ### 🧠 Modeling
 
-| **기술 / 로직** | **사용 목적** |
+| 기술 | 사용 목적 |
 |---|---|
-| Python | 추천 엔진 구현 |
-| Pydantic | 사용자 입력 스키마 관리 |
-| Weighted Scoring | 예산, 영양, 선호도, 난이도, 다양성 기반 점수 계산 |
-| Soft Constraint | 선택한 식단 스타일에 따른 추가 점수 보정 |
-| Quality Penalty | RAG 응답 품질 이슈를 추천 점수에 감점 반영 |
-| Re-ranking | 후보 메뉴 점수 재정렬 |
-| MMR | 후보 메뉴 재랭킹 및 월간 식단 다양성 제어 |
+| Python 3.11 | 추천 및 식단 최적화 엔진 |
+| FastAPI | 독립 Modeling API 제공 |
+| Pydantic | 입력·출력 스키마 검증 |
+| OR-Tools | 사용자 조건 기반 월간 식단 최적화 |
+| Weighted Scoring | 예산·영양·선호도·난이도 반영 |
+| MMR | 유사 메뉴 반복 완화 및 다양성 제어 |
 
-### 🕸️ RAG / Graph DB
+### 🕸️ RAG / Data
 
-| **기술** | **사용 목적** |
+| 기술 | 사용 목적 |
 |---|---|
-| 식약처 API | 식재료 및 레시피 원본 데이터 확보 |
-| Ollama | 레시피 및 식재료 데이터 정제 |
-| Neo4j | 메뉴-재료-영양-가격 관계 그래프 저장 |
-| Scraper | 이커머스 가격 데이터 수집 |
-| Batch | 가격 데이터 주기적 갱신 |
-| GraphRAG | 관계 기반 후보 메뉴 검색 및 대체 식단 탐색 |
+| Python 3.11 | 데이터 파이프라인 및 API 구현 |
+| LangChain / GraphRAG | 벡터·그래프 기반 복합 검색 |
+| Neo4j | 메뉴·재료·영양 관계 지식 그래프 |
+| Vector DB | 메뉴와 레시피 임베딩 검색 |
+| Ollama / Gemma 2 | 레시피 및 관계 데이터 가공 |
+| Chromium Automation | 레시피와 영양 데이터 수집 |
+
+### 🚀 Infrastructure
+
+| 기술 | 사용 목적 |
+|---|---|
+| Docker / Docker Compose | 파트별 실행 환경 표준화 |
+| GitHub Actions | 테스트, 이미지 빌드 및 배포 자동화 |
+| AWS EC2 | Backend 및 Modeling 서버 운영 |
+| AWS RDS | PostgreSQL 운영 데이터베이스 |
+| GHCR | Docker 이미지 저장 |
+| Nginx / HTTPS | Reverse Proxy 및 외부 통신 보호 |
+
+<br>
+
+## 7. 프로젝트 구조
+
+```text
+todays_ggini/
+├── frontend/
+│   └── today-s_kkini/       # Flutter 모바일 애플리케이션
+│
+├── backend/                 # FastAPI API 및 비동기 처리 서버
+│
+├── modeling/                # 추천·식단 최적화 엔진 및 Modeling API
+│
+├── rag/                     # 데이터 수집, 지식 그래프 및 후보 검색
+│
+├── scripts/                 # 공통 실행 및 검증 스크립트
+│
+├── assets/
+│   └── images/              # README 및 프로젝트 소개 이미지
+│
+├── Dockerfile.modeling
+├── docker-compose.modeling.yml
+└── README.md
+```
 
 <br>
 
 <table style="background-color:#FFF6C7; border-left:6px solid #E6C85C; padding:12px; width:100%;">
   <tr>
     <td>
-      <strong>⭐ Modeling 핵심 기술</strong><br>
-      Modeling 파트는 단순 점수 계산이 아니라,
-      <strong>Weighted Scoring → Soft Constraint → Quality Penalty → Re-ranking → MMR 다양성 제어</strong>
-      흐름으로 추천 결과를 보정합니다.
+      <strong>⭐ 파트별 세부사항</strong><br>
+      각 파트의 내부 모듈 구조와 구현 세부 사항은 해당 파트 README에서 확인할 수 있습니다.
     </td>
   </tr>
 </table>
 
 <br>
 
-## 7. 폴더 구조
+## 8. 파트별 상세 문서
 
-```text
-todays_ggini/
-├── backend/
-│   └── app/
-│       ├── api/
-│       ├── core/
-│       ├── crud/
-│       ├── db/
-│       ├── models/
-│       └── schemas/
-│
-├── ai/
-│   └── modeling/
-│       ├── services/
-│       │   ├── profile/
-│       │   ├── rag/
-│       │   ├── recommendation/
-│       │   ├── plan/
-│       │   └── style/
-│       └── schemas/
-│
-├── frontend/
-│   └── today-s_kkini/
-│       ├── lib/
-│       └── assets/
-│
-├── README.md
-└── .gitignore
-```
+| 파트 | 문서 | 주요 내용 |
+|---|---|---|
+| 📱 Frontend | [`frontend/today-s_kkini/README.md`](frontend/today-s_kkini/README.md) | 화면 구성, 상태 관리 및 API 연동 |
+| ⚙️ Backend | [`backend/README.md`](backend/README.md) | 인증, 데이터베이스, 비동기 처리 및 API |
+| 🧠 Modeling | `modeling/README.md` | 추천, 최적화, 검증 및 Modeling API |
+| 🕸️ RAG / Data | [`rag/readme.md`](rag/readme.md) | 데이터 수집, Neo4j, GraphRAG 및 후보 검색 |
 
-### 📌 주요 디렉토리 설명
-
-| **경로** | **설명** |
-|---|---|
-| `backend/app/api` | FastAPI 라우터 및 API 엔드포인트 |
-| `backend/app/schemas` | Backend 요청/응답 스키마 |
-| `modeling/services/profile` | 사용자 입력 기반 프로필 및 가중치 생성 |
-| `modeling/services/rag` | RAG 요청/응답 매핑, 후보 메뉴 변환, 데이터 품질 검사 |
-| `modeling/services/recommendation` | 추천 점수 계산, Soft Constraint, Quality Penalty 반영 |
-| `modeling/services/plan` | 월간 식단 생성, 대체 메뉴 구성, MMR 기반 다양성 제어 |
-| `modeling/services/style` | 식단 스타일 후보 생성 및 스타일별 가중치 관리 |
-| `frontend/today-s_kkini/lib` | Flutter 앱 주요 화면, 상태 관리, API 연동 로직 |
+> 루트 README는 오늘의 끼니 서비스의 전체 구조와 사용자 흐름을 설명하며, 파트별 상세 구현은 각 디렉터리의 README에서 관리합니다.
 
 <br>
 
-## 8. 실행 방법
+## 9. 기본 실행 방법
 
-### 8-1. 저장소 클론
+### 9-1. 저장소 클론
 
 ```bash
-git clone https://github.com/레포지토리주소/todays_ggini.git
+git clone https://github.com/hekim-cse/todays_ggini.git
 cd todays_ggini
 ```
 
-### 8-2. 가상환경 생성
+### 9-2. Backend 실행
 
 ```bash
-python3.11 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
-```
 
-### 8-3. 의존성 설치
-
-```bash
 python -m pip install --upgrade pip
 python -m pip install -r backend/requirements.txt
-python -m pip install -r modeling/requirements.txt
+
+PYTHONPATH=.:backend:modeling \
+python -m uvicorn app.main:app \
+  --app-dir backend \
+  --reload
 ```
 
-### 8-4. 환경변수 설정 및 서버 실행
-
-```bash
-DATABASE_URL="sqlite:///./local.db" \
-PYTHONPATH=backend:modeling \
-RAG_API_URL="https://api.kkini.cloud/api/v1/meal-candidates" \
-python -m uvicorn app.main:app --reload
-```
-
-### 8-5. API 문서 확인
+Backend API 문서:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-<br>
+### 9-3. Modeling 실행
 
-<table style="background-color:#EAF4FF; border-left:6px solid #4D96D9; padding:12px; width:100%;">
-  <tr>
-    <td>
-      <strong>💡 실행 참고</strong><br>
-      로컬 실행 시 <code>PYTHONPATH=backend:modeling</code> 설정이 필요합니다.
-      Backend에서 Modeling 모듈을 함께 참조하기 때문에 해당 경로를 지정해야 합니다.
-    </td>
-  </tr>
-</table>
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 
-<br>
+python -m pip install --upgrade pip
+python -m pip install -r modeling/requirements.txt
+```
 
+로컬 Modeling API 실행:
 
-## 9. 주요 API
+```bash
+ENV=local \
+PYTHONPATH=modeling \
+RAG_API_URL="https://api.kkini.cloud/api/v1/meal-candidates" \
+python -m uvicorn api.server:app \
+  --host 0.0.0.0 \
+  --port 8001 \
+  --reload
+```
 
-| **Method** | **Endpoint** | **설명** |
-|---|---|---|
-| `POST` | `/api/v1/auth/google` | Google 로그인 |
-| `POST` | `/api/v1/meal/modeling/style-candidates` | 식단 스타일 후보 생성 |
-| `POST` | `/api/v1/meal/modeling/monthly-plan` | 월간 식단 생성 |
-| `GET` | `/api/v1/meal/generate/status/{job_id}` | 비동기 식단 생성 상태 조회 |
-| `POST` | `/api/v1/meal-candidates` | RAG 후보 메뉴 요청 |
-<br>
-
-## 10. 추천 로직 요약
-
-<p align="left">
-  <img src="assets/images/modeling-logic.png" width="1300" alt="오늘의 끼니 추천 로직 요약" />
-</p>
-
-
-### 10-1. 사용자 입력 변환
-
-| **사용자 입력** | **모델링 반영** |
-|---|---|
-| 월 예산 | 한 끼 예산 계산 |
-| 식단 목표 | 예산, 영양, 선호도, 난이도, 다양성 가중치 설정 |
-| 요리 실력 | 조리 난이도 허용 기준 설정 |
-| 선호 재료 | 선호도 점수 반영 |
-| 제외 재료 / 알레르기 | 하드 필터 적용 |
-
-### 10-2. 점수 계산 항목
-
-각 후보 메뉴는 다음 점수를 기준으로 평가됩니다.
-
-| **점수 항목** | **의미** |
-|---|---|
-| `budget_score` | 한 끼 예산 대비 메뉴 비용 적합도 |
-| `nutrition_score` | 사용자의 식단 목표에 대한 영양 적합도 |
-| `preference_score` | 선호 카테고리 및 선호 재료군 반영도 |
-| `difficulty_score` | 사용자의 조리 실력 대비 메뉴 난이도 적합도 |
-| `diversity_score` | 기존 선택 메뉴와의 반복 가능성 완화 점수 |
-
-### 10-3. 최종 점수 계산
-
-최종 점수는 사용자 목표별 가중치, 선택한 식단 스타일, RAG 응답 품질 패널티를 반영하여 계산합니다.
+Modeling API 문서:
 
 ```text
-final_score
-= base_final_score
-+ style_soft_constraint_score
-- total_quality_penalty
+http://127.0.0.1:8001/docs
 ```
-| **구성 요소** | **설명** |
-|---|---|
-| `base_final_score` | 예산, 영양, 선호도, 난이도, 다양성 점수의 가중합 |
-| `style_soft_constraint_score` | 선택한 식단 스타일에 따른 추가 보정 점수 |
-| `total_quality_penalty` | RAG 데이터 품질 이슈에 대한 총 감점 |
+
+상태 확인:
+
+```bash
+curl http://127.0.0.1:8001/health
+```
+
+Docker 실행:
+
+```bash
+MODELING_API_KEY=local-secret-key \
+docker compose \
+  -f docker-compose.modeling.yml \
+  up --build
+```
+
+### 9-4. Frontend 실행
+
+```bash
+cd frontend/today-s_kkini
+flutter pub get
+flutter run
+```
+
+### 9-5. RAG 실행
+
+```bash
+cd rag
+
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+python api_server.py
+```
+
+> 파트별 실행에 필요한 환경변수와 상세 설정은 각 파트 README를 참고합니다.
 
 <br>
 
-<table style="background-color:#FFF1E6; border-left:6px solid #E67E22; padding:12px; width:100%;">
-  <tr>
-    <td>
-      <strong>⚠️ 품질 보정</strong><br>
-      RAG 응답에서 영양 정보가 부족하거나 재료명이 비정상적인 경우,
-      후보를 바로 제거하지 않고 <strong>품질 점수와 패널티</strong>를 적용합니다.
-      이를 통해 후보 부족 문제를 완화하면서 추천 품질을 조정합니다.
-    </td>
-  </tr>
-</table>
+## 10. 주요 API 및 연동 흐름
+
+### 인증 및 사용자
+
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `POST` | `/api/v1/auth/guest/init` | 게스트 세션 생성 |
+| `POST` | `/api/v1/auth/google` | Google 로그인 |
+| `POST` | `/api/v1/auth/kakao` | Kakao 로그인 |
+| `POST` | `/api/v1/auth/naver` | Naver 로그인 |
+| `POST` | `/api/v1/auth/refresh` | Access Token 재발급 |
+| `GET` | `/api/v1/user/me` | 사용자 정보 조회 |
+
+### 식단
+
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `POST` | `/api/v1/meal/generate` | 월간 식단 비동기 생성 요청 |
+| `GET` | `/api/v1/meal/generate/status/{job_id}` | 식단 생성 상태 조회 |
+| `POST` | `/api/v1/meal/confirm` | 생성된 식단 확정 |
+| `GET` | `/api/v1/meal/calender` | 월간 식단 캘린더 조회 |
+| `GET` | `/api/v1/meal/{date}` | 일일 식단 조회 |
+| `POST` | `/api/v1/meal/{date}/swap` | 메뉴 변경 |
+| `POST` | `/api/v1/meal/feedback` | 식단 피드백 저장 |
+
+### 장보기
+
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `GET` | `/api/v1/shopping/ingredients/{ingredient_id}/prices` | 재료별 가격 조회 |
+| `POST` | `/api/v1/shopping/add-shopping-items` | 장보기 항목 추가 |
+| `GET` | `/api/v1/shopping/shopping-list` | 장보기 목록 조회 |
+| `PATCH` | `/api/v1/shopping/shopping-list/items/check` | 구매 상태 변경 |
+| `POST` | `/api/v1/shopping/shopping-list/items/batch-delete` | 장보기 항목 삭제 |
+| `POST` | `/api/v1/shopping/shopping-list/items/restore` | 삭제 항목 복원 |
+
+대표적인 식단 생성 흐름은 다음과 같습니다.
+
+```text
+Frontend
+→ Backend 식단 생성 요청
+→ Celery 작업 등록 및 job_id 반환
+→ Modeling API 호출
+→ RAG 메뉴 후보 검색
+→ 월간 식단 최적화
+→ PostgreSQL 저장
+→ Frontend Polling
+→ 생성된 식단 표시
+```
 
 <br>
-
 
 ## 11. 협업 방식
 
-본 프로젝트는 GitHub Pull Request 기반으로 협업합니다.
-
-각 팀원은 기능별 브랜치에서 작업한 뒤 Pull Request를 생성하고, 리뷰 후 `develop` 브랜치로 병합합니다.
-
-### 11-1. 브랜치 전략
+본 프로젝트는 Pull Request 기반으로 협업합니다.
 
 ```text
 main
-- 최종 제출 및 배포용 브랜치
+└── 최종 배포 및 릴리즈 브랜치
 
 develop
-- 통합 개발 브랜치
+└── 통합 개발 브랜치
 
-feature/*
-- 기능별 작업 브랜치
-
+feat/*
+fix/*
+refactor/*
 docs/*
-- 문서 작업 브랜치
+└── 기능별 작업 브랜치
 ```
 
-### 11-2. 작업 흐름
+### 작업 흐름
 
 ```bash
 git checkout develop
 git pull origin develop
-git checkout -b feature/작업명
+git checkout -b feat/담당파트-작업명
 ```
 
-### 11-3. 커밋 및 푸시
-
-```bash
-git add .
-git commit -m "feat: 작업 내용"
-git push -u origin feature/작업명
+```text
+작업 브랜치 생성
+→ 구현 및 테스트
+→ Commit 및 Push
+→ Pull Request 생성
+→ 팀원 Review
+→ develop 병합
+→ 작업 브랜치 삭제
 ```
 
-### 11-4. Pull Request 흐름
+### Commit Convention
 
-| **순서** | **작업** |
-|---|---|
-| 1 | 기능 브랜치에서 작업 |
-| 2 | 변경 사항 커밋 |
-| 3 | 원격 브랜치로 Push |
-| 4 | GitHub에서 Pull Request 생성 |
-| 5 | 팀원 리뷰 및 수정 |
-| 6 | `develop` 브랜치로 Merge |
-| 7 | 작업 완료 브랜치 삭제 |
-
-### 11-5. Commit Convention
-
-| **타입** | **의미** | **예시** |
+| 타입 | 설명 | 예시 |
 |---|---|---|
-| `feat` | 기능 추가 | `feat: 월간 식단 생성 API 연동` |
-| `fix` | 오류 수정 | `fix: RAG 응답 누락 필드 처리` |
-| `docs` | 문서 수정 | `docs: README 실행 방법 추가` |
-| `chore` | 설정/구조 | `chore: requirements 의존성 추가` |
-| `refactor` | 코드 개선 | `refactor: 추천 점수 계산 로직 분리` |
-| `data` | 데이터 | `data: 메뉴 후보 샘플 데이터 추가` |
-
-<br>
-
-<table style="background-color:#EAF4FF; border-left:6px solid #4D96D9; padding:12px; width:100%;">
-  <tr>
-    <td>
-      <strong>🤝 협업 규칙</strong><br>
-      모든 작업은 직접 <code>develop</code>에 반영하지 않고,
-      <strong>기능 브랜치 → Pull Request → Review → Merge</strong> 흐름으로 관리합니다.
-      이를 통해 각 파트의 변경 사항을 추적하고 충돌을 줄일 수 있습니다.
-    </td>
-  </tr>
-</table>
+| `feat` | 기능 추가 | `feat: 월간 식단 생성 API 추가` |
+| `fix` | 오류 수정 | `fix: 메뉴 변경 응답 누락 수정` |
+| `refactor` | 구조 및 코드 개선 | `refactor: 사용자 모델 구조 분리` |
+| `docs` | 문서 수정 | `docs: 통합 README 수정` |
+| `test` | 테스트 추가 및 수정 | `test: Modeling 오류 응답 테스트 추가` |
+| `chore` | 설정 및 기타 작업 | `chore: Docker 실행 환경 수정` |
 
 <br>
 
 ## 12. 팀원 역할
 
-<p align="left">
-  <img src="assets/images/team-roles.png" width="750" alt="오늘의 끼니 팀원 역할" />
+<p align="center">
+  <img src="assets/images/team-roles.png" width="1150" alt="오늘의 끼니 팀원 역할" />
 </p>
-
-<br>
-
-## 13. 주요 작업 내역
-
-| **구분** | **작업 내용** |
-|---|---|
-| 🔐 인증 | Google OAuth2 로그인 API 구현 |
-| ⚙️ Backend 연동 | 백엔드와 모델링 추천 엔진 직접 호출 구조 연동 |
-| 🕸️ RAG 연동 | RAG Cloud API와 모델링 추천 엔진 연동 |
-| ⏳ 비동기 처리 | 식단 생성 비동기 처리 및 Polling API 구현 |
-| 👤 사용자 프로필 | 사용자 입력 기반 프로필 생성 및 목적별 가중치 계산 |
-| 🥗 식단 스타일 | 3일치 식단 스타일 후보 생성 |
-| 📅 월간 식단 | 선택한 스타일 기반 월간 식단 생성 및 대체 식단 제공 |
-| 🧠 추천 고도화 | Weighted Scoring, Soft Constraint, Re-ranking, MMR 기반 추천 구조 적용 |
-| 🛡️ 품질 보정 | RAG 후보 메뉴 품질 점수 및 패널티 적용 |
-| 💰 비용 계산 | 재료 사용량과 가격 정보를 활용한 메뉴 예상 비용 계산 |
-| 🍳 난이도 계산 | 재료 수, 조리 단계, 조리 시간 기반 조리 난이도 계산 |
-| 🧂 비용 예외 처리 | 물, 소금, 후추 등 기본 재료 비용 과다 계산 방지 |
-| 🧹 데이터 방어 로직 | 무효 재료명 및 누락 데이터 품질 이슈 감점 보완 |
-
-<br>
-
-<br>
-
-## 14. 한계 및 향후 개선 방향
-
-| **구분** | **현재 한계** | **개선 방향** |
-|---|---|---|
-| 🕸️ RAG 데이터 | 일부 메뉴의 영양 정보, 재료명, 재료군 정보가 부족할 수 있음 | RAG 원본 데이터 품질 보강 및 정제 로직 개선 |
-| 🥗 영양 정보 | `calories`, `protein`, `carbohydrate`, `fat` 값이 0으로 내려오는 경우가 있음 | 영양 성분 데이터 매핑 보완 |
-| 💰 가격 정보 | 일부 재료의 가격 정보가 없거나 기본 재료 비용이 과도하게 계산될 수 있음 | 실제 식료품 가격 API 연동 및 기본 재료 예외 처리 고도화 |
-| 🧠 추천 로직 | 현재는 MVP 기준의 Weighted Scoring과 MMR 중심 추천 구조 | 사용자 피드백 기반 추천 가중치 자동 조정 |
-| 📅 월간 식단 | 다양성 제어는 적용했지만 장기 식단 최적화는 추가 개선 필요 | 월간 배치 최적화 및 반복 메뉴 제어 튜닝 |
-| 🧪 Style Validation | 선택한 스타일과 실제 생성 식단의 일치도 검증이 제한적임 | 스타일별 검증 기준 고도화 |
-| ⚙️ Backend | MVP 단계에서는 SQLite와 BackgroundTasks 중심 구조 | PostgreSQL 전환 및 Celery/Redis 기반 비동기 처리 고도화 |
-| 📱 Frontend | MVP 화면 중심으로 구성 | 사용자 피드백 기반 UX 개선 및 결과 화면 가독성 향상 |
-| 🚀 배포 | 로컬 및 MVP 검증 중심 환경 | 운영 환경 분리, 배포 자동화, 안정성 개선 |
-
-<br>
-
-<table style="background-color:#FFF1E6; border-left:6px solid #E67E22; padding:12px; width:100%;">
-  <tr>
-    <td>
-      <strong>🚧 개선 방향</strong><br>
-      향후에는 <strong>RAG 데이터 품질 보강</strong>, <strong>영양 정보 정확도 개선</strong>,
-      <strong>사용자 피드백 기반 추천 고도화</strong>, <strong>운영 환경 분리</strong>를 중심으로 개선합니다.
-    </td>
-  </tr>
-</table>
-
-<br>
-
-<br>
-
-## 15. 프로젝트 상태
-
-현재 프로젝트는 **MVP 검증 단계**입니다.
-
-이번 단계에서는 사용자가 입력한 조건을 기반으로  
-**RAG 후보 메뉴 검색 → 모델링 추천 점수 계산 → 식단 스타일 후보 생성 → 월간 식단 생성 → 프론트엔드 표시**까지 이어지는 전체 흐름을 검증했습니다.
-
-### 완료된 핵심 흐름
-
-| 구분 | 상태 |
-|---|---|
-| 사용자 입력 기반 프로필 생성 | ✅ 완료 |
-| Backend ↔ Modeling 연동 | ✅ 완료 |
-| Modeling ↔ RAG Cloud API 연동 | ✅ 완료 |
-| RAG 응답 매핑 및 품질 검사 | ✅ 완료 |
-| 식단 스타일 후보 생성 | ✅ 완료 |
-| 월간 식단 및 대체 메뉴 생성 | ✅ 완료 |
-| 메뉴별 비용/난이도 계산 | ✅ 완료 |
-| RAG 품질 패널티 적용 | ✅ 완료 |
