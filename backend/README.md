@@ -21,7 +21,7 @@
 * **Version Control & Docs:** GitHub, Notion
 
 ## 2. 데이터베이스 ERD
-![alt text](image.png)
+![alt text](assets/image.png)
 
 * User : 사용자 로그인 및 인증 정보
 
