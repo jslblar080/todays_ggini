@@ -153,12 +153,12 @@ jobs:
           set -Eeuo pipefail
 
           bash -n \
-            ai/modeling/deploy/scripts/deploy_from_ghcr.sh
+            modeling/deploy/scripts/deploy_from_ghcr.sh
 
           MODELING_IMAGE="${{ steps.image.outputs.image }}" \
           MODELING_API_KEY=workflow-validation-key \
           docker compose \
-            -f ai/modeling/deploy/docker-compose.ec2.yml \
+            -f modeling/deploy/docker-compose.ec2.yml \
             config \
             --quiet
 
@@ -175,8 +175,8 @@ jobs:
 
           tar \
             -czf "${ARCHIVE_PATH}" \
-            ai/modeling/deploy/docker-compose.ec2.yml \
-            ai/modeling/deploy/scripts/deploy_from_ghcr.sh
+            modeling/deploy/docker-compose.ec2.yml \
+            modeling/deploy/scripts/deploy_from_ghcr.sh
 
           scp \
             -i "${HOME}/.ssh/modeling-ec2-key" \
@@ -187,9 +187,9 @@ jobs:
             -i "${HOME}/.ssh/modeling-ec2-key" \
             "${EC2_USER}@${EC2_HOST}" \
             "set -Eeuo pipefail
-             mkdir -p '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts'
+             mkdir -p '${REMOTE_PROJECT_DIR}/modeling/deploy/scripts'
              tar -xzf '${REMOTE_ARCHIVE}' -C '${REMOTE_PROJECT_DIR}'
-             chmod +x '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts/deploy_from_ghcr.sh'
+             chmod +x '${REMOTE_PROJECT_DIR}/modeling/deploy/scripts/deploy_from_ghcr.sh'
              rm -f '${REMOTE_ARCHIVE}'"
 
       - name: Login EC2 to GHCR
@@ -222,9 +222,46 @@ jobs:
           ssh \
             -i "${HOME}/.ssh/modeling-ec2-key" \
             "${EC2_USER}@${EC2_HOST}" \
-            "PROJECT_DIR='${REMOTE_PROJECT_DIR}' \
-             bash '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts/deploy_from_ghcr.sh' \
-             '${DEPLOY_IMAGE}'"
+            bash -s -- "${REMOTE_PROJECT_DIR}" "${DEPLOY_IMAGE}" <<'REMOTE_SCRIPT'
+          set -Eeuo pipefail
+
+          PROJECT_DIR="$1"
+          DEPLOY_IMAGE="$2"
+
+          NEW_ENV_FILE="${PROJECT_DIR}/modeling/deploy/.env.modeling.prod"
+
+          LEGACY_ENV_FILES=(
+            "${PROJECT_DIR}/ai/modeling/deploy/.env.modeling.prod"
+            "${PROJECT_DIR}/deploy/modeling/.env.modeling.prod"
+          )
+
+          mkdir -p "$(dirname "${NEW_ENV_FILE}")"
+
+          if [[ ! -f "${NEW_ENV_FILE}" ]]; then
+            for legacy_env_file in "${LEGACY_ENV_FILES[@]}"; do
+              if [[ -f "${legacy_env_file}" ]]; then
+                cp "${legacy_env_file}" "${NEW_ENV_FILE}"
+                chmod 600 "${NEW_ENV_FILE}"
+
+                echo "[modeling-deploy] 기존 환경변수 파일을 새 경로로 이전했습니다."
+                echo "[modeling-deploy] source=${legacy_env_file}"
+                echo "[modeling-deploy] target=${NEW_ENV_FILE}"
+                break
+              fi
+            done
+          fi
+
+          if [[ ! -f "${NEW_ENV_FILE}" ]]; then
+            echo "[modeling-deploy] ERROR: 운영 환경변수 파일을 찾을 수 없습니다."
+            echo "[modeling-deploy] expected=${NEW_ENV_FILE}"
+            echo "[modeling-deploy] legacy=${LEGACY_ENV_FILES[*]}"
+            exit 1
+          fi
+
+          PROJECT_DIR="${PROJECT_DIR}" \
+            bash "${PROJECT_DIR}/modeling/deploy/scripts/deploy_from_ghcr.sh" \
+            "${DEPLOY_IMAGE}"
+          REMOTE_SCRIPT
 
       - name: Verify public HTTPS health
         shell: bash

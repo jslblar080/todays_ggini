@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONPATH=/app/ai/modeling
+ENV PYTHONPATH=/app/modeling
 ENV ENV=prod
 
 WORKDIR /app
@@ -10,10 +10,10 @@ WORKDIR /app
 RUN addgroup --system appgroup \
     && adduser --system --ingroup appgroup appuser
 
-COPY ai/modeling /app/ai/modeling
+COPY modeling /app/modeling
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && if [ -f /app/ai/modeling/requirements.txt ]; then pip install --no-cache-dir -r /app/ai/modeling/requirements.txt; fi \
+    && if [ -f /app/modeling/requirements.txt ]; then pip install --no-cache-dir -r /app/modeling/requirements.txt; fi \
     && pip install --no-cache-dir fastapi "uvicorn[standard]"
 
 USER appuser

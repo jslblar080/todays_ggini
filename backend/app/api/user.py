@@ -30,7 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(MODELING_ROOT) not in sys.path:
     sys.path.append(str(MODELING_ROOT))
 
-from ai.modeling.services.modeling_service import create_persona_profile
+from modeling.services.modeling_service import create_persona_profile
 
 router = APIRouter()
 
