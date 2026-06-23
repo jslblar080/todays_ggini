@@ -136,7 +136,7 @@ def main() -> None:
     if not args.skip_run:
         run_command([
             sys.executable,
-            "ai/modeling/experiments/run_baseline_mmr_test.py",
+            "ai/modeling/experiments/runners/run_baseline_mmr.py",
             "--scenario-file",
             args.scenario_file,
             "--output",
