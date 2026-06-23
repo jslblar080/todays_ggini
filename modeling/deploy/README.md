@@ -232,3 +232,12 @@ E2E 검증에서 약 24초가 소요되었다.
     selected_menu_count
     failure_reason
     response_size_bytes
+
+<br>
+
+## 관련 문서
+
+Modeling API의 FastAPI 서빙 구성부터 Docker 및 EC2 배포 과정은 아래 문서에서 확인할 수 있습니다.
+
+- [🚀 Modeling FastAPI 서빙 및 배포](https://app.notion.com/p/FastAPI-3859e3e335cc8000b0edeb7366ca5ccc?source=copy_link)  
+  FastAPI 서버 구성, API Key 인증, Docker 이미지, Nginx Reverse Proxy 및 EC2 배포 과정

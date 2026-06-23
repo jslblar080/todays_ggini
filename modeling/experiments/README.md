@@ -47,3 +47,14 @@ python modeling/experiments/runners/run_least_cost_baseline.py --help
 - `docs/optimizer_difficulty_diagnostics.md`: 난이도 관련 진단 문서
 
 실험 실행 결과는 각 `results/` 디렉터리에 생성되며 Git 추적 대상에서 제외됩니다.
+
+<br>
+
+## 관련 상세 문서
+
+- [`docs/final_validation.md`](docs/final_validation.md)  
+  전체 시나리오 실행, 결과 집계 및 최종 검증 파이프라인
+
+
+- [🔁 Validation 실행 자동화 및 재현성](https://app.notion.com/p/Validation-3829e3e335cc8081bd73f6be2c803c1b?source=copy_link)  
+  전체 검증 파이프라인 자동화, 동일 입력 기반 재실행, 결과 저장 및 비교를 통한 재현성 확보 과정
