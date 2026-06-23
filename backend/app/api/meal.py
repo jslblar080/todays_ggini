@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import date, datetime
 from typing import Dict, Any, List
+import asyncio
+import traceback
 import calendar
 import logging
 from redis.asyncio import Redis
@@ -35,26 +37,6 @@ from app.schemas.meal import (
 from app.crud import crud_meal
 from app.utils.image_search import get_food_image_url
 from app.clients.modeling_api_client import ModelingApiClient
-
-
-import asyncio
-import sys
-import traceback
-from pathlib import Path
-
-# PROJECT_ROOT = Path(__file__).resolve().parents[3]
-# MODELING_ROOT = PROJECT_ROOT / "ai" / "modeling"
-
-# if str(PROJECT_ROOT) not in sys.path:
-#     sys.path.append(str(PROJECT_ROOT))
-
-# if str(MODELING_ROOT) not in sys.path:
-#     sys.path.append(str(MODELING_ROOT))
-
-# from modeling.services.modeling_service import (
-#     create_meal_style_candidates,
-#     create_monthly_plan,
-# )
 
 router = APIRouter()
 
@@ -732,12 +714,22 @@ async def update_specific_menu_slot(
         # 기존 메뉴 백업 (selected_menu 구조 확인 필요)
         old_selected = current_slot_data.get("selected_menu", {})
 
+        # selected ↔ 선택 대안 swap:
+        # 1) 선택한 메뉴(new_menu_id)를 대안 리스트에서 제거
+        # 2) 원래 메뉴(old_selected)를 대안 리스트에 추가 → 복원 가능
+        new_alt_menus = [
+            m for m in alt_menus
+            if str(m.get("menu_id")) != str(request.new_menu_id)
+        ]
+        if old_selected:  # 빈 dict가 아닐 때
+            new_alt_menus.append(old_selected)
+
         # 새로운 메뉴 데이터 구조 구성 (AI 명세 규격에 맞춤)
         # 선택된 메뉴를 selected_menu로 올리고, 대안 리스트는 유지하거나 갱신
         updated_slot_content = {
             "meal_order": slot,
             "selected_menu": new_menu_data,
-            "alternative_menus": alt_menus,  # 필요 시 대안 리스트 유지
+            "alternative_menus": new_alt_menus, # 원래 메뉴 포함, 선택 메뉴 제외
         }
 
         # 통계 갱신 (차이만큼 가감)
