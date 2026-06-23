@@ -85,11 +85,11 @@ async def _search_pixabay_images(keyword: str, category: str = "food") -> Option
             if hits:
                 return hits[0]["webformatURL"]
             
-            # 💡 [진짜 원인 저격 고속 Fallback]
-            # 1차 음식 카테고리에서 결과가 0개라면, 카테고리 딱지 필터('food')를 아예 제거하고 
-            # 브라우저 주소창과 똑같은 '전체 카테고리 범위'로 초고속 재요청을 날립니다!
+            # [Fallback 레이어]
+            # 1차 음식 카테고리에서 결과가 0개라면, 카테고리 딱지 필터('food')를 제거하고 
+            # 브라우저 주소창과 똑같은 '전체 카테고리 범위'로 재요청을 날립니다
             if "category" in params:
-                del params["category"]  # 👈 카테고리 제한 원천 해제!
+                del params["category"]  # 카테고리 제한 해제
                 
                 fallback_res = await http_client.get(url, params=params)
                 if fallback_res.status_code == 200:
@@ -134,7 +134,7 @@ async def get_food_image_url(menu_name: str, category: str = "food") -> str:
         logger.warning(f"❌ 매핑 실패(결과 없음): {menu_name}")
         return DEFAULT_FOOD_IMAGE_URL  # 검색 자체가 완전 실패한 경우
 
-    # 3. 원본을 썼든, AI 검증을 통과했든 최종 확정된 URL을 Redis에 캐싱하여 다음 요청부턴 돈이 안 들게 방어합니다.
+    # 3. 최종 확정된 URL을 Redis에 캐싱
     try:
         ttl_seconds = CACHE_TTL_DAYS * 24 * 60 * 60
         await redis_client.setex(name=cache_key, time=ttl_seconds, value=final_img_url)
