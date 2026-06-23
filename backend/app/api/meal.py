@@ -99,6 +99,44 @@ def map_modeling_monthly_plan_response(ai_response: Dict[str, Any]) -> List[Dict
         
     return days_data
 
+# --------------------- health_check() 테스트 API ---------------------
+@router.get("/test-modeling-health")
+async def test_modeling_health():
+    client = ModelingApiClient()
+    is_alive = await client.health_check()
+    import time
+    start_time = time.time()
+    
+    try:
+        is_alive = await client.health_check()
+        
+        # 소요 시간 계산
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        
+        if is_alive:
+            log_message = f"[Modeling API SUCCESS] Endpoint: /health | HTTP Status: 200 | Elapsed: {elapsed_ms}ms"
+            return {
+                "status": "success",
+                "message": "모델링 서버와 연결 및 API Key 인증 성공!",
+                "console_log_summary": log_message
+            }
+        else:
+            log_message = f"[Modeling API FAIL] Endpoint: /health | HTTP Status: 인증 실패 또는 연결 끊김 | Elapsed: {elapsed_ms}ms"
+            return {
+                "status": "failed",
+                "message": "모델링 서버 연결 실패 또는 API Key 인증 오류.",
+                "console_log_summary": log_message
+            }
+            
+    except Exception as e:
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        log_message = f"[Modeling API ERROR] Endpoint: /health | Elapsed: {elapsed_ms}ms | Reason: {str(e)}"
+        return {
+            "status": "error",
+            "message": "시스템 예외가 발생했습니다.",
+            "console_log_summary": log_message
+        }
+
 # ---------------------------  프론트엔드 호출용 API ---------------------------------
 # -------------------- 월간 식단 요청(비동기 실행) ----------------------------
 @celery_app.task(
