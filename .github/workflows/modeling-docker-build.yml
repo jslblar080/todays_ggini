@@ -6,11 +6,11 @@ on:
       - develop
       - main
     paths:
-      - "ai/modeling/**"
+      - "modeling/**"
       - "Dockerfile.modeling"
       - "docker-compose.modeling.yml"
-      - "ai/modeling/deploy/docker-compose.ec2.yml"
-      - "ai/modeling/deploy/scripts/**"
+      - "modeling/deploy/docker-compose.ec2.yml"
+      - "modeling/deploy/scripts/**"
       - ".dockerignore"
       - ".env.modeling.example"
       - ".github/workflows/modeling-docker-build.yml"
@@ -19,11 +19,11 @@ on:
     branches:
       - "feat/modeling-*"
     paths:
-      - "ai/modeling/**"
+      - "modeling/**"
       - "Dockerfile.modeling"
       - "docker-compose.modeling.yml"
-      - "ai/modeling/deploy/docker-compose.ec2.yml"
-      - "ai/modeling/deploy/scripts/**"
+      - "modeling/deploy/docker-compose.ec2.yml"
+      - "modeling/deploy/scripts/**"
       - ".dockerignore"
       - ".env.modeling.example"
       - ".github/workflows/modeling-docker-build.yml"
@@ -40,9 +40,9 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          bash -n ai/modeling/deploy/scripts/deploy_from_ghcr.sh
-          bash -n ai/modeling/deploy/scripts/test_deploy_from_ghcr.sh
-          bash ai/modeling/deploy/scripts/test_deploy_from_ghcr.sh
+          bash -n modeling/deploy/scripts/deploy_from_ghcr.sh
+          bash -n modeling/deploy/scripts/test_deploy_from_ghcr.sh
+          bash modeling/deploy/scripts/test_deploy_from_ghcr.sh
 
       - name: Build Modeling Docker image
         run: |
@@ -55,7 +55,7 @@ jobs:
         run: |
           docker run --rm \
             todays-ggini-modeling:ci \
-            python ai/modeling/tests/api/test_modeling_api_rag_error_status.py
+            python modeling/tests/api/test_modeling_api_rag_error_status.py
 
       - name: Verify Modeling API contracts
         run: |
@@ -66,16 +66,16 @@ jobs:
               python -m pip install \
                 --no-cache-dir \
                 --target /tmp/modeling-test-deps \
-                -r ai/modeling/requirements-test.txt &&
-              PYTHONPATH=/tmp/modeling-test-deps:/app/ai/modeling \
+                -r modeling/requirements-test.txt &&
+              PYTHONPATH=/tmp/modeling-test-deps:/app/modeling \
                 python -m pytest -q -p no:cacheprovider \
-                ai/modeling/tests/api/test_modeling_api_request_validation.py \
-                ai/modeling/tests/api/test_modeling_api_metrics.py \
-                ai/modeling/tests/contract/test_optimizer_failure_response_contract.py &&
-              PYTHONPATH=/app/ai/modeling \
-                python ai/modeling/experiments/contract/validate_backend_contract_requests.py &&
-              PYTHONPATH=/app/ai/modeling \
-                python ai/modeling/experiments/contract/validate_backend_contract_responses.py
+                modeling/tests/api/test_modeling_api_request_validation.py \
+                modeling/tests/api/test_modeling_api_metrics.py \
+                modeling/tests/contract/test_optimizer_failure_response_contract.py &&
+              PYTHONPATH=/app/modeling \
+                python modeling/experiments/contract/validate_backend_contract_requests.py &&
+              PYTHONPATH=/app/modeling \
+                python modeling/experiments/contract/validate_backend_contract_responses.py
             "
 
       - name: Run Modeling container
@@ -210,7 +210,7 @@ jobs:
               -H "Content-Type: application/json" \
               -H "X-API-Key: wrong-key" \
               --data-binary \
-              @ai/modeling/experiments/fixtures/backend_monthly_plan_request.json
+              @modeling/experiments/fixtures/backend_monthly_plan_request.json
           )"
 
           cat /tmp/modeling_wrong_key_response.json
@@ -235,7 +235,7 @@ jobs:
           docker run --rm \
             --network host \
             todays-ggini-modeling:ci \
-            python ai/modeling/experiments/contract/run_modeling_api_http_smoke.py \
+            python modeling/experiments/contract/run_modeling_api_http_smoke.py \
               --base-url http://127.0.0.1:8001 \
               --api-key ci-secret-key \
               --timeout 30 \

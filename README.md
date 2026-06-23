@@ -225,11 +225,11 @@ todays_ggini/
 |---|---|
 | `backend/app/api` | FastAPI 라우터 및 API 엔드포인트 |
 | `backend/app/schemas` | Backend 요청/응답 스키마 |
-| `ai/modeling/services/profile` | 사용자 입력 기반 프로필 및 가중치 생성 |
-| `ai/modeling/services/rag` | RAG 요청/응답 매핑, 후보 메뉴 변환, 데이터 품질 검사 |
-| `ai/modeling/services/recommendation` | 추천 점수 계산, Soft Constraint, Quality Penalty 반영 |
-| `ai/modeling/services/plan` | 월간 식단 생성, 대체 메뉴 구성, MMR 기반 다양성 제어 |
-| `ai/modeling/services/style` | 식단 스타일 후보 생성 및 스타일별 가중치 관리 |
+| `modeling/services/profile` | 사용자 입력 기반 프로필 및 가중치 생성 |
+| `modeling/services/rag` | RAG 요청/응답 매핑, 후보 메뉴 변환, 데이터 품질 검사 |
+| `modeling/services/recommendation` | 추천 점수 계산, Soft Constraint, Quality Penalty 반영 |
+| `modeling/services/plan` | 월간 식단 생성, 대체 메뉴 구성, MMR 기반 다양성 제어 |
+| `modeling/services/style` | 식단 스타일 후보 생성 및 스타일별 가중치 관리 |
 | `frontend/today-s_kkini/lib` | Flutter 앱 주요 화면, 상태 관리, API 연동 로직 |
 
 <br>
@@ -255,14 +255,14 @@ source .venv/bin/activate
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r backend/requirements.txt
-python -m pip install -r ai/modeling/requirements.txt
+python -m pip install -r modeling/requirements.txt
 ```
 
 ### 8-4. 환경변수 설정 및 서버 실행
 
 ```bash
 DATABASE_URL="sqlite:///./local.db" \
-PYTHONPATH=backend:ai/modeling \
+PYTHONPATH=backend:modeling \
 RAG_API_URL="https://api.kkini.cloud/api/v1/meal-candidates" \
 python -m uvicorn app.main:app --reload
 ```
@@ -279,7 +279,7 @@ http://127.0.0.1:8000/docs
   <tr>
     <td>
       <strong>💡 실행 참고</strong><br>
-      로컬 실행 시 <code>PYTHONPATH=backend:ai/modeling</code> 설정이 필요합니다.
+      로컬 실행 시 <code>PYTHONPATH=backend:modeling</code> 설정이 필요합니다.
       Backend에서 Modeling 모듈을 함께 참조하기 때문에 해당 경로를 지정해야 합니다.
     </td>
   </tr>

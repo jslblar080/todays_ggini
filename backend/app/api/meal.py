@@ -51,7 +51,7 @@ from pathlib import Path
 # if str(MODELING_ROOT) not in sys.path:
 #     sys.path.append(str(MODELING_ROOT))
 
-# from ai.modeling.services.modeling_service import (
+# from modeling.services.modeling_service import (
 #     create_meal_style_candidates,
 #     create_monthly_plan,
 # )
