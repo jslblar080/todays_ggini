@@ -55,7 +55,7 @@ jobs:
         run: |
           docker run --rm \
             todays-ggini-modeling:ci \
-            python ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py
+            python ai/modeling/tests/api/test_modeling_api_rag_error_status.py
 
       - name: Verify Modeling API contracts
         run: |
@@ -69,9 +69,9 @@ jobs:
                 -r ai/modeling/requirements-test.txt &&
               PYTHONPATH=/tmp/modeling-test-deps:/app/ai/modeling \
                 python -m pytest -q -p no:cacheprovider \
-                ai/modeling/experiments/contract/test_modeling_api_request_validation.py \
-                ai/modeling/experiments/contract/test_modeling_api_metrics.py \
-                ai/modeling/experiments/contract/test_optimizer_failure_response_contract.py &&
+                ai/modeling/tests/api/test_modeling_api_request_validation.py \
+                ai/modeling/tests/api/test_modeling_api_metrics.py \
+                ai/modeling/tests/contract/test_optimizer_failure_response_contract.py &&
               PYTHONPATH=/app/ai/modeling \
                 python ai/modeling/experiments/contract/validate_backend_contract_requests.py &&
               PYTHONPATH=/app/ai/modeling \

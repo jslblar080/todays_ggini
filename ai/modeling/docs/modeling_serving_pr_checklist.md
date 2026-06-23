@@ -158,11 +158,11 @@ Python 문법 확인:
 
 - `python -m py_compile ai/modeling/api/server.py`
 - `python -m py_compile ai/modeling/experiments/contract/run_modeling_api_http_smoke.py`
-- `python -m py_compile ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py`
+- `python -m py_compile ai/modeling/tests/api/test_modeling_api_rag_error_status.py`
 
 RAG 상태 코드 매핑 검증:
 
-- `PYTHONPATH=ai/modeling python ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py`
+- `PYTHONPATH=ai/modeling python ai/modeling/tests/api/test_modeling_api_rag_error_status.py`
 
 Docker build 검증:
 
@@ -170,7 +170,7 @@ Docker build 검증:
 
 Docker 이미지 내부 테스트 검증:
 
-- `docker run --rm todays-ggini-modeling:ci python ai/modeling/experiments/contract/test_modeling_api_rag_error_status.py`
+- `docker run --rm todays-ggini-modeling:ci python ai/modeling/tests/api/test_modeling_api_rag_error_status.py`
 
 ---
 
