@@ -1,0 +1,24 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    container_name: todays-ggini-prometheus
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./secrets/modeling_api_key:/run/secrets/modeling_api_key:ro
+      - prometheus-data:/prometheus
+
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+    ports:
+      - "127.0.0.1:19090:9090"
+
+volumes:
+  prometheus-data:
