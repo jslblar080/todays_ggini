@@ -10,10 +10,10 @@ __pycache__
 *.pyo
 *.pyd
 
-ai/modeling/experiments/results
-ai/modeling/experiments/snapshots
-ai/modeling/experiments/**/*.csv
-ai/modeling/experiments/**/*.log
+modeling/experiments/results
+modeling/experiments/snapshots
+modeling/experiments/**/*.csv
+modeling/experiments/**/*.log
 
 .env
 .env.*

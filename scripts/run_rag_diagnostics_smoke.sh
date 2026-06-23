@@ -4,10 +4,10 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-SCENARIO_FILE="${1:-ai/modeling/experiments/scenarios/style_validation_user_stability_scenarios.json}"
-RESULT_OUTPUT="${2:-ai/modeling/experiments/results/rag_diagnostics_smoke_result.json}"
+SCENARIO_FILE="${1:-modeling/experiments/scenarios/style_validation_user_stability_scenarios.json}"
+RESULT_OUTPUT="${2:-modeling/experiments/results/rag_diagnostics_smoke_result.json}"
 
-export PYTHONPATH="ai/modeling"
+export PYTHONPATH="modeling"
 export RAG_DIAGNOSTICS_RESULT_OUTPUT="$RESULT_OUTPUT"
 
 echo "[INFO] RAG diagnostics smoke test start"
@@ -16,11 +16,11 @@ echo "[INFO] scenario file: $SCENARIO_FILE"
 echo "[INFO] result output: $RESULT_OUTPUT"
 
 python -m py_compile \
-  ai/modeling/services/rag/rag_response_mapper.py \
-  ai/modeling/experiments/runners/run_baseline_mmr.py \
-  ai/modeling/services/modeling_service.py
+  modeling/services/rag/rag_response_mapper.py \
+  modeling/experiments/runners/run_baseline_mmr.py \
+  modeling/services/modeling_service.py
 
-python ai/modeling/experiments/runners/run_baseline_mmr.py \
+python modeling/experiments/runners/run_baseline_mmr.py \
   --scenario-file "$SCENARIO_FILE" \
   --output "$RESULT_OUTPUT"
 
