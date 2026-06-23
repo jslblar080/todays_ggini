@@ -1,3 +1,4 @@
 pydantic
 requests
 ortools==9.15.6755
+prometheus-client>=0.20,<1

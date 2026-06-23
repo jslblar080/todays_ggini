@@ -34,3 +34,6 @@ rag/chrome_automation_profile
 rag/data/neo4j/
 rag/data/*.jsonl
 rag/data/*.csv
+# Modeling monitoring local secrets
+ai/modeling/deploy/monitoring/secrets/*
+!ai/modeling/deploy/monitoring/secrets/.gitkeep

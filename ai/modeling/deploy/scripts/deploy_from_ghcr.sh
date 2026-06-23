@@ -3,8 +3,8 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/home/ubuntu/todays_ggini}"
-COMPOSE_FILE="${PROJECT_DIR}/deploy/modeling/docker-compose.ec2.yml"
-ENV_FILE="${PROJECT_DIR}/deploy/modeling/.env.modeling.prod"
+COMPOSE_FILE="${PROJECT_DIR}/ai/modeling/deploy/docker-compose.ec2.yml"
+ENV_FILE="${PROJECT_DIR}/ai/modeling/deploy/.env.modeling.prod"
 
 SERVICE_NAME="modeling-api"
 CONTAINER_NAME="todays-ggini-modeling"

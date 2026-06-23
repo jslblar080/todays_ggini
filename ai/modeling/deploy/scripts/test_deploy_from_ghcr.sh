@@ -28,18 +28,18 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p \
-    "${PROJECT_DIR}/deploy/modeling" \
+    "${PROJECT_DIR}/ai/modeling/deploy" \
     "${FAKE_BIN_DIR}" \
     "${STATE_DIR}"
 
-cat > "${PROJECT_DIR}/deploy/modeling/docker-compose.ec2.yml" <<'YAML'
+cat > "${PROJECT_DIR}/ai/modeling/deploy/docker-compose.ec2.yml" <<'YAML'
 services:
   modeling-api:
     image: ${MODELING_IMAGE:?MODELING_IMAGE is required}
     container_name: todays-ggini-modeling
 YAML
 
-cat > "${PROJECT_DIR}/deploy/modeling/.env.modeling.prod" <<'ENV'
+cat > "${PROJECT_DIR}/ai/modeling/deploy/.env.modeling.prod" <<'ENV'
 MODELING_API_KEY=test-key
 ENV
 

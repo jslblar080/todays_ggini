@@ -66,7 +66,7 @@
 
 shell script를 사용하지 않고 직접 실행할 수도 있다.
 
-    PYTHONPATH=ai/modeling python ai/modeling/experiments/run_final_validation_pipeline.py \
+    PYTHONPATH=ai/modeling python ai/modeling/experiments/pipelines/run_final_validation_pipeline.py \
       --scenario-file ai/modeling/experiments/scenarios/style_validation_user_stability_scenarios.json \
       --result-output ai/modeling/experiments/results/final_validation_user_stability_result.json \
       --summary-output ai/modeling/experiments/results/final_validation_user_stability_summary.json \
@@ -74,7 +74,7 @@ shell script를 사용하지 않고 직접 실행할 수도 있다.
 
 기존 결과만 분석하려면 --skip-run 옵션을 사용한다.
 
-    PYTHONPATH=ai/modeling python ai/modeling/experiments/run_final_validation_pipeline.py \
+    PYTHONPATH=ai/modeling python ai/modeling/experiments/pipelines/run_final_validation_pipeline.py \
       --scenario-file ai/modeling/experiments/scenarios/style_validation_user_stability_scenarios.json \
       --result-output ai/modeling/experiments/results/final_validation_user_stability_result.json \
       --summary-output ai/modeling/experiments/results/final_validation_user_stability_summary.json \

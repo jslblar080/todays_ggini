@@ -153,12 +153,12 @@ jobs:
           set -Eeuo pipefail
 
           bash -n \
-            deploy/modeling/scripts/deploy_from_ghcr.sh
+            ai/modeling/deploy/scripts/deploy_from_ghcr.sh
 
           MODELING_IMAGE="${{ steps.image.outputs.image }}" \
           MODELING_API_KEY=workflow-validation-key \
           docker compose \
-            -f deploy/modeling/docker-compose.ec2.yml \
+            -f ai/modeling/deploy/docker-compose.ec2.yml \
             config \
             --quiet
 
@@ -175,8 +175,8 @@ jobs:
 
           tar \
             -czf "${ARCHIVE_PATH}" \
-            deploy/modeling/docker-compose.ec2.yml \
-            deploy/modeling/scripts/deploy_from_ghcr.sh
+            ai/modeling/deploy/docker-compose.ec2.yml \
+            ai/modeling/deploy/scripts/deploy_from_ghcr.sh
 
           scp \
             -i "${HOME}/.ssh/modeling-ec2-key" \
@@ -187,9 +187,9 @@ jobs:
             -i "${HOME}/.ssh/modeling-ec2-key" \
             "${EC2_USER}@${EC2_HOST}" \
             "set -Eeuo pipefail
-             mkdir -p '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts'
+             mkdir -p '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts'
              tar -xzf '${REMOTE_ARCHIVE}' -C '${REMOTE_PROJECT_DIR}'
-             chmod +x '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts/deploy_from_ghcr.sh'
+             chmod +x '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts/deploy_from_ghcr.sh'
              rm -f '${REMOTE_ARCHIVE}'"
 
       - name: Login EC2 to GHCR
@@ -223,7 +223,7 @@ jobs:
             -i "${HOME}/.ssh/modeling-ec2-key" \
             "${EC2_USER}@${EC2_HOST}" \
             "PROJECT_DIR='${REMOTE_PROJECT_DIR}' \
-             bash '${REMOTE_PROJECT_DIR}/deploy/modeling/scripts/deploy_from_ghcr.sh' \
+             bash '${REMOTE_PROJECT_DIR}/ai/modeling/deploy/scripts/deploy_from_ghcr.sh' \
              '${DEPLOY_IMAGE}'"
 
       - name: Verify public HTTPS health

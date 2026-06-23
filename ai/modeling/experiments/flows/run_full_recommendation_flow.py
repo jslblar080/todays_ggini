@@ -11,7 +11,9 @@ from services.rag.rag_client import request_candidate_menus_from_rag
 from services.rag.rag_response_mapper import map_rag_response_to_candidate_menus
 
 from services.style.meal_style_service import build_meal_style_candidates
-from services.plan.monthly_plan_test_service import build_monthly_plan_by_random_style
+from experiments.flows.monthly_plan_random_style_flow import (
+    build_monthly_plan_by_random_style,
+)
 
 
 def print_json(title: str, data: dict) -> None:

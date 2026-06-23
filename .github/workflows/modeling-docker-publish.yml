@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - "ai/modeling/**"
-      - "deploy/modeling/**"
+      - "ai/modeling/deploy/**"
       - "Dockerfile.modeling"
       - "docker-compose.modeling.yml"
       - ".dockerignore"
