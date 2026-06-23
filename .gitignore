@@ -26,3 +26,11 @@ ai/modeling/experiments/results/optimizer_policy_replay/
 ai/modeling/experiments/results/optimizer_snapshot_replay/
 ai/modeling/experiments/snapshots/
 .env.modeling
+
+
+rag/src/.env
+rag/logs
+rag/chrome_automation_profile
+rag/data/neo4j/
+rag/data/*.jsonl
+rag/data/*.csv
