@@ -1,0 +1,12 @@
+requests
+pandas
+selenium
+webdriver-manager
+langchain-ollama
+pydantic
+neo4j
+python-dotenv
+uvicorn
+fastapi
+bs4
+google

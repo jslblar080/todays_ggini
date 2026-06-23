@@ -1,0 +1,177 @@
+"""
+FILE: patch_missing_kurly_selenium.py
+ROLE: 재현님의 셀레니움 검색 엔진을 그대로 활용하여, 그동안 누락된 기초 식재료('물' 등)의 가격 데이터만 긴급 패치
+"""
+import os
+import time
+import random
+import re
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from neo4j import GraphDatabase
+from langchain_ollama import OllamaLLM
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class KurlyPatchCollector:
+    def __init__(self):
+        # Neo4j 연결
+        self.driver_node = GraphDatabase.driver(
+            os.getenv("NEO4J_URI"), 
+            auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
+        )
+        
+        # Ollama 초기화
+        self.llm = OllamaLLM(model="llama3", temperature=0)
+        
+        self.options = Options()
+        self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.options.add_experimental_option('useAutomationExtension', False)
+        self.options.add_argument("--disable-blink-features=AutomationControlled")
+        self.options.add_argument("window-size=1920x1080")
+        self.options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
+        self._init_browser()
+
+    def _init_browser(self):
+        self.browser = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.options)
+        self.wait = WebDriverWait(self.browser, 15)
+        self.browser.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    def extract_weight_with_ollama(self, title: str) -> float:
+        """Ollama를 통해 중량만 숫자로 추출"""
+        prompt = f"Product: {title}\nExtract only the numeric total weight in grams or milliliters. Return ONLY the number. If unknown, return 500."
+        try:
+            res = self.llm.invoke(prompt).strip()
+            match = re.search(r'\d+', res)
+            return float(match.group()) if match else 500.0
+        except:
+            return 500.0
+
+    def search_kurly(self, query: str):
+        if not query or len(query.strip()) == 0:
+            return None
+
+        try:
+            # =============================================================
+            # [재현님 성공 검색 로직 100% 원본 유지]
+            # =============================================================
+            self.browser.get("https://www.kurly.com/")
+            time.sleep(random.uniform(3, 4))
+
+            search_input = None
+            selectors = ["input#gnbSearch", "input[placeholder*='검색']", "input[name='word']"]
+            
+            for selector in selectors:
+                try:
+                    search_input = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
+                    if search_input: break
+                except: continue
+
+            if not search_input:
+                print(f"   ❌ [{query}] 검색창 접근 실패")
+                return None
+
+            self.browser.execute_script("arguments[0].click();", search_input)
+            time.sleep(0.5)
+            search_input.send_keys(Keys.COMMAND + "a")
+            search_input.send_keys(Keys.BACKSPACE)
+            
+            for char in query:
+                search_input.send_keys(char)
+                time.sleep(random.uniform(0.1, 0.2))
+            search_input.send_keys(Keys.ENTER)
+            # =============================================================
+
+            time.sleep(random.uniform(5.0, 7.0))
+            
+            items = self.browser.find_elements(By.CSS_SELECTOR, "a[href*='/goods/']")
+            product_data = []
+
+            for item in items[:5]:
+                try:
+                    raw_lines = item.text.split('\n')
+                    filtered_lines = [l for l in raw_lines if not any(kw in l for kw in ['쿠폰', '배송', '담기', '%'])]
+                    if not filtered_lines: continue
+                    
+                    title = max(filtered_lines, key=len)
+                    
+                    price = 0
+                    for line in raw_lines:
+                        if '원' in line:
+                            p_val = re.sub(r'[^0-9]', '', line)
+                            if p_val:
+                                price = int(p_val)
+                                break
+                    
+                    weight = self.extract_weight_with_ollama(title)
+
+                    if weight > 0 and price > 0:
+                        unit_price = round((price / weight) * 100, 2)
+                        # 기초 재료 특성상 단가가 낮거나 높을 수 있으므로 가성비 필터 범위를 유연하게 확장
+                        if 5 < unit_price < 100000:
+                            product_data.append({
+                                "total_price": price,
+                                "unit_price": unit_price,
+                                "title": title,
+                                "link": item.get_attribute('href')
+                            })
+                except: continue
+
+            if product_data:
+                return min(product_data, key=lambda x: x['unit_price'])
+            return None
+
+        except Exception as e:
+            print(f"   ❌ [{query}] 에러 발생: {str(e)[:50]}")
+            return None
+
+    def run_patch(self):
+        with self.driver_node.session() as session:
+            # 💡 [필터 완전 해제 전략] '물'을 포함한 기초 식재료 및 현재 null인 재료만 정밀 타격
+            print("⚡ [셀레니움 긴급 패치] 기존 예외처리 및 누락 식재료 타겟 수집을 시작합니다.")
+            query = """
+            MATCH (i:Ingredient) 
+            WHERE i.name IN ['물', '소금', '설탕', '후추', '식용유', '간장'] 
+               OR (i.kurly_price IS NULL AND i.name <> '')
+            RETURN i.name AS name
+            """
+            ingredients = session.run(query)
+            
+            for record in ingredients:
+                name = record['name']
+                print(f"🛒 수집 시도: {name}")
+                data = self.search_kurly(name)
+                
+                if data:
+                    session.run("""
+                        MATCH (i:Ingredient {name: $name})
+                        SET i.kurly_price = $price,
+                            i.kurly_unit_price = $unit_price,
+                            i.kurly_link = $link,
+                            i.kurly_title = $title,
+                            i.kurly_updated = datetime()
+                    """, name=name, price=data['total_price'], 
+                         unit_price=data['unit_price'], link=data['link'], title=data['title'])
+                    
+                    print(f"   ✅ {name} 보정 완료: 100g당 {data['unit_price']}원")
+                    print(f"      🔗 링크: {data['link']}")
+                
+                time.sleep(random.uniform(3.0, 5.0))
+
+    def close(self):
+        if self.browser: self.browser.quit()
+
+if __name__ == "__main__":
+    patcher = KurlyPatchCollector()
+    try:
+        patcher.run_patch()
+    finally:
+        patcher.close()
