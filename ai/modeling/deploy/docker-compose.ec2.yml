@@ -1,0 +1,12 @@
+services:
+  modeling-api:
+    image: ${MODELING_IMAGE:?MODELING_IMAGE is required}
+    container_name: todays-ggini-modeling
+    environment:
+      ENV: prod
+      MODELING_API_KEY: ${MODELING_API_KEY:?MODELING_API_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      RAG_API_URL: ${RAG_API_URL:-https://api.kkini.cloud/api/v1/meal-candidates}
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped

@@ -146,7 +146,7 @@ def main() -> None:
 
     command = [
         sys.executable,
-        "ai/modeling/experiments/run_final_validation_pipeline.py",
+        "ai/modeling/experiments/pipelines/run_final_validation_pipeline.py",
         "--scenario-file",
         args.scenario_file,
         "--result-output",

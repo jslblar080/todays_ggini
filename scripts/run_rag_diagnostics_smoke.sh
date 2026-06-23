@@ -17,10 +17,10 @@ echo "[INFO] result output: $RESULT_OUTPUT"
 
 python -m py_compile \
   ai/modeling/services/rag/rag_response_mapper.py \
-  ai/modeling/experiments/run_baseline_mmr_test.py \
+  ai/modeling/experiments/runners/run_baseline_mmr.py \
   ai/modeling/services/modeling_service.py
 
-python ai/modeling/experiments/run_baseline_mmr_test.py \
+python ai/modeling/experiments/runners/run_baseline_mmr.py \
   --scenario-file "$SCENARIO_FILE" \
   --output "$RESULT_OUTPUT"
 

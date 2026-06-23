@@ -18,7 +18,7 @@ echo "[INFO] result output: $RESULT_OUTPUT"
 echo "[INFO] summary output: $SUMMARY_OUTPUT"
 echo "[INFO] csv output: $CSV_OUTPUT"
 
-python ai/modeling/experiments/run_final_validation_pipeline.py \
+python ai/modeling/experiments/pipelines/run_final_validation_pipeline.py \
   --scenario-file "$SCENARIO_FILE" \
   --result-output "$RESULT_OUTPUT" \
   --summary-output "$SUMMARY_OUTPUT" \

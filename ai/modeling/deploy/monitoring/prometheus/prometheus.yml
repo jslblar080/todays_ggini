@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  - job_name: modeling-api
+    metrics_path: /metrics
+    scheme: http
+
+    http_headers:
+      X-API-Key:
+        files:
+          - /run/secrets/modeling_api_key
+
+    static_configs:
+      - targets:
+          - host.docker.internal:18001
+        labels:
+          environment: local
+          service: todays-ggini-modeling
